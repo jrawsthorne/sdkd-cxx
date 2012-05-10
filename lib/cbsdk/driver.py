@@ -5,19 +5,14 @@ with the sdkd
 
 import json
 import socket
-import cbsdk.message
+import cbsdk.request as Req
+import cbsdk.response as Res
 import cbsdk.constants as _C
 import logging
 
 from subprocess import Popen, PIPE
 
-from cbsdk.message import SDKDriverMessage, SDKCreateHandle
-
-
-class SDKDriverFlowException(Exception): pass
-    
-    
-class SDKMessageConduit(object):
+class Conduit(object):
     def __init__(self, fp = None, rdfp = None, wrfp = None):
         if not rdfp or not wrfp:
             rdfp = fp
@@ -27,7 +22,7 @@ class SDKMessageConduit(object):
         self.rdfp = rdfp
         
         if not self.wrfp or not self.rdfp:
-            raise SDKDriverFlowException("Invalid conduit specifier")
+            raise ValueError("Invalid conduit specifier")
             
         self.log = logging.getLogger()
     
@@ -38,13 +33,13 @@ class SDKMessageConduit(object):
         
     def recv_msg(self):
         txt = self.rdfp.readline()
-        msg = cbsdk.message.SDKDriverResponse.parse(txt)
+        msg = Res.Response.parse(txt)
         self.log.debug("< " + str(msg))
         return msg
         
     
 
-class SDKDriverHandle(object):
+class Handle(object):
     """
     This object represents a single handle/instance/connection to a Couchbase
     bucket.
@@ -67,7 +62,7 @@ class SDKDriverHandle(object):
         self.handle_id = self.driver.mkhandleid()
         self.conduit = conduit
         
-        regmsg = SDKCreateHandle(
+        regmsg = Req.CreateHandle(
             driver.mkreqid(), self.handle_id,
             
             host, port, bucket,
@@ -81,15 +76,13 @@ class SDKDriverHandle(object):
         resp = self.conduit.recv_msg()
         
         if not resp.is_ok():
-            raise SDKDriverFlowException(
-                "Couldn't create new handle: " + str(resp)
-            )
+            raise Exception("Couldn't create new handle: " + str(resp))
     
     
     
     
     def set_simple(self, key, value, **kwargs):
-        msg = cbsdk.message.SDKDatasetMutation(
+        msg = Req.DSMutation(
             self.driver.mkreqid(),
             self.handle_id,
             0,
@@ -102,18 +95,18 @@ class SDKDriverHandle(object):
         
     
     def get_simple(self, key, **kwargs):        
-        msg = cbsdk.message.SDKDatasetRetrieve(self.driver.mkreqid(),
+        msg = Req.DSRetrieval(self.driver.mkreqid(),
                                                self.handle_id,
                                                0,
                                                inline_dataset = [key],
-                                               Detailed = True
+                                               Detailed = True,
                                                **kwargs)
         self.conduit.send_msg(msg)
         return self.conduit.recv_msg()
 
         
     def delete_simple(self, key, **kwargs):
-        msg = cbsdk.message.SDKDatasetKeyOp(
+        msg = Req.DSKeyOperation(
             self.driver.mkreqid(),
             self.handle_id,
             0,
@@ -125,7 +118,7 @@ class SDKDriverHandle(object):
         
         
     def ds_mutate(self, dsid, mtype = _C.MUTATE_SET, **options):
-        msg = cbsdk.message.SDKDatasetMutation(self.driver.mkreqid(),
+        msg = Req.DSMutation(self.driver.mkreqid(),
                                                self.handle_id,
                                                dsid,
                                                mtype,
@@ -134,7 +127,7 @@ class SDKDriverHandle(object):
         return self.conduit.recv_msg()
         
     def ds_retrieve(self, dsid, **options):
-        msg = cbsdk.message.SDKDatasetRetrieve(self.driver.mkreqid(),
+        msg = Req.DSRetrieval(self.driver.mkreqid(),
                                                self.handle_id,
                                                dsid,
                                                **options)
@@ -142,7 +135,7 @@ class SDKDriverHandle(object):
         return self.conduit.recv_msg()
         
     def ds_keyop(self, dsid, op, **options):
-        msg = cbsdk.message.SDKDatasetKeyOp(self.driver.mkreqid(),
+        msg = Req.DSKeyOperation(self.driver.mkreqid(),
                                             self.handle_id,
                                             dsid,
                                             op,
@@ -151,7 +144,7 @@ class SDKDriverHandle(object):
         return self.conduit.recv_msg()
         
     
-class SDKDriver(object):
+class Driver(object):
     """
     Base class for the SDK Driver, the new API for a couchbase abstraction.
     As a common format, the SDK driver will spawn a subprocess which will
@@ -181,7 +174,7 @@ class SDKDriver(object):
             self.postexec_hook()
         
     def create_handle(self, **kwargs):
-        handle = SDKDriverHandle(self, self.io_new_handle_conduit(), **kwargs)
+        handle = Handle(self, self.io_new_handle_conduit(), **kwargs)
         self.handles[handle.handle_id] = handle
         return handle
         
@@ -206,14 +199,14 @@ class SDKDriver(object):
     
     def create_dataset(self, identifier, kvpairs):
         
-        msg = cbsdk.message.SDKCreateDataset(self.mkreqid(),
+        msg = Req.CreateDataset(self.mkreqid(),
                                              identifier,
                                              kvpairs)
         self.io_control_conduit().send_msg(msg)
         resp = self.io_control_conduit().recv_msg()
         return resp
     
-class SDKDriverStdio(SDKDriver):
+class DriverStdio(Driver):
     """
     SDK driver whose children use a simple stdio conduit
     """
@@ -222,7 +215,7 @@ class SDKDriverStdio(SDKDriver):
         return { "stdin" : PIPE, "stdout" : PIPE, "stderr" : None }
     
     def postexec_hook(self):
-        self._conduit = SDKMessageConduit(rdfp = self.po.stdout,
+        self._conduit = Conduit(rdfp = self.po.stdout,
                                           wrfp = self.po.stdin)
      
     def io_new_handle_conduit(self):

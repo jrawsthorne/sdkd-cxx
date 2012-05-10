@@ -7,10 +7,9 @@ import logging.config
 sys.path.insert(0, "lib")
 
 import cbsdk
-import cbsdk.message
 import cbsdk.constants
 
-from cbsdk.driver import SDKDriverStdio
+from cbsdk.driver import DriverStdio
 
 parser = argparse.ArgumentParser(description = "Couchbase SDK Driver")
 
@@ -62,7 +61,7 @@ logging.getLogger().addHandler(loghandler)
 if args.debug:
     logging.getLogger().setLevel(logging.DEBUG)
 
-driver = SDKDriverStdio(["/usr/bin/perl",
+driver = DriverStdio(["/usr/bin/perl",
                          "-MCarp::Always",
                          "sdkbin/sdkd_perl"])
 
@@ -80,7 +79,7 @@ if args.simple:
     keys = []
     for x in xrange(0, itermax):
         base = "KEY_%d" % (x)
-        keys.append( x )
+        keys.append( base )
         
     print "Doing simple iterations.."
     print "Doing pre-deletion.."
