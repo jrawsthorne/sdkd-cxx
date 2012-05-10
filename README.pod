@@ -1,0 +1,69 @@
+=head1 NAME
+
+Couchbase SDK Driver Framework
+
+=head1 OVERVIEW
+
+The aim of cbsdkd is to provide a language-neutral interface and framework
+for testing and performing various memcached operations (and in the future,
+couchdb) using pluggable "language-modules".
+
+The test controller (testrunner) written in python will implement test logic
+and will channel the necessary information to a given implementation of an
+'sdkd'.
+
+Currently, the basic operations of memcached have been implemented in both a
+python-facing API, and a perl-based sdkd plugin (it was written in Perl since
+this is the dynamic language couchbase SDK I am most familiar with, and also to
+demonstrate cross language and cross paradigm interoperability and
+functionality).
+
+=head1 CONCEPTS
+
+The implementation and architecture are both a work in progress, but the basic
+concepts should remain the same with little change.
+
+=head2 HANDLES
+
+A I<handle> is an object representing a single connection to a single couchbase
+bucket. Handles are present in all SDKs I have seen, and is therefore the main
+unit of reference.
+
+Handles are instantiated with the common bucket, hostname, and authentication
+parameters, with other options depending on plugin support.
+
+=head2 DATASETS
+
+Datasets define a specific .. well .. dataset which is used as a source
+for operations. At its most basic level, a dataset is a hash of key-value
+pairs which represent their equivalent concepts in memcached/couchbase.
+
+The creation of datasets may be done by multiple components, but is currently
+only existent in the controller API itself.
+
+Datasets retain a reference, and may be shared across handles
+
+=head3 OPERATIONS
+
+Operations consist atomic operations performed on datasets. These are your
+good old memcached ops. However, instead of operations taking actual keys
+and returning actual values, they accept dataset identifiers as input, and
+produce statistical information as output
+
+=head1 USING
+
+There currently isn't much excitement here. The python commandline 'client',
+C<cbsdkd_client> should be self explanatory (run it with C<--help> for options.
+
+The Perl C<sdkbin/sdkd_perl> requires several packages from CPAN.
+The simplest way to do this is using C<cpanm>
+
+    curl -L http://cpanmin.us | perl - --sudo App::cpanminus
+
+    # Then, install the following packages:
+    sudo cpanm Moo Couchbase::Client JSON::XS Data::Dumper::Concise Log::Fu
+
+
+Note that C<Couchbase::Client> uses an embedded version of libcouchbase
+which may not be the most recent (I think it may use the system-provided
+library, if installed.. but I am not sure.. been a while :)
