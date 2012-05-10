@@ -8,58 +8,45 @@ sys.path.insert(0, "lib")
 
 import cbsdk
 import cbsdk.message
+import cbsdk.constants
 
 from cbsdk.driver import SDKDriverStdio
 
 parser = argparse.ArgumentParser(description = "Couchbase SDK Driver")
 
-parser.add_argument(
-    '-d', '--debug' ,
-    action = 'store_true',
-    help = "Enable debugging")
+parser.add_argument('-d', '--debug' , action = 'store_true',
+                    help = "Enable debugging")
 
-parser.add_argument(
-    '-H', '--hostname',
-    type = str,
-    default = "localhost",
-    help = "Hostname to use"
-)
+parser.add_argument('-H', '--hostname', type = str, default = "localhost",
+                    help = "Hostname to use")
 
-parser.add_argument(
-    '-P', '--port',
-    type = int,
-    default = 8091,
-    help = "Port"
-)
+parser.add_argument('-P', '--port', type = int, default = 8091,
+                    help = "Port")
 
-parser.add_argument(
-    '-b', '--bucket',
-    type = str,
-    default = 'default',
-    help = 'Couchbase bucket to use'
-)
+parser.add_argument('-b', '--bucket', type = str, default = 'default',
+                    help = 'Couchbase bucket to use')
 
-parser.add_argument(
-    '-u', '--username',
-    type = str,
-    default = "",
-    help = "Username"
-)
+parser.add_argument('-u', '--username', type = str, default = "",
+                    help = "Username")
 
-parser.add_argument(
-    '-p', '--password',
-    type = str,
-    default = "",
-    help = 'password'
-)
+parser.add_argument( '-p', '--password', type = str, default = "",
+                    help = 'password')
 
-parser.add_argument(
-    '-c', '--count',
-    type = int,
-    default = 100,
-    help = "Number of iterations"
-)
+parser.add_argument( '-c', '--count', type = int, default = 100,
+                    help = "Number of iterations")
 
+parser.add_argument('-t', '--key-lifetime', type = int, default = 300,
+                    dest = 'expiry',
+                    help = "Expiration for kv pairs")
+
+parser.add_argument('--simple', action = 'store_true', default = False,
+                    help = "Do simple run")
+
+parser.add_argument('--batched', action = 'store_true', default = False,
+                    help = "Do batched run")
+
+parser.add_argument('-D', '--delay', default = 0,
+                    help = "Delay (in msec) between each iteration (for batched)")
 
 args = parser.parse_args()
 
@@ -88,31 +75,57 @@ handle = driver.create_handle(bucket = args.bucket,
 itermax = args.count
 
 
-
-print "Doing simple iterations.."
-for x in xrange(1, itermax):
-    k = "KEY_%d" % (x)
-    rv = handle.set_simple(k, k)
-    assert(rv.is_ok())
+if args.simple:
+    # build key set:
+    keys = []
+    for x in xrange(0, itermax):
+        base = "KEY_%d" % (x)
+        keys.append( x )
+        
+    print "Doing simple iterations.."
+    print "Doing pre-deletion.."
     
-for x in xrange(1, itermax):
-    k = "KEY_%d" % (x)
-    rv = handle.get_simple(k)
-    assert(rv.is_ok())
-    assert rv.value() == k
+    [ handle.delete_simple("KEY_" + str(x)) for x in keys ]
     
-print "Will do dataset operations.."
+    for k in keys:
+        rv = handle.set_simple(k, k,
+                               Expiry = args.expiry)
+        assert rv.is_ok()
+        
+    for k in keys:
+        rv = handle.get_simple(k)
+        assert rv.is_ok()
+        assert rv.value() == k
+            
 
-dsid = "SimpleKV"
-kvset = {}
-for x in xrange(0, itermax):
-    base = "TMPKV_%d" % (x)
-    kvset[base] = str(reversed(base))
+
+if args.batched:
+    print "Will do dataset operations.."
+    
+    dsid = "SimpleKV"
+    kvset = {}
+    for x in xrange(0, itermax):
+        base = "TMPKV_%d" % (x)
+        kvset[base] = str(reversed(base))
 
 
-dsop = driver.create_dataset(dsid,
-                             kvset)
-
-assert(dsop.is_ok())
-
-print "Defined dataset!"
+    dsop = driver.create_dataset(dsid,
+                                 kvset)
+    
+    assert(dsop.is_ok())
+    
+    print "Defined dataset!"
+    
+    print "Deleting Keys..."
+    rv = handle.ds_keyop(dsid,
+                         cbsdk.constants.KOP_DELETE)
+    print rv
+    
+    rv = handle.ds_mutate(dsid,
+                          Expiry = args.expiry,
+                          DelayMsec = args.delay)
+    print rv
+    
+    rv = handle.ds_retrieve(dsid,
+                            DelayMsec = args.delay)
+    print rv

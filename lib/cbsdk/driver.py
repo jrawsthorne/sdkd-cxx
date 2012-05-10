@@ -6,11 +6,13 @@ with the sdkd
 import json
 import socket
 import cbsdk.message
+import cbsdk.constants as _C
 import logging
 
 from subprocess import Popen, PIPE
 
 from cbsdk.message import SDKDriverMessage, SDKCreateHandle
+
 
 class SDKDriverFlowException(Exception): pass
     
@@ -82,14 +84,18 @@ class SDKDriverHandle(object):
             raise SDKDriverFlowException(
                 "Couldn't create new handle: " + str(resp)
             )
-            
+    
+    
+    
+    
     def set_simple(self, key, value, **kwargs):
         msg = cbsdk.message.SDKDatasetMutation(
             self.driver.mkreqid(),
             self.handle_id,
             0,
-            cbsdk.message.SDKDatasetMutation.MUTATE_SET,
-            inline_dataset = { key : value })
+            _C.MUTATE_SET,
+            inline_dataset = { key : value },
+            **kwargs)
         
         self.conduit.send_msg(msg)
         return self.conduit.recv_msg()
@@ -100,10 +106,50 @@ class SDKDriverHandle(object):
                                                self.handle_id,
                                                0,
                                                inline_dataset = [key],
-                                               Detailed = True)
-        
+                                               Detailed = True
+                                               **kwargs)
         self.conduit.send_msg(msg)
-        return self.conduit.recv_msg()        
+        return self.conduit.recv_msg()
+
+        
+    def delete_simple(self, key, **kwargs):
+        msg = cbsdk.message.SDKDatasetKeyOp(
+            self.driver.mkreqid(),
+            self.handle_id,
+            0,
+            _C.KOP_DELETE,
+            inline_dataset = [ key ],
+            **kwargs)
+        self.conduit.send_msg(msg)
+        return self.conduit.recv_msg()
+        
+        
+    def ds_mutate(self, dsid, mtype = _C.MUTATE_SET, **options):
+        msg = cbsdk.message.SDKDatasetMutation(self.driver.mkreqid(),
+                                               self.handle_id,
+                                               dsid,
+                                               mtype,
+                                               **options)
+        self.conduit.send_msg(msg)
+        return self.conduit.recv_msg()
+        
+    def ds_retrieve(self, dsid, **options):
+        msg = cbsdk.message.SDKDatasetRetrieve(self.driver.mkreqid(),
+                                               self.handle_id,
+                                               dsid,
+                                               **options)
+        self.conduit.send_msg(msg)
+        return self.conduit.recv_msg()
+        
+    def ds_keyop(self, dsid, op, **options):
+        msg = cbsdk.message.SDKDatasetKeyOp(self.driver.mkreqid(),
+                                            self.handle_id,
+                                            dsid,
+                                            op,
+                                            **options)
+        self.conduit.send_msg(msg)
+        return self.conduit.recv_msg()
+        
     
 class SDKDriver(object):
     """

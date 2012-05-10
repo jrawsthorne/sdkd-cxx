@@ -5,6 +5,11 @@ my $DataSets = {};
 
 # Define the error codes. The boring part is generated automatically via
 # the srcutil/errdefs.pl and copy-pasted here.
+
+# Error codes are a bitflag of two integers, the subsystem and the minor code.
+# The subsystem is a 'SUBSYSf_' constant, the error code is prefixed by the name
+# of the subsystem..
+
 package CBSdkd::Errors;
 use strict;
 use warnings;
@@ -43,11 +48,16 @@ use Constant::Generate {
 
 
 
+# This class defines the message 'header' (insofar as we can do this in JSON):
 package CBSdkd::MessageRole;
-# This class defines our message base
 use strict;
 use warnings;
 use Moo::Role;
+
+# A message will always have a RequestID, Handle ID (0 if it's a special 'Control')
+# message, and a command.
+# A message will optionally (but usually, in practice) have a payload or data
+# section.
 
 has 'reqid' => (is => 'ro', required => 1);
 has 'handle_id' => (is => 'ro', required => 1);
@@ -55,6 +65,9 @@ has 'command' => (is => 'ro', required => 1);
 
 has 'payload' => (is => 'ro', default => sub { +{} });
 
+
+# This function converts the perl object to a hash, suitable for passing to the
+# JSON encoder
 sub to_hash {
     my $self = shift;
     my $o = {
@@ -66,9 +79,8 @@ sub to_hash {
     return $o;
 }
 
-
+# Subclass for requests.
 package CBSdkd::Request;
-# This is the request class.. boring details here..
 use Moo;
 use strict;
 use warnings;
@@ -77,13 +89,19 @@ use Hash::Util qw(lock_keys);
 
 with 'CBSdkd::MessageRole';
 
+# This gets the real handle from the numeric ID, or dies otherwise.
 has 'cbo' => (is => 'rw',
               lazy => 1,
               default => sub {
+                if (! $_[0]->handle_id) {
+                    die "This is a control message. You should not call this method " .
+                        "for control messages"
+                }
+                
                 $Handles->{$_[0]->handle_id} or die "Couldn't find handle!"
               });
 
-
+# Converts JSON to a message object
 sub decode {
     my ($cls,$txt) = @_;
     my $o = decode_json($txt);
@@ -97,6 +115,9 @@ sub decode {
     return $self;
 }
 
+
+# Clones some parameters from the request to the response. This is the usual
+# boilerplate, and avoids us writing it each time we make a new response
 sub create_response {
     my ($self,%respopts) = @_;
     my $resp = CBSdkd::Response->new(
@@ -108,20 +129,30 @@ sub create_response {
     return $resp;
 }
 
+# The response class:
 package CBSdkd::Response;
-# This is the response we send out to the network..
 use Moo;
 use strict;
 use warnings;
 use JSON::XS qw(encode_json);
 
 with 'CBSdkd::MessageRole';
+
+# We need to provide a status, a phase, and a payload.
+# Currently, the 'PHASE' is not really implemented (but *may* be used by the
+# sdkd implementation to signal events of note..)
+#
+# Status is zero for successful responses (i.e. the command was executed OK).
+# This does not mean the memcached/couchbase operation was successful, for responses
+# which may return extended results.
+
 has 'status' => (is => 'ro', required => 1);
 has 'phase' => (is => 'ro', default => sub { 'COMPLETE' });
 has 'errstr' => (is => 'ro');
 
 sub PayloadField { "ResponseData" }
 
+# Encodes the response as a JSON string.
 sub encode {
     my $self = shift;
     my $o = $self->to_hash();
@@ -155,16 +186,27 @@ BEGIN {
 my %ERRMAP = (
     COUCHBASE_BUCKET_ENOENT,    SUBSYSf_CLUSTER | CLUSTER_ENOENT,
     COUCHBASE_AUTH_ERROR,       SUBSYSf_CLUSTER | CLUSTER_EAUTH,
+    
+    COUCHBASE_CONNECT_ERROR,    SUBSYSf_NETWORK | ERROR_GENERIC,
     COUCHBASE_NETWORK_ERROR,    SUBSYSf_NETWORK | ERROR_GENERIC,
+    
+    COUCHBASE_ENOMEM,           SUBSYSf_MEMD    | ERROR_GENERIC,
+    
     
     COUCHBASE_KEY_ENOENT,       SUBSYSf_MEMD    | MEMD_ENOENT,
     
-    COUCHBASE_ETIMEDOUT,        SUBSYSf_CLIENT  | CLIENT_ETMO
+    COUCHBASE_ETIMEDOUT,        SUBSYSf_CLIENT  | CLIENT_ETMO,
+    
+    # This could either be a network error, or a client error :/
+    COUCHBASE_ETMPFAIL,         SUBSYSf_CLIENT  | ERROR_GENERIC | SUBSYSf_NETWORK
 );
 
 sub extract_error_common {
     my $cberr = shift;
     my $ecode = $ERRMAP{$cberr};
+    if (!$ecode) {
+        warn "Couldn't map error $cberr";
+    }
     return $ecode;
 }
 
@@ -220,6 +262,24 @@ my %MutationMap = (
     REPLACE => 'replace',
 );
 
+sub _ref2ds {
+    my $ref = shift;
+    my $ret = [];
+    
+    if (ref $ref eq 'HASH') {
+        while (my ($k,$v) = each %$ref) {
+            push @$ret, [ $k, $v ];
+        }
+    } elsif (ref $ref eq 'ARRAY') {
+        foreach (@$ref) {
+            push @$ret, [ $_ ];
+        }
+    } else {
+        die "Unsupported reference type " . ref $ref;
+    }
+    return $ret;
+}
+
 # returns ($ok,$dataset,$cbo)
 # or (undef,$error_response)
 sub _ds_verify_common {
@@ -233,16 +293,7 @@ sub _ds_verify_common {
     my $dataset = [];
     
     if ( (my $tmpds = $params->{Options}->{Dataset}) ) {
-        if (ref $tmpds eq 'HASH') {
-            while (my ($k,$v) = each %$tmpds) {
-                push @$dataset, [ $k, $v ];
-            }
-        } else {
-            foreach (@$tmpds) {
-                push @$dataset, [ $_ ];
-            }
-        }
-        
+        $dataset = _ref2ds($tmpds);        
     } else {
         $dataset = $DataSets->{$params->{DSID}};
         if (!$dataset) {
@@ -314,6 +365,9 @@ sub cmd_mutate {
         if ($options->{Detailed}) {
             $fullres{$k} = $status;
         }
+        if ($delay) {
+            sleep($delay / 1000);
+        }
     }
     
     my $payload = {
@@ -342,6 +396,7 @@ sub cmd_retrieve {
     
     my (%stats,%fullres);
     my $is_detailed = $msg->payload->{Options}->{Detailed};
+    my $delay = $msg->payload->{Options}->{DelayMsec} || 0;
     
     foreach my $ds (@$dataset) {
         my $rv = $cbo->get($ds->[0]);
@@ -350,14 +405,21 @@ sub cmd_retrieve {
             $status = extract_error_common($rv->errnum);
             $status ||= SUBSYSf_UNKNOWN | ERROR_GENERIC;
         } else {
+            
             if ( (defined $ds->[1]) && $rv->value ne $ds->[1]) {
                 $status = SUBSYSf_KVOPS | KVOPS_EMATCH;
             }
             $ds->[2] = $rv->cas;
         }
+        
         $stats{$status}++;
+        
         if ($is_detailed) {
             $fullres{$ds->[0]} = [$status, $rv->value];
+        }
+        
+        if ($delay) {
+            sleep($delay / 1000);
         }
     }
     
@@ -370,6 +432,60 @@ sub cmd_retrieve {
     return $msg->create_response(status => 0, payload => $payload);
 }
 
+sub cmd_kop {
+    my $msg = shift;
+    my ($dataset,$cbo);
+    {
+        my @okv = _ds_verify_common($msg);
+        if (!$okv[0]) {
+            return $okv[1];
+        } else {
+            ($cbo,$dataset) = @okv[1,2];
+        }
+    }
+    
+    my $func;
+    my @args;
+    my $delay = $msg->payload->{Options}->{Expiry} || 0;
+    
+    if ($msg->command eq 'MC_DS_DELETE') {
+        $func = 'remove';
+        if ($msg->payload->{Options}->{CAS}) {
+            return $msg->create_response(status => SUBSYSf_SDKD | SDKD_ENOIMPL,
+                                         errstr => "CAS not implemented",
+                                         payload => {})
+        }
+    } else {
+        $func = 'touch';
+        if (!$cbo->payload->{Options}->{Expiry}) {
+            return $msg->create_response(status => SUBSYSf_SDKD | SDKD_EINVAL,
+                                         errstr => "Must supply expiry for touch",
+                                         payload => {});
+        }
+        push @args, $cbo->payload->{Options}->{Expiry};
+    }
+    
+    my %stats;
+    
+    foreach my  $ds (@$dataset) {
+        my $rv = $cbo->$func($ds->[0], @args);
+        if ($rv->is_ok) {
+            $stats{0}++;
+            next;
+        }
+        
+        my $status = extract_error_common($rv->errnum);
+        $status ||= SUBSYSf_UNKNOWN | ERROR_GENERIC;
+        $stats{$status}++;
+        if ($delay) {
+            sleep($delay / 1000);
+        }
+    }
+    
+    return $msg->create_response(status => 0,
+                                 payload => { Summary => \%stats });
+}
+
 
 sub cmd_newdataset {
     my $msg = shift;
@@ -379,7 +495,7 @@ sub cmd_newdataset {
         warn "Overriding existing DSID $id";
     }
     
-    $DataSets->{$id} = $k->{Items};
+    $DataSets->{$id} = _ref2ds($k->{Items});
     return $msg->create_response(
         status => 0,
         payload => {}
@@ -395,6 +511,9 @@ my %MSGHANDLERS = (
     'MC_DS_MUTATE_PREPEND' => \&cmd_mutate,
     'MC_DS_MUTATE_ADD' => \&cmd_mutate,
     'MC_DS_MUTATE_REPLACE'=> \&cmd_mutate,
+    
+    'MC_DS_DELETE' => \&cmd_kop,
+    'MC_DS_TOUCH' => \&cmd_kop,
     
     'MC_DS_GET' => \&cmd_retrieve,    
 );

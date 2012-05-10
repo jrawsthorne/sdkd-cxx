@@ -35,9 +35,11 @@ Each response has the following fields:
 
 import json
 from warnings import warn
+try:
+    from . import constants as _C
+except Exception as e:
+    warn("Errors likely ahead (ignore this if just verifying.." + str(e))
 
-
-ALLOWED_HANDLE_OPTIONS = ("Timeout")
 ## Private utilities
 
 class _Resphandlers(object):
@@ -67,6 +69,12 @@ class SDKDriverMessageException(Exception): pass
 class SDKDriverInvalidArgument(Exception): pass
 
 
+# Some global constants:
+
+# Mutation operations
+
+
+
 class SDKDriverMessage(object):
     """
     Base class for all messages. This just requires and encodes the basic
@@ -79,7 +87,9 @@ class SDKDriverMessage(object):
         self.request_id = reqid
         
     def encode(self):
-        return json.dumps(self.jsondict)
+        return json.dumps(self.jsondict,
+                          check_circular = False,
+                          encoding = 'ascii')
     
     
             
@@ -214,10 +224,6 @@ class SDKDatasetOperation(SDKHandleRequest):
         
 
 class SDKDatasetMutation(SDKDatasetOperation):
-    MUTATE_SET     = "MUTATE_SET"
-    MUTATE_APPEND  = "MUTATE_APPEND"
-    MUTATE_PREPEND = "MUTATE_PREPEND"
-    MUTATE_REPLACE = "MUTATE_REPLACE"
     
     _allowed_options = SDKDatasetOperation._allowed_options + \
         ("Expiry", "CAS")
@@ -230,9 +236,6 @@ class SDKDatasetMutation(SDKDatasetOperation):
         
     
 class SDKDatasetKeyOp(SDKDatasetOperation):
-    KOP_DELETE = "DELETE"
-    KOP_TOUCH  = "TOUCH"
-    
     _allowed_options = SDKDatasetOperation._allowed_options + \
         ("Expiry", "CAS")
         
@@ -254,7 +257,7 @@ class SDKDatasetRetrieve(SDKDatasetOperation):
     
 ### Responses ####
 
-class SDKDriverStatus(object):
+class SDKDriverStatus(_C.StatusCodes):
     """
     This class implements the status class for command responses.
     A response status is always 0 if successful. Otherwise, the status
@@ -262,48 +265,6 @@ class SDKDriverStatus(object):
     which represents the subsystem which raised the error. The second component
     is the actual error, whose value an interpretation depends on the subsystem
     """
-    
-    error_types = {}
-    
-    @classmethod
-    def init_constants(cls):
-        cls.error_types = {
-            'SUBSYSf_UNKNOWN'    : 0x1,
-            'SUBSYSf_CLUSTER'    : 0x2,
-            'SUBSYSf_CLIENT'     : 0x4,
-            'SUBSYSf_MEMD'       : 0x8,
-            'SUBSYSf_NETWORK'    : 0x10,
-            'SUBSYSf_SDKD'       : 0x20,
-            'SUBSYSf_KVOPS'      : 0x40,
-        }
-        
-        cls.error_codes = {
-            'SDKD_EINVAL'        : 0x200,
-            'SDKD_ENOIMPL'       : 0x300,
-            'SDKD_ENOHANDLE'     : 0x400,
-            'SDKD_ENODS'         : 0x500,
-            'SDKD_ENOREQ'        : 0x600,
-            
-            'ERROR_GENERIC'      : 0x100,
-            
-            'CLIENT_ETMO'        : 0x200,
-            
-            'CLUSTER_EAUTH'      : 0x200,
-            'CLUSTER_ENOENT'     : 0x300,
-            
-            'MEMD_ENOENT'        : 0x200,
-            'MEMD_ECAS'          : 0x300,
-            'MEMD_ESET'          : 0x400,
-            'MEMD_EVBUCKET'      : 0x500,
-            
-            'KVOPS_EMATCH'       : 0x200,
-
-        }
-        
-        all_constants = dict();
-        all_constants.update(cls.error_types)
-        all_constants.update(cls.error_codes)
-    
     # Further bits depend on the underlying subsystem..
     def __init__(self, code, errstr = None):
         code = int(code)
@@ -326,10 +287,7 @@ class SDKDriverStatus(object):
         
         if self.is_ok():
             return "OK"
-        
-        #if (self.is_ok):
-        #    return "OK"
-        
+
         msg = "%d SUBSYS[" % (self.raw)
         subsys_list = []
         
@@ -347,7 +305,6 @@ class SDKDriverStatus(object):
     def is_ok(self):
         return self.subsys == 0 and self.subsys_err == 0
 
-SDKDriverStatus.init_constants()
 
 class SDKDriverResponse(SDKDriverMessage):
     """
@@ -377,7 +334,15 @@ class SDKDriverResponse(SDKDriverMessage):
         """
         Parse a response from an encoded JSON string
         """
-        jsondict = json.loads(txt)
+        jsondict = None
+        
+        try:
+            jsondict = json.loads(txt)
+            
+        except ValueError as e:
+            raise SDKDriverMessageException("Couldn't decode {0} ({1}) ".format(
+                txt, e))
+            
         if not jsondict.has_key("Status"):
             raise SDKDriverMessageException("Expected Status but found none")
         if not jsondict.has_key("Command"):
@@ -491,17 +456,5 @@ Response_Handlers.register_handler("NEWDATASET", SDKDriverResponse)
     Response_Handlers.register_handler("MC_DS_" + subop,
                                        SDKDatasetOperationResponse)
     for subop in ('MUTATE_SET', 'MUTATE_APPEND', 'MUTATE_PREPEND',
-                  'MUTATE_REPLACE', 'MUTATE_ADD', 'GET')
+                  'MUTATE_REPLACE', 'MUTATE_ADD', 'GET', 'DELETE', 'TOUCH')
 ]
-    
-if __name__ == "__main__":
-    msg = SDKCreateHandle(1, 1, "localhost", 8092, "membase0",
-                              Timeout = 30)
-    print msg
-    
-    resp = SDKDriverHandleControlResponse(1, {
-        "Command" : "NEWHANDLE",
-        "Status" : 0
-    })
-    
-    print resp
