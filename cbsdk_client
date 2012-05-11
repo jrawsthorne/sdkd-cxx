@@ -8,8 +8,9 @@ sys.path.insert(0, "lib")
 
 import cbsdk
 import cbsdk.constants
+import cbsdk.driver
+import cbsdk.dataset
 
-from cbsdk.driver import DriverStdio
 
 parser = argparse.ArgumentParser(description = "Couchbase SDK Driver")
 
@@ -47,6 +48,9 @@ parser.add_argument('--batched', action = 'store_true', default = False,
 parser.add_argument('-D', '--delay', default = 0,
                     help = "Delay (in msec) between each iteration (for batched)")
 
+parser.add_argument('-M', '--multi', default = 0, type = int,
+                    help = "Use this many concurrent handles")
+
 args = parser.parse_args()
 
 
@@ -58,73 +62,117 @@ loghandler.setFormatter(formatter)
 
 logging.getLogger().addHandler(loghandler)
 
+log = logging.getLogger()
+
 if args.debug:
     logging.getLogger().setLevel(logging.DEBUG)
 
-driver = DriverStdio(["/usr/bin/perl",
-                         "-MCarp::Always",
-                         "sdkbin/sdkd_perl"])
 
-handle = driver.create_handle(bucket = args.bucket,
-                              username = args.username,
-                              password = args.password,
-                              host = args.hostname,
-                              port = args.port)
+driverclass = None
+classopts = {}
+cmdline = ["/usr/bin/perl", "-MCarp::Always", "sdkbin/sdkd_perl"]
+
+if args.multi:
+    driverclass = cbsdk.driver.DriverInet
+    classopts.update( { "portinfo" : "portinfo.txt" } )
+    cmdline += ["--mode=mp", "--infofile=portinfo.txt"]
+    
+else:
+    driverclass = cbsdk.driver.DriverStdio
+
+driver = driverclass(cmdline, **classopts)
+
 
 itermax = args.count
 
+handle_args = {
+    'bucket' : args.bucket,
+    'username' : args.username,
+    'password' : args.password,
+    'host' : args.hostname,
+    'port' : args.port
+}
+
 
 if args.simple:
+    handle = driver.create_handle(**handle_args)
+    
     # build key set:
     keys = []
     for x in xrange(0, itermax):
         base = "KEY_%d" % (x)
         keys.append( base )
         
-    print "Doing simple iterations.."
-    print "Doing pre-deletion.."
+    log.info("Doing simple iterations..")
+    log.info("Doing pre-deletion..")
     
-    [ handle.delete_simple("KEY_" + str(x)) for x in keys ]
+    [ handle.invoke_command(
+        handle.delete_simple("KEY_" + str(x))) for x in keys
+     ]
     
     for k in keys:
-        rv = handle.set_simple(k, k,
-                               Expiry = args.expiry)
+        rv = handle.invoke_command(
+            handle.set_simple(k, k,Expiry = args.expiry))
+        
         assert rv.is_ok()
         
     for k in keys:
-        rv = handle.get_simple(k)
+        rv = handle.invoke_command(handle.get_simple(k))
         assert rv.is_ok()
         assert rv.value() == k
-            
+    
+    driver.destroy_handle(handle)
 
 
 if args.batched:
-    print "Will do dataset operations.."
+    log.info("Will do dataset operations..")
+        
+    ds = cbsdk.dataset.DSSeed(itermax,
+                              kseed = "Key__",
+                              vseed = "Value__",
+                              repeat = "MYREP")
     
-    dsid = "SimpleKV"
-    kvset = {}
-    for x in xrange(0, itermax):
-        base = "TMPKV_%d" % (x)
-        kvset[base] = str(reversed(base))
-
-
-    dsop = driver.create_dataset(dsid,
-                                 kvset)
+    log.info("Defined dataset..")
     
-    assert(dsop.is_ok())
+    handle = driver.create_handle(**handle_args)
     
-    print "Defined dataset!"
+    log.info("Deleting Keys...")
+    rv = handle.invoke_command(
+        handle.ds_keyop(ds,
+                        cbsdk.constants.KOP_DELETE))
+    log.debug(rv)
     
-    print "Deleting Keys..."
-    rv = handle.ds_keyop(dsid,
-                         cbsdk.constants.KOP_DELETE)
-    print rv
+    driver.destroy_handle(handle)
+    handle = None
+    handles = []
     
-    rv = handle.ds_mutate(dsid,
-                          Expiry = args.expiry,
-                          DelayMsec = args.delay)
-    print rv
+    handle_count = args.multi if args.multi > 0 else 1
+    log.debug("Will spawn handles " + str(handle_count))
     
-    rv = handle.ds_retrieve(dsid,
-                            DelayMsec = args.delay)
-    print rv
+    for i in xrange(1, handle_count):
+        handle = driver.create_handle(**handle_args)
+        handles.append(handle)
+    
+    
+    for handle in handles:    
+        rv = handle.invoke_command(
+            handle.ds_mutate(ds,
+                             Expiry = args.expiry,
+                             DelayMsec = args.delay),
+            wait = False)
+        log.debug(rv)
+    
+    for handle in handles:
+        resp = handle.conduit.recv_msg()
+        log.debug(resp)
+        
+    for handle in handles:        
+        rv = handle.invoke_command(
+            handle.ds_retrieve(ds,
+                               DelayMsec = args.delay),
+            wait = False)
+        log.debug(rv)
+    
+    for handle in handles:
+        resp = handle.conduit.recv_msg()
+        log.debug(resp)

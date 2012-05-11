@@ -2,50 +2,27 @@
 
 my $Handles = {};
 my $DataSets = {};
+use Dir::Self;
 
-# Define the error codes. The boring part is generated automatically via
-# the srcutil/errdefs.pl and copy-pasted here.
+BEGIN {
+    push @INC, __DIR__ . '/../perl/';
+    eval {
+        require blib;
+        blib->import('/home/mnunberg/src/Couchbase-Client/blib');
+    }; if ($@) {
+        print STDERR "Skipping native blib..: $@";
+    }
+}
 
-# Error codes are a bitflag of two integers, the subsystem and the minor code.
-# The subsystem is a 'SUBSYSf_' constant, the error code is prefixed by the name
-# of the subsystem..
 
-package CBSdkd::Errors;
-use strict;
-use warnings;
-use base qw(Exporter);
-our @EXPORT;
-use Constant::Generate {
-    SUBSYSf_UNKNOWN      => 0x1,
-    SUBSYSf_CLUSTER      => 0x2,
-    SUBSYSf_CLIENT       => 0x4,
-    SUBSYSf_MEMD         => 0x8,
-    SUBSYSf_NETWORK      => 0x10,
-    SUBSYSf_SDKD         => 0x20,
-    SUBSYSf_KVOPS        => 0x40,
-    
-    SDKD_EINVAL          => 0x200,
-    SDKD_ENOIMPL         => 0x300,
-    SDKD_ENOHANDLE       => 0x400,
-    SDKD_ENODS           => 0x500,
-    SDKD_ENOREQ          => 0x600,
-    
-    ERROR_GENERIC        => 0x100,
-    
-    CLIENT_ETMO          => 0x200,
-    
-    CLUSTER_EAUTH        => 0x200,
-    CLUSTER_ENOENT       => 0x300,
-    
-    MEMD_ENOENT          => 0x200,
-    MEMD_ECAS            => 0x300,
-    MEMD_ESET            => 0x400,
-    MEMD_EVBUCKET        => 0x500,
-    
-    KVOPS_EMATCH         => 0x200,
-    
-}, export => 1, type => 'bit';
 
+################################################################################
+################################################################################
+################################################################################
+### Message Containers and Conversion                                        ###
+################################################################################
+################################################################################
+################################################################################
 
 
 # This class defines the message 'header' (insofar as we can do this in JSON):
@@ -98,7 +75,7 @@ has 'cbo' => (is => 'rw',
                         "for control messages"
                 }
                 
-                $Handles->{$_[0]->handle_id} or die "Couldn't find handle!"
+                $Handles->{$_[0]->handle_id}->cbo or die "Couldn't find handle!"
               });
 
 # Converts JSON to a message object
@@ -167,158 +144,39 @@ sub encode {
 }
 
 
+package CBSdkd::Handle;
 use strict;
 use warnings;
-use JSON::XS qw(decode_json encode_json);
-use Log::Fu;
-use Data::Dumper::Concise;
-
-use Couchbase::Client;
-use Couchbase::Client::Errors;
-
+use Moo;
 use Time::HiRes qw(sleep);
+use Log::Fu;
 
-BEGIN {
-    CBSdkd::Errors->import();
-}
+use CBSdkd::Errors;
+use CBSdkd::Dataset;
 
-# Map Couchbase::Client error codes unto ones SDKD understands.
-my %ERRMAP = (
-    COUCHBASE_BUCKET_ENOENT,    SUBSYSf_CLUSTER | CLUSTER_ENOENT,
-    COUCHBASE_AUTH_ERROR,       SUBSYSf_CLUSTER | CLUSTER_EAUTH,
-    
-    COUCHBASE_CONNECT_ERROR,    SUBSYSf_NETWORK | ERROR_GENERIC,
-    COUCHBASE_NETWORK_ERROR,    SUBSYSf_NETWORK | ERROR_GENERIC,
-    
-    COUCHBASE_ENOMEM,           SUBSYSf_MEMD    | ERROR_GENERIC,
-    
-    
-    COUCHBASE_KEY_ENOENT,       SUBSYSf_MEMD    | MEMD_ENOENT,
-    
-    COUCHBASE_ETIMEDOUT,        SUBSYSf_CLIENT  | CLIENT_ETMO,
-    
-    # This could either be a network error, or a client error :/
-    COUCHBASE_ETMPFAIL,         SUBSYSf_CLIENT  | ERROR_GENERIC | SUBSYSf_NETWORK
-);
+has 'cbo' => (is => 'rw');
+has 'fp' => (is => 'ro', required => 1);
+has 'id' => (is => 'ro', required => 1);
 
-sub extract_error_common {
-    my $cberr = shift;
-    my $ecode = $ERRMAP{$cberr};
-    if (!$ecode) {
-        warn "Couldn't map error $cberr";
+has 'handlers' => (is => 'ro', default => sub {
+    {
+
+    'MC_DS_MUTATE_SET' => "cmd_mutate",
+    'MC_DS_MUTATE_APPEND' => "cmd_mutate",
+    'MC_DS_MUTATE_PREPEND' => "cmd_mutate",
+    'MC_DS_MUTATE_ADD' => "cmd_mutate",
+    'MC_DS_MUTATE_REPLACE'=> "cmd_mutate",
+    
+    'MC_DS_DELETE' => "cmd_kop",
+    'MC_DS_TOUCH' => "cmd_kop",
+    
+    'MC_DS_GET' => "cmd_retrieve"
+    
     }
-    return $ecode;
-}
-
-sub cmd_newhandle {
-    my $msg = shift;
-    my $params = $msg->payload();
-    
-    my $constructor = {
-        server => $params->{Hostname} . ":" . $params->{Port},
-        bucket => $params->{Bucket}
-    };
-    if ($params->{Username}) {
-        $constructor->{username} = $params->{Username};
-        $constructor->{password} = $params->{Password}
-    }
-    if ($params->{Timeout}) {
-        $constructor->{timeout} = $params->{Timeout}
-    }
-    
-    my $cbo = Couchbase::Client->new($constructor);
-    my @errors = @{$cbo->get_errors};
-    my $status;
-    my %respopts;
-    
-    if (@errors) {
-        my $first = shift @errors;
-        $status = SUBSYSf_UNKNOWN | ERROR_GENERIC;
-        my $ext_status = extract_error_common($first->[0]);
-        if ($ext_status) {
-            $status = $ext_status;
-        }
-        $respopts{errstr} = $first->[1];
-    } else {
-        $status = 0;
-        $Handles->{$msg->handle_id} = $cbo;
-    }
-    
-    $respopts{status} = $status;
-    
-    my $resp = $msg->create_response(
-        %respopts,
-        payload => {}
-    );
-    
-    return $resp;
-}
-
-
-my %MutationMap = (
-    APPEND => 'append',
-    PREPEND => 'prepend',
-    SET => 'set',
-    REPLACE => 'replace',
-);
-
-sub _ref2ds {
-    my $ref = shift;
-    my $ret = [];
-    
-    if (ref $ref eq 'HASH') {
-        while (my ($k,$v) = each %$ref) {
-            push @$ret, [ $k, $v ];
-        }
-    } elsif (ref $ref eq 'ARRAY') {
-        foreach (@$ref) {
-            push @$ret, [ $_ ];
-        }
-    } else {
-        die "Unsupported reference type " . ref $ref;
-    }
-    return $ret;
-}
-
-# returns ($ok,$dataset,$cbo)
-# or (undef,$error_response)
-sub _ds_verify_common {
-    my $msg = shift;
-    
-    my $params = $msg->payload;
-    my $hid = $msg->handle_id;
-    
-    my ($subop) = ($msg->command =~ m/MUTATE_(.+)/);
-    
-    my $dataset = [];
-    
-    if ( (my $tmpds = $params->{Options}->{Dataset}) ) {
-        $dataset = _ref2ds($tmpds);        
-    } else {
-        $dataset = $DataSets->{$params->{DSID}};
-        if (!$dataset) {
-            return (undef, $msg->create_response(
-                status => SUBSYSf_SDKD | SDKD_ENODS,
-                payload => {}
-            ));
-        }
-    }
-    
-    eval {
-        $msg->cbo
-    }; if ($@) {
-        
-        return (undef, $msg->create_response(
-            status => SUBSYSf_SDKD | SDKD_ENOHANDLE,
-            errstr => "Can't find handle"
-        ));
-    }
-    
-    return (1, $msg->cbo, $dataset);
-}
+});
 
 sub cmd_mutate {
-    my $msg = shift;
+    my ($self,$msg) = @_;
     my $params = $msg->payload;
     my $hid = $msg->handle_id;
     
@@ -327,7 +185,7 @@ sub cmd_mutate {
     my ($dataset,$cbo);
     
     {
-        my @okv = _ds_verify_common($msg);
+        my @okv = ds_verify_common($msg);
         if (!$okv[0]) {
             return $okv[1];
         } else {
@@ -349,10 +207,11 @@ sub cmd_mutate {
         push @extra_args, $options->{Expiry};
     }
     
-    my $func = $MutationMap{$subop};
-    
-    foreach my $dsinfo (@$dataset) {
-        my ($k,$v,undef) = @$dsinfo;
+    my $func = $CBSdkd::Errors::MutationMap{$subop};
+    my $iter = $dataset->iter();
+    while ($iter->next) {
+        my $k = $iter->key();
+        my $v = $iter->value();
         my $rv = $cbo->$func($k,$v,@extra_args);
         my $status;
         if ($rv->is_ok) {
@@ -370,9 +229,8 @@ sub cmd_mutate {
         }
     }
     
-    my $payload = {
-        Summary => \%stats
-    };
+    my $payload = { Summary => \%stats };
+    
     if ($options->{Detailed}) {
         $payload->{Details} = \%fullres
     };
@@ -383,10 +241,11 @@ sub cmd_mutate {
 
 
 sub cmd_retrieve {
-    my $msg = shift;
+    my ($self,$msg) = @_;
+    
     my ($dataset,$cbo);
     {
-        my @okv = _ds_verify_common($msg);
+        my @okv = ds_verify_common($msg);
         if (!$okv[0]) {
             return $okv[1];
         } else {
@@ -397,25 +256,26 @@ sub cmd_retrieve {
     my (%stats,%fullres);
     my $is_detailed = $msg->payload->{Options}->{Detailed};
     my $delay = $msg->payload->{Options}->{DelayMsec} || 0;
-    
-    foreach my $ds (@$dataset) {
-        my $rv = $cbo->get($ds->[0]);
+    my $iter = $dataset->iter();
+    while ($iter->next()) {
+        my $k = $iter->key();
+        my $v = $iter->value();
+
+        my $rv = $cbo->get($k);
         my $status = 0;
         if (!$rv->is_ok) {
             $status = extract_error_common($rv->errnum);
             $status ||= SUBSYSf_UNKNOWN | ERROR_GENERIC;
         } else {
-            
-            if ( (defined $ds->[1]) && $rv->value ne $ds->[1]) {
+            if ( (defined $v) && $rv->value ne $v) {
                 $status = SUBSYSf_KVOPS | KVOPS_EMATCH;
             }
-            $ds->[2] = $rv->cas;
         }
         
         $stats{$status}++;
         
         if ($is_detailed) {
-            $fullres{$ds->[0]} = [$status, $rv->value];
+            $fullres{$k} = [$status, $rv->value];
         }
         
         if ($delay) {
@@ -433,10 +293,10 @@ sub cmd_retrieve {
 }
 
 sub cmd_kop {
-    my $msg = shift;
+    my ($self,$msg) = @_;
     my ($dataset,$cbo);
     {
-        my @okv = _ds_verify_common($msg);
+        my @okv = ds_verify_common($msg);
         if (!$okv[0]) {
             return $okv[1];
         } else {
@@ -466,9 +326,10 @@ sub cmd_kop {
     }
     
     my %stats;
-    
-    foreach my  $ds (@$dataset) {
-        my $rv = $cbo->$func($ds->[0], @args);
+    my $iter = $dataset->iter();
+    while ($iter->next) {
+        
+        my $rv = $cbo->$func($iter->key(), @args);
         if ($rv->is_ok) {
             $stats{0}++;
             next;
@@ -486,63 +347,411 @@ sub cmd_kop {
                                  payload => { Summary => \%stats });
 }
 
+sub process_message {
+    my ($self,$msg) = @_;
+    if (!$msg->handle_id) {
+        return
+            $msg->create_response(status => SUBSYSf_SDKD | SDKD_EINVAL,
+                                  errstr => "Handle received control message",
+                                  payload => {});
+    } elsif ($msg->handle_id() != $self->id) {
+        return 
+            $msg->create_response(status => SUBSYSf_SDKD | SDKD_ENOHANDLE,
+                                  errstr => "No such handle (wrong socket?)",
+                                  payload => {});
+    } else {
+        
+        my $handler = $self->handlers->{$msg->command};
+        if (!$handler) {
+            return
+                $msg->create_response(status => SUBSYSf_SDKD | SDKD_ENOIMPL,
+                                       errstr => "Command not implemented",
+                                       payload => {});
+        } else {
+            return ($self->$handler($msg));
+        }
+    }
+}
 
-sub cmd_newdataset {
-    my $msg = shift;
-    my $k = $msg->payload();
-    my $id = $k->{ID};
-    if (exists $DataSets->{$id}) {
-        warn "Overriding existing DSID $id";
+
+sub mainloop {
+    my $self = shift;
+    log_err("Initiating main loop..");
+    while ( (my $line = $self->fp->getline())) {
+        my $msg = CBSdkd::Request->decode($line);
+        $self->fp->print($self->process_message($msg)->encode() . "\n");
+    }
+    log_err("Exiting main loop..", $!);
+}
+
+package CBSdkd::Control;
+use strict;
+use warnings;
+use Moo;
+
+use JSON::XS qw(decode_json encode_json);
+use Log::Fu;
+use Data::Dumper::Concise;
+
+use Couchbase::Client;
+use Couchbase::Client::Errors;
+
+use CBSdkd::Errors;
+use CBSdkd::Dataset;
+
+has 'handlers' => (is => 'ro',
+                   default => sub {
+    {
+    'NEWHANDLE' => "cmd_newhandle",
+    'NEWDATASET' => "cmd_newdataset"
+    }
+});
+
+sub msg2cbo {
+    my ($self,$msg) = @_;
+    
+    my $params = $msg->payload();
+    
+    my $constructor = {
+        server => $params->{Hostname} . ":" . $params->{Port},
+        bucket => $params->{Bucket}
+    };
+    if ($params->{Username}) {
+        $constructor->{username} = $params->{Username};
+        $constructor->{password} = $params->{Password}
+    }
+    if ($params->{Timeout}) {
+        $constructor->{timeout} = $params->{Timeout}
     }
     
-    $DataSets->{$id} = _ref2ds($k->{Items});
+    my $cbo = Couchbase::Client->new($constructor);
+    my @errors = @{$cbo->get_errors};
+    my $status;
+    my %respopts;
+    
+    if (@errors) {
+        my $first = shift @errors;
+        $status = SUBSYSf_UNKNOWN | ERROR_GENERIC;
+        my $ext_status = extract_error_common($first->[0]);
+        if ($ext_status) {
+            $status = $ext_status;
+        }
+        $respopts{errstr} = $first->[1];
+        $cbo = undef;
+    } else {
+        $status = 0;        
+    }
+    
+    $respopts{status} = $status;
+    
+    my $resp = $msg->create_response(
+        %respopts,
+        payload => {}
+    );
+    
+    return ($resp,$cbo);
+
+}
+
+sub cmd_newdataset {
+    my ($self,$msg) = @_;
+    my $k = $msg->payload();
+    
+    eval {
+        CBSdkd::Dataset->ds_decode($k);
+    }; if ($@) {
+        my ($status) = ($@ =~ /SDKD_ERROR:.+(\d+)/);
+        $status ||= SUBSYSf_SDKD | ERROR_GENERIC;
+        return $msg->create_response(status => $status,
+                              errstr => $@,
+                              payload => {});
+    }
+    
     return $msg->create_response(
         status => 0,
         payload => {}
     );
 }
 
-my %MSGHANDLERS = (
-    'NEWHANDLE' => \&cmd_newhandle,
-    'NEWDATASET' => \&cmd_newdataset,
+sub process_message {
+    my ($self,$msg) = @_;
+    my $handler = $self->handlers->{$msg->command};
+    my $resp;
     
-    'MC_DS_MUTATE_SET' => \&cmd_mutate,
-    'MC_DS_MUTATE_APPEND' => \&cmd_mutate,
-    'MC_DS_MUTATE_PREPEND' => \&cmd_mutate,
-    'MC_DS_MUTATE_ADD' => \&cmd_mutate,
-    'MC_DS_MUTATE_REPLACE'=> \&cmd_mutate,
+    if (!$handler) {
+        # check if this goes into any of the handles..
+        my $hid = $msg->handle_id();
+        if (!$hid) {
+            $resp = $msg->create_response(status => SUBSYSf_SDKD|SDKD_ENOIMPL,
+                                          errstr => "Not Implemented",
+                                          payload => {});
+        } elsif ((my $handle = $Handles->{$hid})) {
+            $resp = $handle->process_message($msg);
+        } else {
+            $resp = $msg->create_response(status => SUBSYSf_SDKD|SDKD_ENOHANDLE,
+                                          errstr => "No such handle",
+                                          payload => {} );
+        }
+    } else {
+        $resp = $self->$handler($msg);
+    }
     
-    'MC_DS_DELETE' => \&cmd_kop,
-    'MC_DS_TOUCH' => \&cmd_kop,
+    return $resp;
+}
+
+sub run {
+    my $self = shift;
+    die "Not implemented in base class!";
+}
+
+
+# Simple single-process model..
+package CBSdkd::Control::Single;
+use strict;
+use warnings;
+use Moo;
+use IO::Handle;
+extends 'CBSdkd::Control';
+
+
+sub cmd_newhandle {
+    my ($self,$msg) = @_;
+    my ($resp,$cbo) = $self->msg2cbo($msg);
+    if ($cbo) {
+        $Handles->{$resp->handle_id} = CBSdkd::Handle->new(
+            id => $resp->handle_id,
+            fp => undef,
+            cbo => $cbo
+        );
+    }
+    return $resp;
+}
+
+sub run {
+    my $self = shift;
+    select STDERR;
     
-    'MC_DS_GET' => \&cmd_retrieve,    
-);
+    my $rfp = IO::Handle->new();
+    my $wfp = IO::Handle->new();
+    
+    $rfp->fdopen(fileno(STDIN), "r");
+    $wfp->fdopen(fileno(STDOUT), "w");
+    
+    $wfp->autoflush(1);
+    
+    while ( (my $line = $rfp->getline() )) {
+        my $msg = CBSdkd::Request->decode($line);
+        my $resp = $self->process_message($msg);
+        $wfp->print($resp->encode() . "\n");
+    }
+}
 
-# Make stuff non-buffered, just for kicks
-select STDERR;
-$|=1;
-select STDOUT;
-$|=1;
 
+# Fork-accept based model..
+package CBSdkd::Control::MP;
+use strict;
+use warnings;
+use Moo;
+use Log::Fu { level => "INFO" };
 
-select STDERR;
+BEGIN {
+    CBSdkd::Errors->import();
+}
 
-while (my $line = <STDIN>) {
+my $MPControl;
+
+extends 'CBSdkd::Control';
+
+has 'sockinfo_file' => (is => 'ro', required => 1);
+has 'accept_fh' => (is => 'rw');
+has 'control_fh' => (is => 'rw');
+has 'pids' => (is => 'ro', default => sub { +{} } );
+
+use IO::Select;
+use IO::Socket::INET;
+use Socket;
+use POSIX qw(:sys_wait_h :errno_h);
+
+END {
+    if ($MPControl) {
+        foreach my $pid (keys %{ $MPControl->pids }) {
+            kill(9, $pid);
+        }
+    }
+}
+
+sub do_child {
+    my ($self,$newsock) = @_;
+    $Log::Fu::LINE_PREFIX = $$ . " ";
+    
+    log_debug("Will try and get new message...");
+    
+    my $line = $newsock->getline();
+    die "Couldn't get message" unless $line;
     
     my $msg = CBSdkd::Request->decode($line);
     
-    my $response;
-    
-    my $handler = $MSGHANDLERS{$msg->command};
-    if (!$handler) {
-        $response = $msg->create_response(
-            status => SUBSYSf_SDKD | SDKD_ENOIMPL,
-            errstr => "Command not implemented"
-        );
-    } else {
-        $response = $handler->($msg);
+    if ($msg->command ne 'NEWHANDLE') {
+        $msg->create_response(status => SUBSYSf_SDKD|SDKD_EINVAL,
+                              errstr => "Bad command in this sequence (expected NEWHANDLE)",
+                              payload => {});
+        $newsock->print($msg->encode() . "\n");
+        log_err("Got command but it's not a NEWHANDLE");
+        exit(1);
     }
     
+    my ($resp,$cbo) = $self->msg2cbo($msg);
+    if (!$cbo) {
+        $newsock->print($msg->encode() . "\n");
+        exit(1);
+    }
     
-    print STDOUT $response->encode() . "\n";
+    my $handle = CBSdkd::Handle->new(
+        id => $resp->handle_id,
+        fp => $newsock,
+        cbo => $cbo
+    );
+    
+    $Handles->{$resp->handle_id} = $handle;
+    
+    $newsock->print($resp->encode() . "\n");
+    
+    $handle->mainloop();
+    exit(1);
+}
+
+sub run {
+    my $self = shift;
+    $MPControl = $self;
+    $Log::Fu::LINE_PREFIX = $$ . " ";
+    
+    my $select = IO::Select->new();
+    my $sock = IO::Socket::INET->new(
+        LocalAddr => '127.0.0.1',
+        LocalPort => 0,
+        Listen  => 16,
+        Blocking => 1,
+        proto => 'tcp'
+    );
+    
+    
+    $SIG{CHLD} = sub {
+        my $pid = waitpid(-1, 0);
+        die "Waited for PID with WNOHANG, but returned no PID ($!)" unless $pid;
+        delete $self->pids->{$pid};
+    };
+    
+    die "Couldn't establish socket: $!" unless $sock;
+    my $port = [ unpack_sockaddr_in($sock->sockname()) ];
+    die "Couldn't get port (getsockname): $!" unless $port;
+    
+    $port = $port->[0];
+    
+    log_warn("Listening on $port");
+    
+    open my $fh, ">", $self->sockinfo_file or die $self->sockinfo_file.": $!";
+    print $fh "$port\n";
+    close($fh);
+    log_infof("Wrote port information to %s", $self->sockinfo_file);
+    
+    $self->accept_fh($sock);
+    my $ctl = $sock->accept() or die "accept: $!";
+    
+    $self->control_fh($ctl);
+    
+    my %dispatch = (
+        fileno($self->control_fh), 'control',
+        fileno($self->accept_fh), 'accept',
+    );
+    
+    $select->add($self->control_fh, $self->accept_fh);
+        
+    while (1) {
+        my @readable = $select->can_read();
+        if (!@readable) {
+            my $errno_save = $!;
+            if ($errno_save == EINTR) {
+                next;
+            }
+            die "select(): $!";
+        }
+        foreach my $s (@readable) {
+            
+            my $t = $dispatch{fileno($s)};
+            log_debugf("Socket=%s, Type=%s", $s, $t);
+            if ($t eq 'control') {
+                log_debug("Got new control message..");
+                my $line = $s->getline();
+                if (!$line) {
+                    log_err("Remote end closed the connection. Exiting..");
+                    exit(0);
+                }
+                my $msg = CBSdkd::Request->decode($line);
+                my $resp = $self->process_message($msg);
+                $s->print($resp->encode() . "\n");
+            } elsif ($t eq 'accept') {
+                
+                log_debug("Will accept()...");
+                my $newsock = $s->accept();
+                log_debug("Have new socket $newsock");
+                
+                my $pid = fork();
+                
+                if (!$pid) {
+                    
+                    # Destroy handles from the parent process, if any (is this
+                    # possible? )
+                    
+                    %$Handles = ();
+                    
+                    close($self->accept_fh);
+                    close($self->control_fh);
+                    $MPControl = undef;
+                    
+                    $self->do_child($newsock);
+                } else {
+                    $self->pids->{$pid} = 1;
+                    close($newsock);
+                }
+            } else {
+                die "WTF - No such type: $t/$s";
+            }
+        }
+    }
+}
+
+
+package main;
+use strict;
+use warnings;
+use Getopt::Long;
+GetOptions(
+    'infofile=s' => \my $Infofile,
+    'mode=s' => \my $Mode,
+    'help' => \my $WantHelp
+);
+
+if ($WantHelp) {
+    print <<"EOH";
+$0 [ --mode=MODE --infofile=FILE ]
+
+--mode      Specify a mode, either 'single' or 'mp'
+--infofile  For 'mp' modes, specify a file to convey port information
+EOH
+    exit(0);
+}
+
+$Mode ||= 'SINGLE';
+$Mode = uc($Mode);
+if ($Mode eq 'MP') {
+    if (!$Infofile) {
+        die ("Expected information conduit, but didn't get any!");
+    }
+    my $o = CBSdkd::Control::MP->new(
+        sockinfo_file => $Infofile
+    );
+    $o->run();
+} elsif ($Mode eq 'SINGLE') {
+    my $o = CBSdkd::Control::Single->new();
+    $o->run();
 }

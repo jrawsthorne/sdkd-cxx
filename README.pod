@@ -32,16 +32,25 @@ unit of reference.
 Handles are instantiated with the common bucket, hostname, and authentication
 parameters, with other options depending on plugin support.
 
+Handles may be concurrent, although the concurrency itself is implementation
+dependent (i.e. they can be forked, threaded, etc). The Perl C<sdkd> example
+implements an accept-fork model and uses sockets.
+
 =head2 DATASETS
 
-Datasets define a specific .. well .. dataset which is used as a source
-for operations. At its most basic level, a dataset is a hash of key-value
-pairs which represent their equivalent concepts in memcached/couchbase.
+Datasets represent an abstraction of a set of key-value pairs. Datasets are
+opaque units with a deterministic output based on the inputs used to construct
+it.
 
-The creation of datasets may be done by multiple components, but is currently
-only existent in the controller API itself.
+They may be created I<inline> (i.e. a simple list of key-value pairs), they may
+reference an external file (not really implemented) or shared memory segment
+(not yet implemented either..).
 
-Datasets retain a reference, and may be shared across handles
+A special feature that has been part of the design is the ability to create
+datasets based on B<seeds>. Where instead of transferring the entire dataset
+to the C<sdkd> implementation, a small set of parameters are passed, which should
+be decoded by the implementation and expanded on-demand.
+
 
 =head3 OPERATIONS
 
@@ -55,6 +64,9 @@ produce statistical information as output
 There currently isn't much excitement here. The python commandline 'client',
 C<cbsdkd_client> should be self explanatory (run it with C<--help> for options.
 
+You will need Perl version 5.8.8 or greater (this shouldn't be a problem on any
+semi-modern operating system).
+
 The Perl C<sdkbin/sdkd_perl> requires several packages from CPAN.
 The simplest way to do this is using C<cpanm>
 
@@ -62,6 +74,7 @@ The simplest way to do this is using C<cpanm>
 
     # Then, install the following packages:
     sudo cpanm Moo Couchbase::Client JSON::XS Data::Dumper::Concise Log::Fu
+    sudo cpanm Carp::Always
 
 
 Note that C<Couchbase::Client> uses an embedded version of libcouchbase

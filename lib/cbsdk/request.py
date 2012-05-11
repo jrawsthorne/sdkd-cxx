@@ -82,40 +82,24 @@ class CreateHandle(Request):
 
 
 class CreateDataset(Request):
-    SOURCE_INLINE = "INLINE"
-    
-    
-    def __init__(self, reqid, dsid, ds_spec,
-                 source = None):
-        
+    def __init__(self, reqid, ds):
         super(CreateDataset, self).__init__('NEWDATASET', reqid, 0)
         self.jsondict["Handle"] = 0
         
         
         cmd_data = self.jsondict["CommandData"]
-        cmd_data["Type"] = source
-        cmd_data["ID"] = dsid
+        cmd_data["DSType"] = ds.dstype
+        dsdict = ds.as_dict()
+        if not dsdict.has_key("ID"):
+            raise ValueError("Pre-declared inline dataset must have ID")
         
-        if not source:
-            source = self.SOURCE_INLINE
-            
-        if source == self.SOURCE_INLINE:
-            try:
-                cmd_data["Count"] = len(ds_spec)
-                cmd_data["Items"] = ds_spec.copy()
-            except Exception:
-                raise ValueError("ds_spec is not valid")
-            
-        else:
-            raise ValueError("Unsupported/Invalid source type")
-                
+        cmd_data["DS"] = dsdict         
             
 class DSOperation(Request):
     _allowed_options = ("Detailed","DelayMsec", "Dataset")
     
-    def __init__(self, reqid, hid, dsid,
+    def __init__(self, reqid, hid, ds,
                  subcmd = None,
-                 inline_dataset = None,
                  **options):
         cmd = 'MC_DS_' + subcmd
         
@@ -124,16 +108,13 @@ class DSOperation(Request):
         
         super(DSOperation, self).__init__(cmd, reqid, hid)
         
+        
+        
         self.jsondict["CommandData"].update({
-            "DSID" : dsid,
+            "DSType" : ds.dstype,
+            "DS" : ds.as_dict(),
             "Options" : options
         })
-        
-        if inline_dataset:
-            self.jsondict["CommandData"]["Options"].update({
-                "Dataset" : inline_dataset
-            })
-            assert(not dsid)
         
         if len(options):
             _verify_dict(self._allowed_options, options)
@@ -145,10 +126,10 @@ class DSMutation(DSOperation):
     _allowed_options = DSOperation._allowed_options + \
         ("Expiry", "CAS")
     
-    def __init__(self, reqid, hid, dsid,
+    def __init__(self, reqid, hid, ds,
                  op, **options):
         
-        super(DSMutation, self).__init__(reqid, hid, dsid,
+        super(DSMutation, self).__init__(reqid, hid, ds,
                                                  subcmd = op, **options)
         
     
@@ -156,18 +137,19 @@ class DSKeyOperation(DSOperation):
     _allowed_options = DSOperation._allowed_options + \
         ("Expiry", "CAS")
         
-    def __init__(self, reqid, hid, dsid,
+    def __init__(self, reqid, hid, ds,
                  op, **options):
-        super(DSKeyOperation, self).__init__(reqid, hid, dsid,
-                                              subcmd = op, **options)
+        
+        if ds.dstype == _C.DSTYPE_INLINE:
+            ds = ds.keys_only()
+            
+        super(DSKeyOperation, self).__init__(
+            reqid, hid, ds, subcmd = op, **options)
     
 class DSRetrieval(DSOperation):    
-    def __init__(self, reqid, hid, dsid,
+    def __init__(self, reqid, hid, ds,
                  **options):
         
-        if options.has_key("inline_dataset"):
-            options["inline_dataset"] = list(options["inline_dataset"])
-            
-        super(DSRetrieval, self).__init__(reqid, hid, dsid,
-                                          subcmd = "GET", **options)
+        super(DSRetrieval, self).__init__(
+            reqid, hid, ds, subcmd = "GET", **options)
         

@@ -8,7 +8,13 @@ import socket
 import cbsdk.request as Req
 import cbsdk.response as Res
 import cbsdk.constants as _C
+
+from cbsdk.dataset import DSInline
+
 import logging
+import os.path
+import os
+import time
 
 from subprocess import Popen, PIPE
 
@@ -30,6 +36,7 @@ class Conduit(object):
         self.log.debug("> " + str(msg))
         
         self.wrfp.write(msg.encode() + "\n")
+        self.wrfp.flush()
         
     def recv_msg(self):
         txt = self.rdfp.readline()
@@ -79,69 +86,54 @@ class Handle(object):
             raise Exception("Couldn't create new handle: " + str(resp))
     
     
-    
+    def invoke_command(self, msg, wait = True):
+        self.conduit.send_msg(msg)
+        if wait:
+            return self.conduit.recv_msg()
+        else:
+            return True
     
     def set_simple(self, key, value, **kwargs):
-        msg = Req.DSMutation(
-            self.driver.mkreqid(),
-            self.handle_id,
-            0,
-            _C.MUTATE_SET,
-            inline_dataset = { key : value },
-            **kwargs)
-        
-        self.conduit.send_msg(msg)
-        return self.conduit.recv_msg()
-        
+        return Req.DSMutation(self.driver.mkreqid(),
+                              self.handle_id,
+                              DSInline({ key : value }),
+                              _C.MUTATE_SET,
+                              **kwargs)
+                
     
     def get_simple(self, key, **kwargs):        
-        msg = Req.DSRetrieval(self.driver.mkreqid(),
-                                               self.handle_id,
-                                               0,
-                                               inline_dataset = [key],
-                                               Detailed = True,
-                                               **kwargs)
-        self.conduit.send_msg(msg)
-        return self.conduit.recv_msg()
-
+        return Req.DSRetrieval(self.driver.mkreqid(),
+                               self.handle_id,
+                               DSInline([key]),
+                               Detailed = True,
+                               **kwargs)
         
     def delete_simple(self, key, **kwargs):
-        msg = Req.DSKeyOperation(
-            self.driver.mkreqid(),
-            self.handle_id,
-            0,
-            _C.KOP_DELETE,
-            inline_dataset = [ key ],
-            **kwargs)
-        self.conduit.send_msg(msg)
-        return self.conduit.recv_msg()
+        return Req.DSKeyOperation(self.driver.mkreqid(),
+                                  self.handle_id,
+                                  DSInline([key]),
+                                  _C.KOP_DELETE,
+                                  **kwargs)
         
         
     def ds_mutate(self, dsid, mtype = _C.MUTATE_SET, **options):
-        msg = Req.DSMutation(self.driver.mkreqid(),
-                                               self.handle_id,
-                                               dsid,
-                                               mtype,
-                                               **options)
-        self.conduit.send_msg(msg)
-        return self.conduit.recv_msg()
+        return Req.DSMutation(self.driver.mkreqid(),
+                              self.handle_id,
+                              dsid,
+                              mtype,**options)
         
     def ds_retrieve(self, dsid, **options):
-        msg = Req.DSRetrieval(self.driver.mkreqid(),
-                                               self.handle_id,
-                                               dsid,
-                                               **options)
-        self.conduit.send_msg(msg)
-        return self.conduit.recv_msg()
+        return Req.DSRetrieval(self.driver.mkreqid(),
+                               self.handle_id,
+                               dsid,
+                               **options)
         
     def ds_keyop(self, dsid, op, **options):
-        msg = Req.DSKeyOperation(self.driver.mkreqid(),
-                                            self.handle_id,
-                                            dsid,
-                                            op,
-                                            **options)
-        self.conduit.send_msg(msg)
-        return self.conduit.recv_msg()
+        return Req.DSKeyOperation(self.driver.mkreqid(),
+                                  self.handle_id,
+                                  dsid,
+                                  op,
+                                  **options)
         
     
 class Driver(object):
@@ -166,6 +158,8 @@ class Driver(object):
         
         
         self.handles = {}
+        self.datasets = set()
+        
         self.seedreq  = 1
         self.seedhand = 1
         self.execargs = execargs
@@ -177,6 +171,9 @@ class Driver(object):
         handle = Handle(self, self.io_new_handle_conduit(), **kwargs)
         self.handles[handle.handle_id] = handle
         return handle
+        
+    def destroy_handle(self, handle):
+        self.handles.pop(handle.handle_id)
         
     def io_new_handle_conduit(self):
         raise NotImplementedError("Not yet implemented!")
@@ -197,11 +194,10 @@ class Driver(object):
         self.seedhand+=1
         return ret
     
-    def create_dataset(self, identifier, kvpairs):
-        
+    def create_dataset(self, ds):        
         msg = Req.CreateDataset(self.mkreqid(),
-                                             identifier,
-                                             kvpairs)
+                                ds)
+        
         self.io_control_conduit().send_msg(msg)
         resp = self.io_control_conduit().recv_msg()
         return resp
@@ -223,3 +219,59 @@ class DriverStdio(Driver):
     
     def io_control_conduit(self):
         return self._conduit
+    
+class DriverInet(Driver):
+    """
+    SDK Driver whose children communicate over socket (an accept-fork model)
+    """
+    
+    def __init__(self, execargs, **options):
+        if not options.has_key("portinfo"):
+            raise ValueError("Missing 'portinfo' key. Required for Inet driver")
+        self.portinfo = options.pop('portinfo')
+        
+        try:
+            os.unlink(self.portinfo)
+        except OSError:
+            pass
+        
+        super(DriverInet, self).__init__(execargs, **options)
+        
+        
+    def exe_popen_args(self):
+        return {}
+    
+    def _create_new_connection(self):
+        sock = socket.create_connection( ("localhost", self.port))
+        self.log.debug("Created new connection to %d", self.port)
+        return sock.makefile()
+    
+    def postexec_hook(self):
+        begin = time.time()
+        self.port = -1
+        
+        while time.time() - begin < 5:
+            self.log.debug("Will wait for file (%s) to settle",
+                           self.portinfo)
+            
+            try:
+                f = open(self.portinfo, "r")
+                time.sleep(0.5)
+                # sleep a bit to make sure the port is actually
+                # written..
+                self.port = int(f.readline())
+                break
+            except (OSError,IOError) as e:
+                print str(e)
+                
+                time.sleep(1)
+                continue
+        
+        assert self.port >= 0
+        self._control = Conduit(fp = self._create_new_connection())
+    
+    def io_control_conduit(self):
+        return self._control
+    
+    def io_new_handle_conduit(self):
+        return Conduit(fp = self._create_new_connection())
