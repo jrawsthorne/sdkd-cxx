@@ -18,15 +18,15 @@ if ($Language =~ /perl/) {
     $kvsep = '=>';
     $pairdelim = ",";
     $str_decorate = sub { $_[0] };
-    
+
 } elsif ($Language =~ /python/) {
     $kvsep = ':';
     $pairdelim = ",";
     $str_decorate = sub { sprintf("'%s'", $_[0] ) };
-    
+
 } elsif (uc($Language) eq 'C') {
     $kvsep = '=';
-    $pairdelim = ';';
+    $pairdelim = ',';
     $str_decorate = sub { $_[0] };
 }
 
@@ -63,7 +63,7 @@ my %ErrHash = (
         ENOIMPL => 0x300,
         ENOHANDLE=> 0x400,
         ENODS   => 0x500,
-        ENOREQ  => 0x600,        
+        ENOREQ  => 0x600,
     },
     'KVOPS' => {
         'EMATCH' => 0x200
@@ -74,7 +74,7 @@ my %ErrHash = (
 sub _print_hash {
     my ($prefix,$href) = @_;
     my @order = sort { $href->{$a} <=> $href->{$b} } keys %$href;
-    
+
     foreach my $k (@order) {
         my $v = $href->{$k};
         printf("%-20s %s 0x%x%s\n",
