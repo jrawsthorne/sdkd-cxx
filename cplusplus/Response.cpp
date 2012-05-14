@@ -5,7 +5,8 @@
  *      Author: mnunberg
  */
 
-#include "/home/mnunberg/src/cbsdkd/cplusplus/Response.h"
+#include "Response.h"
+#include "cbsdkd.h"
 
 namespace CBSdkd {
 
@@ -25,24 +26,30 @@ const string
 Response::encode() const {
     Json::Value root;
 
-    root["Command"] = this->command.cmdstr;
-    root["ReqID"] = (int)this->reqid;
-    root["Handle"] = (int)this->handle_id;
+    root[CBSDKD_MSGFLD_CMD] = this->command.cmdstr;
+    root[CBSDKD_MSGFLD_REQID] = (int)this->reqid;
+    root[CBSDKD_MSGFLD_HID] = (int)this->handle_id;
 
     if (!this->response_data) {
         cerr << "No response data for command...\n";
     } else {
-        root["ResponseData"] = this->response_data;
+        root[CBSDKD_MSGFLD_RESDATA] = this->response_data;
     }
 
     if (this->err) {
-        root["Status"] = this->err.code;
-        root["ErrorString"] = this->err.errstr;
+        root[CBSDKD_MSGFLD_STATUS] = this->err.code;
+        root[CBSDKD_MSGFLD_ERRSTR] = this->err.errstr;
     } else {
-        root["Status"] = 0;
+        root[CBSDKD_MSGFLD_STATUS] = 0;
     }
 
     return Json::FastWriter().write(root);
+}
+
+void
+Response::setResponseData(Json::Value& rdata)
+{
+    response_data = rdata;
 }
 
 } /* namespace CBSdkd */

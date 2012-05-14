@@ -3,6 +3,7 @@
 #include "Request.h"
 #include "Response.h"
 #include "Handle.h"
+#include "IODispatch.h"
 
 #include <libcouchbase/couchbase.h>
 
@@ -10,7 +11,6 @@
 #include <cstdio>
 #include <cassert>
 #include <cstdlib>
-
 
 #define KVCOUNT 5
 
@@ -131,13 +131,11 @@ testNewHandle(void)
 
     assert(msg->isValid());
     std::string errmsg;
+    HandleOptions hopts = HandleOptions(msg->payload);
+    assert(hopts.isValid());
+    Handle h(hopts);
+    delete msg;
 
-    if (!Handle::verifyRequest(*msg, &errmsg)) {
-        cerr << "Couldn't verify request: " << errmsg << endl;
-        abort();
-    }
-
-    Handle h(*msg);
     if (!h.connect(&errp)) {
         cerr << "Couldn't connect: " << errp.prettyPrint() << endl;
         abort();
@@ -149,41 +147,88 @@ testNewHandle(void)
     spec.ksize = spec.vsize = 12;
     spec.repeat = "*";
     spec.count = 10;
-    DatasetSeeded ds(spec);
 
-    ResultSet rs = h.dsMutate(Command::MC_DS_MUTATE_SET,
-                              ds,
-                              Json::Value());
+    DatasetSeeded ds(spec);
+    ResultSet rs;
+    ResultOptions opts;
+
+    h.dsMutate(Command::MC_DS_MUTATE_SET, ds, rs);
 
     printf("Dumping SET summaries\n");
     for (map<int,int>::iterator iter = rs.stats.begin();
             iter != rs.stats.end(); iter++) {
-        printf("%d: %d\n", iter->first, iter->second);
+        printf("%d => %d\n", iter->first, iter->second);
     }
     printf("\n");
 
-    Json::Value opts;
-    opts["Full"] = true;
 
-    rs = h.dsGet(Command::MC_DS_GET,
-                 ds,
-                 opts);
+    opts.full = true;
+    h.dsGet(Command::MC_DS_GET, ds, rs, opts);
 
     printf("Dumping GET Summaries\n");
     for (map<int,int>::iterator iter = rs.stats.begin();
             iter != rs.stats.end(); iter++) {
-        printf("%d: %d\n", iter->first, iter->second);
+        printf("%d => %d\n", iter->first, iter->second);
     }
     printf("\n");
 
 
     printf("Dumping GET Details\n");
-    for (map<std::string,std::string>::iterator iter = rs.fullstats.begin();
+    for (map<std::string,FullResult>::iterator iter = rs.fullstats.begin();
             iter != rs.fullstats.end(); iter++) {
-        printf("%s: %s\n", iter->first.c_str(), iter->second.c_str());
+        printf("%s => ", iter->first.c_str());
+        if (iter->second) {
+            printf("OK: %s", iter->second.getString().c_str());
+        } else {
+            printf("ERR: %d", iter->second.getStatus());
+        }
+        printf("\n");
     }
     printf("\n");
+}
 
+static void *
+_dispatchfn(void *ctx)
+{
+    struct sockaddr_in *saddr = (struct sockaddr_in*)ctx;
+
+    int ctlfd = socket(AF_INET, SOCK_STREAM, 0);
+
+    assert(ctlfd != -1);
+    assert(-1 != connect(ctlfd, (struct sockaddr*)saddr, sizeof(*saddr)));
+
+    // So we have a control socket.. good...
+
+    int newfd = socket(AF_INET, SOCK_STREAM, 0);
+    assert(newfd != -1);
+    assert(-1 != connect(newfd, (struct sockaddr*)saddr, sizeof(*saddr)));
+
+    Json::Value req;
+    req["Command"] = "NEWHANDLE";
+    req["ReqID"] = 32;
+    req["Handle"] = 1;
+    Json::Value hjopts;
+    hjopts["Bucket"] = "membase0";
+    hjopts["Hostname"] = "localhost";
+    req["CommandData"] = hjopts;
+    std::string obuf = Json::FastWriter().write(req);
+    obuf += "\n";
+    size_t sz = obuf.length();
+    assert( sz == send(newfd, obuf.data(), sz, 0));
+    close(newfd);
+    close(ctlfd);
+    return NULL;
+}
+
+static void testDispatcher(void)
+{
+    MainDispatch dispatch;
+    struct sockaddr_in saddr;
+    assert( dispatch.establishSocket(&saddr) == true );
+    printf("Listening on %d\n", ntohs(saddr.sin_port));
+    pthread_t thr;
+    pthread_create(&thr, NULL, _dispatchfn, &saddr);
+    dispatch.run();
 }
 
 int main(void)
@@ -195,5 +240,6 @@ int main(void)
     testSeededIterator();
     testInlineIterator();
     testNewHandle();
+    testDispatcher();
     return 0;
 }

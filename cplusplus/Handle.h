@@ -9,29 +9,18 @@
 #define HANDLE_H_
 #include <sys/types.h>
 #include <libcouchbase/couchbase.h>
+
 #include "Request.h"
 #include "Response.h"
 #include "Error.h"
 #include "Dataset.h"
-#include <pthread.h>
 #include "Message.h"
+#include "utils.h"
+#include "cbsdkd.h"
 
 namespace CBSdkd {
 using std::map;
 
-template <typename T, typename U>
-// stolen from http://stackoverflow.com/a/1730798/479941
-class create_map
-{
-private:
-    std::map<T, U> m_map;
-public:
-    create_map(const T& key, const U& val) { m_map[key] = val; }
-    create_map<T, U>& operator()(const T& key, const U& val)
-    { m_map[key] = val;  return *this; }
-    operator std::map<T, U>()
-    { return m_map; }
-};
 
 class Handle;
 class ResultOptions;
@@ -52,10 +41,10 @@ public:
 
     ResultOptions(const Json::Value& opts)
     :
-        full(opts["Full"].asBool()),
-        multi(opts["Multi"].asBool()),
-        expiry(opts["Expiry"].asUInt()),
-        delay(opts["Delay"].asUInt())
+        full(opts[CBSDKD_MSGFLD_DSREQ_FULL].asBool()),
+        multi(opts[CBSDKD_MSGFLD_DSREQ_MULTI].asBool()),
+        expiry(opts[CBSDKD_MSGFLD_DSREQ_EXPIRY].asUInt()),
+        delay(opts[CBSDKD_MSGFLD_DSREQ_DELAY].asUInt())
     {
     }
 
@@ -67,6 +56,29 @@ public:
 };
 
 // Result set/cookie
+
+class FullResult {
+
+public:
+
+    FullResult(std::string s) : str(s), status(0) { }
+    FullResult(int err) : str(""), status(err) { }
+    FullResult() : str(""), status(Error::SUBSYSf_MEMD|Error::MEMD_ENOENT) { }
+
+    operator int () const { return status; }
+    operator std::string () const { return str; }
+    operator bool () const {
+        return this->status == 0;
+    }
+
+    int getStatus() const  { return status; }
+    std::string getString() const { return str; }
+
+private:
+    std::string str;
+    int status;
+};
+
 class ResultSet {
 public:
     ResultSet() :
@@ -77,40 +89,85 @@ public:
                   const std::string& key);
 
 
-
     std::map<int,int> stats;
-    std::map<std::string,std::string> fullstats;
+    std::map<std::string,FullResult> fullstats;
+
     ResultOptions options;
+
+    Error getError() {
+        return oper_error;
+    }
+
+    void resultsJson(Json::Value *in) const;
+
+    void clear() {
+        stats.clear();
+        fullstats.clear();
+        remaining = 0;
+        parent = NULL;
+    }
 
     Error oper_error;
     unsigned int remaining;
+
+private:
     const Handle* parent;
 };
 
+
+class HandleOptions {
+public:
+    HandleOptions() { }
+    virtual ~HandleOptions() { }
+
+    HandleOptions(const Json::Value& json) :
+        hostname(json[CBSDKD_MSGFLD_HANDLE_HOSTNAME].asString()),
+        username(json[CBSDKD_MSGFLD_HANDLE_USERNAME].asString()),
+        password(json[CBSDKD_MSGFLD_HANDLE_PASSWORD].asString()),
+        bucket(json[CBSDKD_MSGFLD_HANDLE_BUCKET].asString())
+    {
+        const Json::Value& opts = json[CBSDKD_MSGFLD_HANDLE_OPTIONS];
+        if ( opts.asBool() ) {
+            timeout = opts[CBSDKD_MSGFLD_HANDLE_OPT_TMO].asUInt();
+        } else {
+            timeout = 0;
+        }
+    }
+
+    bool isValid() {
+        return (hostname.size() && bucket.size());
+    }
+
+    std::string hostname,
+                username,
+                password,
+                bucket;
+
+    unsigned long timeout;
+};
 
 class Handle {
 public:
     virtual ~Handle();
 
-    Handle(Request const&);
-
-    static bool verifyRequest(Request const&, std::string *errmsg);
+    Handle(const HandleOptions& options);
 
     bool connect(Error *errp);
 
-    ResultSet
+    bool
     dsGet(Command cmd,
-          Dataset const& ds, Json::Value const& options);
+          Dataset const& ds, ResultSet& out,
+          ResultOptions const& options = ResultOptions());
 
-
-
-    ResultSet
+    bool
     dsKeyop(Command cmd,
-            Dataset const& ds, Json::Value const& options);
+            Dataset const& ds, ResultSet& out,
+            ResultOptions const& options = ResultOptions());
 
-    ResultSet
+    bool
     dsMutate(Command cmd,
-             Dataset const&, Json::Value const& options);
+             Dataset const&, ResultSet& out,
+             ResultOptions const& options = ResultOptions());
 
     static int
     mapError(libcouchbase_error_t err, int defl = Error::SUCCESS) {
@@ -125,8 +182,8 @@ public:
 
 
 private:
+    HandleOptions options;
     bool is_connected;
-    Request const req;
 
     int ifd;
     int ofd;

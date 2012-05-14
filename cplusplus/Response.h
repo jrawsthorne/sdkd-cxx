@@ -22,8 +22,11 @@ public:
 
     // Copy constructor gets called just fine here..
     Response(const Request*, Error const& = Error());
+    Response(const Request&, Error const& = Error());
     // But not here?
+
     const string encode() const;
+
     void setResponseData(Json::Value& rdata);
 
 private:

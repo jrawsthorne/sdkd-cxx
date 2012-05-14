@@ -22,7 +22,8 @@ public:
     }
     bool isValid();
 
-    static Request* decode(std::string&, Error *errp);
+    static Request* decode(std::string&, Error *errp,
+                           bool keep_on_error = false);
 
 };
 

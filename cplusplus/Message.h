@@ -64,6 +64,8 @@ public:
 
     Json::Value payload;
 
+    Error getError() const { return err; }
+
 protected:
     Error err;
 };

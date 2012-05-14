@@ -5,13 +5,14 @@
  *      Author: mnunberg
  */
 
-#include "/home/mnunberg/src/cbsdkd/cplusplus/Request.h"
+#include "Request.h"
+#include "cbsdkd.h"
 
 namespace CBSdkd {
 
 
 Request::Request(std::string& str): Message(str) {
-    this->payload = this->payload["CommandData"];
+    this->payload = this->payload[CBSDKD_MSGFLD_REQDATA];
     if (!this->payload) {
         this->err = Error(Error::SUBSYSf_SDKD,
                           Error::SDKD_EINVAL,
@@ -27,13 +28,17 @@ Request::isValid()
 }
 
 Request *
-Request::decode(string& str, Error *errp)
+Request::decode(string& str, Error *errp, bool keep_on_error)
 {
     Request *ret = new Request(str);
     if (ret->isValid() == false) {
-        *errp = ret->err;
-        delete ret;
-        return NULL;
+        if (errp) {
+            *errp = ret->err;
+        }
+        if (keep_on_error == false) {
+            delete ret;
+            return NULL;
+        }
     }
     return ret;
 }

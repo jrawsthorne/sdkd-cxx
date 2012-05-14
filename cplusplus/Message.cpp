@@ -6,6 +6,8 @@
  */
 
 #include "Message.h"
+#include "cbsdkd.h"
+
 #include <cstdlib>
 
 namespace CBSdkd {
@@ -39,16 +41,14 @@ Message::Message(string& str) {
     Json::Reader reader;
 
     if (! reader.parse(str, json, false)) {
-        cerr << "Couldn't parse JSON string "
-                << str << ":"
-                << reader.getFormatedErrorMessages();
-
-        abort();
+        err = Error(Error::SUBSYSf_SDKD, Error::SDKD_EINVAL,
+                    reader.getFormatedErrorMessages());
+        return;
     }
 
-    this->reqid = json["ReqID"].asUInt();
-    this->handle_id = json["Handle"].asUInt();
-    this->command = Command(json["Command"].asString());
+    this->reqid = json[CBSDKD_MSGFLD_REQID].asUInt();
+    this->handle_id = json[CBSDKD_MSGFLD_HID].asUInt();
+    this->command = Command(json[CBSDKD_MSGFLD_CMD].asString());
     this->payload = json;
 }
 

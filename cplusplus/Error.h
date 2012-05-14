@@ -51,6 +51,14 @@ public:
         this->code = static_cast<Error::Code>(code);
     }
 
+    void setString(std::string errstr) {
+        this->errstr = errstr;
+    }
+
+    void clear() {
+        *this = 0; // trigger operator=
+    }
+
     Error() {
         this->code = SUCCESS;
     }
@@ -96,6 +104,9 @@ public:
 
     void operator=(Code v) {
         this->code = v;
+        if (!v) {
+            this->errstr = "";
+        }
     }
 
     Code code;

@@ -9,6 +9,7 @@
 #define DATASET_H_
 
 #include "Message.h"
+#include "Request.h"
 #include "Error.h"
 #include <list>
 
@@ -61,7 +62,15 @@ public:
 
     virtual DatasetIterator* getIter() const = 0;
     virtual unsigned int getCount() const = 0;
+
     bool isValid();
+
+    static Type
+    determineType(const Request& req, std::string *refid);
+
+    static Dataset*
+    fromType(Type t, const Request& req);
+
     Error err;
     Type type;
 };

@@ -5,7 +5,7 @@
  *      Author: mnunberg
  */
 
-#include "/home/mnunberg/src/cbsdkd/cplusplus/Handle.h"
+#include "Handle.h"
 #include <cstdlib>
 #include <cstdio>
 
@@ -18,9 +18,9 @@ std::map<libcouchbase_error_t,int> Handle::Errmap =
 CBSDKD_XERRMAP(X);
 #undef X
 
-Handle::Handle(Request const& r) :
+Handle::Handle(const HandleOptions& opts) :
+        options(opts),
         is_connected(false),
-        req(r),
         instance(NULL)
 {
 }
@@ -32,44 +32,27 @@ Handle::~Handle() {
     instance = NULL;
 }
 
-bool
-Handle::verifyRequest(const Request& req, std::string *errmsg)
-{
-    std::string myerr = "";
-    const Json::Value& params = req.payload;
-    if ( (!params["Hostname"]) || (!params["Bucket"])) {
-        myerr = "Missing hostname or bucket";
-    }
-    if (myerr.size()) {
-        errmsg->assign(myerr);
-        return false;
-    }
-    errmsg->assign("");
-    return true;
-}
+#define cstr_ornull(s) \
+    ((s.size()) ? s.c_str() : NULL)
 
 bool
 Handle::connect(Error *errp)
 {
     // Gather parameters
     libcouchbase_error_t the_error;
-    Json::Value const& params = this->req.payload;
-    instance = libcouchbase_create(params["Hostname"].asCString(),
-                                   params["Username"].asCString(),
-                                   params["Password"].asCString(),
-                                   params["Bucket"].asCString(),
+    instance = libcouchbase_create(cstr_ornull(options.hostname),
+                                   cstr_ornull(options.username),
+                                   cstr_ornull(options.password),
+                                   cstr_ornull(options.bucket),
                                    NULL);
+
     if (!instance) {
         errp->setCode(Error::SUBSYSf_CLIENT|Error::ERROR_GENERIC);
         errp->errstr = "Could not construct handle";
         return false;
     }
-    if (params["Options"].isObject() &&
-            params["Options"]["Timeout"].isIntegral()) {
-        libcouchbase_set_timeout(instance,
-                                 (unsigned int)
-                                 (params["Options"]["Timeout"].asFloat() *
-                                 1000000));
+    if (options.timeout) {
+        libcouchbase_set_timeout(instance, options.timeout * 1000000);
     }
 
     libcouchbase_set_error_callback(instance, cb_err);
@@ -97,6 +80,7 @@ Handle::connect(Error *errp)
     if (pending_errors.size()) {
         *errp = pending_errors.back();
         pending_errors.clear();
+        return false;
     }
     return true;
 }
@@ -115,9 +99,6 @@ _kop_common(ResultSet *rs,
             const void *key, size_t nkey, libcouchbase_error_t err)
 {
     int myerr = Handle::mapError(err, Error::SUBSYSf_MEMD|Error::ERROR_GENERIC);
-    if (err != LIBCOUCHBASE_SUCCESS) {
-        printf("Got error (%d)\n", err);
-    }
     rs->stats[myerr]++;
     rs->remaining--;
     if (rs->options.full) {
@@ -128,7 +109,7 @@ _kop_common(ResultSet *rs,
 }
 
 void
-Handle::cb_keyop(libcouchbase_t instance, ResultSet * rs,
+Handle::cb_keyop(libcouchbase_t instance, ResultSet* rs,
                  libcouchbase_error_t err,
                  const void* key, libcouchbase_size_t nkey)
 {
@@ -181,13 +162,14 @@ ResultSet::setError(libcouchbase_t instance, libcouchbase_error_t err,
     stats[myerr]++;
 }
 
-ResultSet
-Handle::dsGet(Command cmd, Dataset const &ds, const Json::Value& options)
+bool
+Handle::dsGet(Command cmd, Dataset const &ds, ResultSet& out,
+              const ResultOptions& options)
 {
-    ResultSet ret;
-    ret.options = ResultOptions(options);
 
-    libcouchbase_time_t exp = ret.options.expiry;
+    out.options = options;
+    out.clear();
+    libcouchbase_time_t exp = out.options.expiry;
     DatasetIterator* iter = ds.getIter();
 
     for (iter->start(); iter->done() == false; iter->advance()) {
@@ -197,30 +179,30 @@ Handle::dsGet(Command cmd, Dataset const &ds, const Json::Value& options)
         const char *cstr = k.c_str();
 
         libcouchbase_error_t err =
-                libcouchbase_mget(instance, &ret, 1,
+                libcouchbase_mget(instance, &out, 1,
                                   (const void**)&cstr, &sz, &exp);
         if (err == LIBCOUCHBASE_SUCCESS) {
-            ret.remaining++;
+            out.remaining++;
         } else {
-            ret.setError(instance, err, k);
+            out.setError(instance, err, k);
         }
     }
 
     delete iter;
 
-    if (ret.remaining) {
+    if (out.remaining) {
         libcouchbase_wait(instance);
     }
 
-    return ret;
+    return true;
 }
 
-ResultSet
-Handle::dsMutate(Command cmd,
-                 const Dataset& ds, const Json::Value& options)
+bool
+Handle::dsMutate(Command cmd, const Dataset& ds, ResultSet& out,
+                 const ResultOptions& options)
 {
-    ResultSet ret;
-    ret.options = ResultOptions(options);
+    out.options = options;
+    out.clear();
     libcouchbase_storage_t storop;
 
     if (cmd == Command::MC_DS_MUTATE_ADD) {
@@ -234,13 +216,13 @@ Handle::dsMutate(Command cmd,
     } else if (cmd == Command::MC_DS_MUTATE_REPLACE) {
         storop = LIBCOUCHBASE_REPLACE;
     } else {
-        ret.oper_error = Error(Error::SUBSYSf_SDKD,
+        out.oper_error = Error(Error::SUBSYSf_SDKD,
                                Error::SDKD_EINVAL,
                                "Unknown mutation operation");
-        return ret;
+        return false;
     }
 
-    libcouchbase_time_t exp = ret.options.expiry;
+    libcouchbase_time_t exp = out.options.expiry;
     DatasetIterator *iter = ds.getIter();
 
 
@@ -250,36 +232,37 @@ Handle::dsMutate(Command cmd,
         const char *kstr = k.data(), *vstr = v.data();
 
         libcouchbase_error_t err =
-                libcouchbase_store(instance, &ret, storop,
+                libcouchbase_store(instance, &out, storop,
                                    kstr, ksz,
                                    vstr, vsz,
                                    0, exp, 0);
 
         if (err == LIBCOUCHBASE_SUCCESS) {
-            ret.remaining++;
+            out.remaining++;
         } else {
-            ret.setError(instance, err, k);
+            out.setError(instance, err, k);
         }
-        if (ret.options.delay) {
-            usleep(ret.options.delay * 1000);
+        if (out.options.delay) {
+            usleep(out.options.delay * 1000);
         }
     }
+    delete iter;
 
-    if (ret.remaining) {
+    if (out.remaining) {
         libcouchbase_wait(instance);
     }
-    return ret;
+    return true;
 }
 
-ResultSet
-Handle::dsKeyop(Command cmd,
-                const Dataset& ds, const Json::Value& options)
+bool
+Handle::dsKeyop(Command cmd, const Dataset& ds, ResultSet& out,
+                const ResultOptions& options)
 {
-    ResultSet ret;
-    ret.options = ResultOptions(options);
-    libcouchbase_time_t exp = ret.options.expiry;
-
+    out.options = options;
+    out.clear();
+    libcouchbase_time_t exp = out.options.expiry;
     DatasetIterator *iter = ds.getIter();
+
 
     for (iter->start(); iter->done() == false; iter->advance()) {
         std::string k = iter->key();
@@ -287,25 +270,56 @@ Handle::dsKeyop(Command cmd,
         libcouchbase_size_t ksz = k.size();
         libcouchbase_error_t err;
         if (cmd == Command::MC_DS_DELETE) {
-            err = libcouchbase_remove(instance, &ret, kstr, ksz, 0);
+            err = libcouchbase_remove(instance, &out, kstr, ksz, 0);
         } else {
-            err = libcouchbase_mtouch(instance, &ret,
+            err = libcouchbase_mtouch(instance, &out,
                                       1, (const void**)&kstr, &ksz,
                                       &exp);
         }
         if (err == LIBCOUCHBASE_SUCCESS) {
-            ret.remaining++;
+            out.remaining++;
         } else {
-            ret.setError(instance, err, k);
+            out.setError(instance, err, k);
         }
-        if (ret.options.delay) {
-            usleep(ret.options.delay * 1000);
+        if (out.options.delay) {
+            usleep(out.options.delay * 1000);
         }
     }
-    if (ret.remaining) {
+    delete iter;
+
+    if (out.remaining) {
         libcouchbase_wait(instance);
     }
-    return ret;
+    return true;
+}
+
+void
+ResultSet::resultsJson(Json::Value *in) const
+{
+    Json::Value summaries, &root = *in;
+
+    for (std::map<int,int>::const_iterator iter = this->stats.begin();
+            iter != this->stats.end(); iter++ ) {
+        summaries[iter->first] = iter->second;
+    }
+
+    root[CBSDKD_MSGFLD_DSRES_STATS] = summaries;
+
+    if (options.full) {
+        Json::Value fullstats;
+        for (
+                std::map<std::string,FullResult>::const_iterator
+                    iter = this->fullstats.begin();
+                iter != this->fullstats.end();
+                iter++
+                ) {
+            Json::Value stat;
+            stat[0] = iter->second.getStatus();
+            stat[1] = iter->second.getString();
+            fullstats[iter->first] = stat;
+        }
+        root[CBSDKD_MSGFLD_DSRES_FULL] = fullstats;
+    }
 }
 
 } /* namespace CBSdkd */

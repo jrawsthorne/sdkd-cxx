@@ -5,21 +5,22 @@
  *      Author: mnunberg
  */
 
-#include "/home/mnunberg/src/cbsdkd/cplusplus/Dataset.h"
+#include "Dataset.h"
 #include <cstdio>
 #include <cstring>
 #include <cassert>
 #include <cstdlib>
 #include <auto_ptr.h>
+#include "cbsdkd.h"
 
 namespace CBSdkd {
 
 
 
-Dataset::Dataset(Type t) {
-    // TODO Auto-generated constructor stub
-    this->type = t;
-    this->err.code = (Error::Code)0;
+Dataset::Dataset(Type t) :
+        err( (Error::Code)0),
+        type(t)
+{
 }
 
 bool
@@ -30,7 +31,59 @@ Dataset::isValid() {
     return false;
 }
 
+// Here a dataset may either contain actual data, or a reference to a pre-defined
+// dataset.. We only return the type. The caller should determine
+// The proper constructor
 
+Dataset::Type
+Dataset::determineType(const Request& req, std::string* refid)
+{
+    // json is CommandData
+    Type ret;
+    if (!req.payload[CBSDKD_MSGFLD_DSREQ_DSTYPE]) {
+        return DSTYPE_INVALID;
+    }
+
+    if (!req.payload[CBSDKD_MSGFLD_DSREQ_DS]) {
+        return DSTYPE_INVALID;
+    }
+
+    std::string typestr = req.payload[CBSDKD_MSGFLD_DSREQ_DSTYPE].asString();
+    const Json::Value &dsdata = req.payload[CBSDKD_MSGFLD_DSREQ_DS];
+
+#define XX(c) \
+    if (typestr == #c) { ret = c; goto GT_DONE; }
+    CBSDKD_DATASET_XTYPE(XX)
+#undef XX
+
+    return DSTYPE_INVALID;
+
+    GT_DONE:
+    if (ret == DSTYPE_REFERENCE) {
+        if (! dsdata[CBSDKD_MSGFLD_DS_ID]) {
+            return DSTYPE_INVALID;
+        } else {
+            if (refid) *refid = dsdata[CBSDKD_MSGFLD_DS_ID].asString();
+        }
+    } else {
+        if (refid) *refid = "";
+    }
+    return ret;
+}
+
+Dataset *
+Dataset::fromType(Type t, const Request& req)
+{
+    Dataset *ret;
+    if (t == DSTYPE_INLINE) {
+        ret = new DatasetInline(req.payload[CBSDKD_MSGFLD_DSREQ_DS]);
+    } else if (t == DSTYPE_SEEDED) {
+        ret = new DatasetSeeded(req.payload[CBSDKD_MSGFLD_DSREQ_DS]);
+    } else {
+        ret = NULL;
+    }
+    return ret;
+}
 
 const std::string
 DatasetIterator::key() const
@@ -62,12 +115,14 @@ void DatasetIterator::advance()
 DatasetInline::DatasetInline(const Json::Value& json)
 : Dataset::Dataset(Dataset::DSTYPE_INLINE)
 {
-    if (!json["Items"]) {
+    const Json::Value& dsitems = json[CBSDKD_MSGFLD_DSINLINE_ITEMS];
+
+    if (!dsitems.asBool()) {
         this->err = Error(Error::SDKD_EINVAL,
                           "Expected 'Items' but couldn't find any");
         return;
     }
-    this->items = json["Items"];
+    this->items = dsitems;
 }
 
 DatasetIterator *
@@ -133,13 +188,13 @@ DatasetSeeded::DatasetSeeded(const Json::Value& jspec)
     struct DatasetSeedSpecification *spec = &this->spec;
     memset(spec, 0, sizeof(*spec));
 
-    spec->kseed = jspec["KSeed"].asString();
-    spec->vseed = jspec["VSeed"].asString();
-    spec->ksize = jspec["KSize"].asUInt();
-    spec->vsize = jspec["VSize"].asUInt();
+    spec->kseed = jspec[CBSDKD_MSGFLD_DSSEED_KSEED].asString();
+    spec->vseed = jspec[CBSDKD_MSGFLD_DSSEED_VSEED].asString();
+    spec->ksize = jspec[CBSDKD_MSGFLD_DSSEED_KSIZE].asUInt();
+    spec->vsize = jspec[CBSDKD_MSGFLD_DSSEED_VSIZE].asUInt();
 
-    spec->repeat = jspec["Repeat"].asString();
-    spec->count = jspec["Count"].asUInt();
+    spec->repeat = jspec[CBSDKD_MSGFLD_DSSEED_REPEAT].asString();
+    spec->count = jspec[CBSDKD_MSGFLD_DSSEED_COUNT].asUInt();
     verify_spec();
 
 }
