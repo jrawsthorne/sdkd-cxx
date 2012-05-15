@@ -76,7 +76,26 @@ The simplest way to do this is using C<cpanm>
     sudo cpanm Moo Couchbase::Client JSON::XS Data::Dumper::Concise Log::Fu
     sudo cpanm Carp::Always
 
+To run the perl C<sdkd> with C<cbsdk_client>
+
+    ./cbsdk_client -C conf/perl.cfg < ... options ... >
+
 
 Note that C<Couchbase::Client> uses an embedded version of libcouchbase
 which may not be the most recent (I think it may use the system-provided
 library, if installed.. but I am not sure.. been a while :)
+
+
+
+The C++/libcouchbase-based C<cplusplus/sdkd_lcb> requires libcouchbase
+headers and JsonCPP. On debian systems you may install it via apt:
+
+    sudo apt-get install libjsoncpp0 libjsoncpp-dev
+
+Then
+
+    make -C cplusplus CXX=g++
+
+To run the C++/libcouchbase C<sdkd>
+
+    ./cbsdk_client -C conf/lcb.cfg < ... options ... >
