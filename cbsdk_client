@@ -10,6 +10,7 @@ import cbsdk
 import cbsdk.constants
 import cbsdk.driver
 import cbsdk.dataset
+import ConfigParser
 
 
 parser = argparse.ArgumentParser(description = "Couchbase SDK Driver")
@@ -45,13 +46,37 @@ parser.add_argument('--simple', action = 'store_true', default = False,
 parser.add_argument('--batched', action = 'store_true', default = False,
                     help = "Do batched run")
 
-parser.add_argument('-D', '--delay', default = 0,
+parser.add_argument('-D', '--delay', default = 0, type = int,
                     help = "Delay (in msec) between each iteration (for batched)")
 
 parser.add_argument('-M', '--multi', default = 0, type = int,
                     help = "Use this many concurrent handles")
 
+parser.add_argument('-C', '--config', default = "conf/perl.cfg", type = str,
+                    help = "Configuration file to use")
+
+parser.add_argument('-S', '--section', default = "multi", type = str,
+                    help = "Section to use within configuration")
+
+parser.add_argument('-X', '--debugger', type = str,
+                    help = 'Spawn sdkd with this prepended to the command line'),
+
 args = parser.parse_args()
+
+confparser = ConfigParser.RawConfigParser()
+confparser.read(args.config)
+
+confdict = dict(confparser.items(args.section))
+cmdline = eval(confdict["exe"])
+
+if args.debugger:
+    debugargs = args.debugger.split(' ')
+    assert len(debugargs)
+    print debugargs
+    cmdline = debugargs + cmdline
+
+driverclass = getattr(cbsdk.driver, confdict['driver'])
+driveropts = eval(confdict['driver_options'])
 
 
 loghandler = logging.StreamHandler()
@@ -64,23 +89,18 @@ logging.getLogger().addHandler(loghandler)
 
 log = logging.getLogger()
 
+
+
 if args.debug:
     logging.getLogger().setLevel(logging.DEBUG)
-
-
-driverclass = None
-classopts = {}
-cmdline = ["/usr/bin/perl", "-MCarp::Always", "sdkbin/sdkd_perl"]
-
-if args.multi:
-    driverclass = cbsdk.driver.DriverInet
-    classopts.update( { "portinfo" : "portinfo.txt" } )
-    cmdline += ["--mode=mp", "--infofile=portinfo.txt"]
-    
 else:
-    driverclass = cbsdk.driver.DriverStdio
+    logging.getLogger().setLevel(logging.INFO)
 
-driver = driverclass(cmdline, **classopts)
+
+log.info("Command line: " + str(cmdline))
+log.info("Using driver: " + confdict["driver"])
+
+driver = driverclass(cmdline, **driveropts)
 
 
 itermax = args.count
@@ -124,6 +144,8 @@ if args.simple:
     driver.destroy_handle(handle)
 
 
+statistics = {}
+
 if args.batched:
     log.info("Will do dataset operations..")
         
@@ -139,7 +161,8 @@ if args.batched:
     log.info("Deleting Keys...")
     rv = handle.invoke_command(
         handle.ds_keyop(ds,
-                        cbsdk.constants.KOP_DELETE))
+                        cbsdk.constants.KOP_DELETE,
+                        IterWait = 1))
     log.debug(rv)
     
     driver.destroy_handle(handle)
@@ -149,7 +172,7 @@ if args.batched:
     handle_count = args.multi if args.multi > 0 else 1
     log.debug("Will spawn handles " + str(handle_count))
     
-    for i in xrange(1, handle_count):
+    for i in xrange(0, handle_count):
         handle = driver.create_handle(**handle_args)
         handles.append(handle)
     
@@ -160,10 +183,22 @@ if args.batched:
                              Expiry = args.expiry,
                              DelayMsec = args.delay),
             wait = False)
+            
         log.debug(rv)
+    
+    statistics['SET'] = {}
+    statistics['GET'] = {}
     
     for handle in handles:
         resp = handle.conduit.recv_msg()
+        
+        getstats = statistics['SET']
+        for k,v in resp.summary().items():
+            if not getstats.has_key(k):
+                getstats[k] = 0
+                
+            getstats[k] += v
+        
         log.debug(resp)
         
     for handle in handles:        
@@ -175,4 +210,14 @@ if args.batched:
     
     for handle in handles:
         resp = handle.conduit.recv_msg()
+        
+        setstats = statistics['GET']
+        for k,v in resp.summary().items():
+            
+            if not setstats.has_key(k):
+                setstats[k] = 0
+            setstats[k] += v
+                
         log.debug(resp)
+        
+    print statistics
