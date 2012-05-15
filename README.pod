@@ -99,3 +99,67 @@ Then
 To run the C++/libcouchbase C<sdkd>
 
     ./cbsdk_client -C conf/lcb.cfg < ... options ... >
+
+
+For OS X systems, the build process is slightly more complex.. here is
+a log of my session:
+
+    mbp:src mnunberg$ git clone https://github.com/mrtazz/json-cpp.git
+    mbp:src mnunberg$ cd json-cpp/
+    mbp:json-cpp mnunberg$ make -f makefiles/gcc/Makefile staticlibrary
+    
+    # Now that we've built jsoncpp, go in to the cbsdk directory
+    
+    mbp:json-cpp mnunberg$ cd ~/src/cbsdkd-test/cbsdkd/
+    mbp:cbsdkd mnunberg$ make -C cplusplus/ JSONCPP_CPPFLAGS=-I$HOME/src/json-cpp/include JSONCPP_LFLAGS=~/src/json-cpp/lib/libjson-cpp.a
+    mbp:cbsdkd mnunberg$ ./cbsdk_client -C conf/lcb.cfg --simple -c 5 -d -H 10.0.0.99 -b membase0
+    [root cbsdk_client:100] Command line: ['cplusplus/sdkd_lcb', 'infofile=portinfo.txt']
+    [root cbsdk_client:101] Using driver: DriverInet
+    [root driver.py:149] Executing: ['cplusplus/sdkd_lcb', 'infofile=portinfo.txt']
+    [root driver.py:255] Will wait for file (portinfo.txt) to settle
+    [Errno 2] No such file or directory: 'portinfo.txt'
+    [cbskd-test] main:61 Listening on port 55232
+    [root driver.py:255] Will wait for file (portinfo.txt) to settle
+    [root driver.py:246] Created new connection to 55232
+    [root driver.py:246] Created new connection to 55232
+    [driver driver.py:36] > NEWHANDLE:1 @1 {'Hostname': '10.0.0.99', 'Bucket': 'membase0', 'Port': 8091, 'Options': {'Username': '', 'Password': '', 'Timeout': 30}}
+    [driver driver.py:44] < NEWHANDLE:1 @1 (OK) {}
+    [driver cbsdk_client:126] Doing simple iterations..
+    [driver cbsdk_client:127] Doing pre-deletion..
+    [driver driver.py:36] > MC_DS_DELETE:2 @1 {'DSType': 'DSTYPE_INLINE', 'DS': {'Items': ['KEY_KEY_0'], 'HasValues': False}, 'Options': {}}
+    [driver driver.py:44] < MC_DS_DELETE:2 @1 (OK) {u'Summary': {u'520': 1}}
+    [driver driver.py:36] > MC_DS_DELETE:3 @1 {'DSType': 'DSTYPE_INLINE', 'DS': {'Items': ['KEY_KEY_1'], 'HasValues': False}, 'Options': {}}
+    [driver driver.py:44] < MC_DS_DELETE:3 @1 (OK) {u'Summary': {u'520': 1}}
+    [driver driver.py:36] > MC_DS_DELETE:4 @1 {'DSType': 'DSTYPE_INLINE', 'DS': {'Items': ['KEY_KEY_2'], 'HasValues': False}, 'Options': {}}
+    [driver driver.py:44] < MC_DS_DELETE:4 @1 (OK) {u'Summary': {u'520': 1}}
+    [driver driver.py:36] > MC_DS_DELETE:5 @1 {'DSType': 'DSTYPE_INLINE', 'DS': {'Items': ['KEY_KEY_3'], 'HasValues': False}, 'Options': {}}
+    [driver driver.py:44] < MC_DS_DELETE:5 @1 (OK) {u'Summary': {u'520': 1}}
+    [driver driver.py:36] > MC_DS_DELETE:6 @1 {'DSType': 'DSTYPE_INLINE', 'DS': {'Items': ['KEY_KEY_4'], 'HasValues': False}, 'Options': {}}
+    [driver driver.py:44] < MC_DS_DELETE:6 @1 (OK) {u'Summary': {u'520': 1}}
+    [driver driver.py:36] > MC_DS_MUTATE_SET:7 @1 {'DSType': 'DSTYPE_INLINE', 'DS': {'Items': [('KEY_0', 'KEY_0')], 'HasValues': True}, 'Options': {'Expiry': 300}}
+    [driver driver.py:44] < MC_DS_MUTATE_SET:7 @1 (OK) {u'Summary': {u'0': 1}}
+    [driver driver.py:36] > MC_DS_MUTATE_SET:8 @1 {'DSType': 'DSTYPE_INLINE', 'DS': {'Items': [('KEY_1', 'KEY_1')], 'HasValues': True}, 'Options': {'Expiry': 300}}
+    [driver driver.py:44] < MC_DS_MUTATE_SET:8 @1 (OK) {u'Summary': {u'0': 1}}
+    [driver driver.py:36] > MC_DS_MUTATE_SET:9 @1 {'DSType': 'DSTYPE_INLINE', 'DS': {'Items': [('KEY_2', 'KEY_2')], 'HasValues': True}, 'Options': {'Expiry': 300}}
+    [driver driver.py:44] < MC_DS_MUTATE_SET:9 @1 (OK) {u'Summary': {u'0': 1}}
+    [driver driver.py:36] > MC_DS_MUTATE_SET:10 @1 {'DSType': 'DSTYPE_INLINE', 'DS': {'Items': [('KEY_3', 'KEY_3')], 'HasValues': True}, 'Options': {'Expiry': 300}}
+    [driver driver.py:44] < MC_DS_MUTATE_SET:10 @1 (OK) {u'Summary': {u'0': 1}}
+    [driver driver.py:36] > MC_DS_MUTATE_SET:11 @1 {'DSType': 'DSTYPE_INLINE', 'DS': {'Items': [('KEY_4', 'KEY_4')], 'HasValues': True}, 'Options': {'Expiry': 300}}
+    [driver driver.py:44] < MC_DS_MUTATE_SET:11 @1 (OK) {u'Summary': {u'0': 1}}
+    [driver driver.py:36] > MC_DS_GET:12 @1 {'DSType': 'DSTYPE_INLINE', 'DS': {'Items': ['KEY_0'], 'HasValues': False}, 'Options': {'Detailed': True}}
+    [driver driver.py:44] < MC_DS_GET:12 @1 (OK) {u'Details': {u'KEY_0': [0, u'KEY_0']}, u'Summary': {u'0': 1}}
+    [driver driver.py:36] > MC_DS_GET:13 @1 {'DSType': 'DSTYPE_INLINE', 'DS': {'Items': ['KEY_1'], 'HasValues': False}, 'Options': {'Detailed': True}}
+    [driver driver.py:44] < MC_DS_GET:13 @1 (OK) {u'Details': {u'KEY_1': [0, u'KEY_1']}, u'Summary': {u'0': 1}}
+    [driver driver.py:36] > MC_DS_GET:14 @1 {'DSType': 'DSTYPE_INLINE', 'DS': {'Items': ['KEY_2'], 'HasValues': False}, 'Options': {'Detailed': True}}
+    [driver driver.py:44] < MC_DS_GET:14 @1 (OK) {u'Details': {u'KEY_2': [0, u'KEY_2']}, u'Summary': {u'0': 1}}
+    [driver driver.py:36] > MC_DS_GET:15 @1 {'DSType': 'DSTYPE_INLINE', 'DS': {'Items': ['KEY_3'], 'HasValues': False}, 'Options': {'Detailed': True}}
+    [driver driver.py:44] < MC_DS_GET:15 @1 (OK) {u'Details': {u'KEY_3': [0, u'KEY_3']}, u'Summary': {u'0': 1}}
+    [driver driver.py:36] > MC_DS_GET:16 @1 {'DSType': 'DSTYPE_INLINE', 'DS': {'Items': ['KEY_4'], 'HasValues': False}, 'Options': {'Detailed': True}}
+    [driver driver.py:44] < MC_DS_GET:16 @1 (OK) {u'Details': {u'KEY_4': [0, u'KEY_4']}, u'Summary': {u'0': 1}}
+    [lcb-sdkd-worker fd=5] getRawMessage:74 Remote closed the connection..
+    [LCB SDKD Control] getRawMessage:74 Remote closed the connection..
+    [LCB SDKD Control] ~MainDispatch:158 mbp:cbsdkd mnunberg$ Bye Bye!
+    
+    mbp:cbsdkd mnunberg$
+    
+
