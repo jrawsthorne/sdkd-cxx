@@ -96,7 +96,9 @@ class CreateDataset(Request):
         cmd_data["DS"] = dsdict         
             
 class DSOperation(Request):
-    _allowed_options = ("Detailed","DelayMsec", "Dataset")
+    _allowed_options = ("Detailed","DelayMsec", "Dataset",
+                        "DelayMin", "DelayMax", "IterWait",
+                        "Multi")
     
     def __init__(self, reqid, hid, ds,
                  subcmd = None,
