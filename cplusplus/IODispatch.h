@@ -16,11 +16,43 @@
 #include "Request.h"
 #include "Response.h"
 #include "Handle.h"
+#include "contrib/debug++.h"
+#include <cstdio>
 
 
 namespace CBSdkd {
 
-class IODispatch {
+class IOProtoHandler : protected DebugContext {
+public:
+    enum IOStatus {
+        OK,
+        NOTYET,
+        ERR
+    };
+
+    IOProtoHandler(int newsock) : sockfd(newsock) { }
+    IOProtoHandler() : sockfd(-1), inbuf("") { }
+
+    virtual ~IOProtoHandler()  {
+        if (sockfd >= 0) {
+            close(sockfd);
+            sockfd = -1;
+        }
+    }
+
+    IOStatus getRawMessage(std::string& msgbuf, bool do_block = true);
+    IOStatus putRawMessage(const std::string& msgbuf, bool do_block = true);
+
+    void writeResponse(const Response& res);
+    Request* readRequest(bool do_block = false, Request* reqp = NULL);
+
+protected:
+    int sockfd;
+    std::string inbuf;
+    std::list<std::string> newlines;
+};
+
+class IODispatch : protected IOProtoHandler {
 
 public:
     IODispatch();
@@ -28,19 +60,6 @@ public:
 
     virtual void run() = 0;
 
-protected:
-    int sockfd;
-    // Store the 'raw' unparsed input buffer
-    std::string inbuf;
-
-    // line-based input queue
-    std::list<std::string> newlines;
-
-    Request* readRequest(bool do_block = false);
-    void writeResponse(const Response& res);
-
-private:
-    Request * _get_single_request();
 };
 
 class MainDispatch;
@@ -66,15 +85,16 @@ private:
     std::list<WorkerDispatch*> children;
 
     pthread_mutex_t dsmutex;
+    void _collect_workers();
 };
 
-class WorkerDispatch : public IODispatch {
+class WorkerDispatch : protected IODispatch {
 
 public:
-
+    friend class MainDispatch;
     WorkerDispatch(int newsock, MainDispatch* parent);
+    virtual ~WorkerDispatch();
 
-    virtual ~WorkerDispatch() { }
     void run();
 
     pthread_t thr;
@@ -82,7 +102,7 @@ public:
 private:
     MainDispatch *parent;
     bool is_alive;
-
+    char *friendly_cstr;
     static void *
     pthr_run(WorkerDispatch *w);
 };

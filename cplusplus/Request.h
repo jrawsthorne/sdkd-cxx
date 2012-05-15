@@ -16,11 +16,13 @@ namespace CBSdkd {
 class Request : public CBSdkd::Message {
 public:
     Request(std::string&);
+    Request();
 
     virtual ~Request() {
         // TODO Auto-generated destructor stub
     }
     bool isValid();
+    virtual bool refreshWith(const string&, bool);
 
     static Request* decode(std::string&, Error *errp,
                            bool keep_on_error = false);

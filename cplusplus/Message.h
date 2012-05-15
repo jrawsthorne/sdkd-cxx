@@ -32,7 +32,7 @@ public:
     std::string cmdstr;
 
     enum Code {
-
+        _BEGIN = 0,
 #define X(c) c,
         CBSDKD_XCOMMAND(X)
 #undef X
@@ -57,6 +57,8 @@ public:
     Message(std::string& str);
     Message() { };
     virtual ~Message();
+
+    virtual bool refreshWith(const std::string& str, bool reset = true);
 
     unsigned long reqid;
     unsigned long handle_id;

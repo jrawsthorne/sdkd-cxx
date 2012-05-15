@@ -11,11 +11,14 @@
 #include <cstdio>
 #include <cassert>
 #include <cstdlib>
+#include "contrib/debug++.h"
 
 #define KVCOUNT 5
 
 using namespace CBSdkd;
 
+
+DebugContext CBSdkd::CBsdkd_Global_Debug_Context;
 
 static void
 testMessage(void)
@@ -110,6 +113,7 @@ testInlineIterator(void)
 static void
 testNewHandle(void)
 {
+    log_noctx_info("Testing handle operations..");
     Json::Value newv;
     std::string reqstr = "{ \"Command\" : \"NEWHANDLE\" ";
     reqstr += ", \"ReqID\" : 0";
@@ -187,6 +191,7 @@ testNewHandle(void)
     printf("\n");
 }
 
+// Separate thread we spawn as the 'client', for testing..
 static void *
 _dispatchfn(void *ctx)
 {
@@ -202,7 +207,7 @@ _dispatchfn(void *ctx)
     int newfd = socket(AF_INET, SOCK_STREAM, 0);
     assert(newfd != -1);
     assert(-1 != connect(newfd, (struct sockaddr*)saddr, sizeof(*saddr)));
-
+    IOProtoHandler iop = IOProtoHandler(newfd);
     Json::Value req;
     req["Command"] = "NEWHANDLE";
     req["ReqID"] = 32;
@@ -212,9 +217,17 @@ _dispatchfn(void *ctx)
     hjopts["Hostname"] = "localhost";
     req["CommandData"] = hjopts;
     std::string obuf = Json::FastWriter().write(req);
-    obuf += "\n";
-    size_t sz = obuf.length();
-    assert( sz == send(newfd, obuf.data(), sz, 0));
+
+    assert(iop.putRawMessage(obuf, true) == iop.OK);
+    std::string resbuf = "";
+    assert( iop.getRawMessage(resbuf, true) == iop.OK );
+    log_noctx_info("Got response %s", resbuf.c_str());
+    Json::Value res;
+    Json::Reader().parse(resbuf, res);
+    assert(res["Status"] == 0 && res["Handle"].asInt() == 1);
+
+
+
     close(newfd);
     close(ctlfd);
     return NULL;
@@ -233,6 +246,11 @@ static void testDispatcher(void)
 
 int main(void)
 {
+    CBsdkd_Global_Debug_Context.cbsdkd__debugctx.color = 1;
+    CBsdkd_Global_Debug_Context.cbsdkd__debugctx.initialized = 1;
+    CBsdkd_Global_Debug_Context.cbsdkd__debugctx.out = stderr;
+    CBsdkd_Global_Debug_Context.cbsdkd__debugctx.prefix = "cbskd-test";
+    CBsdkd_Global_Debug_Context.cbsdkd__debugctx.level = CBSDKD_LOGLVL_DEBUG;
 
     printf("Using libcouchbase version %s\n\n",
            libcouchbase_get_version(NULL));

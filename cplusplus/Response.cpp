@@ -7,6 +7,7 @@
 
 #include "Response.h"
 #include "cbsdkd.h"
+#include "contrib/debug++.h"
 
 namespace CBSdkd {
 
@@ -31,7 +32,10 @@ Response::encode() const {
     root[CBSDKD_MSGFLD_HID] = (int)this->handle_id;
 
     if (!this->response_data) {
-        cerr << "No response data for command...\n";
+        if (this->command.code != Command::NEWHANDLE) {
+            log_noctx_warn("No response data for command..");
+        }
+        root[CBSDKD_MSGFLD_RESDATA] = Json::Value(Json::objectValue);
     } else {
         root[CBSDKD_MSGFLD_RESDATA] = this->response_data;
     }

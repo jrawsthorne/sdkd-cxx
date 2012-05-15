@@ -5,7 +5,7 @@
  *      Author: mnunberg
  */
 
-#include "/home/mnunberg/src/cbsdkd/cplusplus/IODispatch.h"
+#include "IODispatch.h"
 #include <cstring>
 #include <cstdlib>
 #include <cassert>
@@ -18,116 +18,135 @@
 #include <auto_ptr.h>
 #include <signal.h>
 #include "Response.h"
+#include <cstdio>
+
 
 namespace CBSdkd {
 
 IODispatch::IODispatch()
-: sockfd(-1)
+: IOProtoHandler()
 {
 }
 
 IODispatch::~IODispatch()
 {
-    if (sockfd >= 0) {
-        close(sockfd);
-        sockfd = -1;
-    }
 }
 
-// Parse a single line, if it's a valid request, then return it.
-// If it's not, secretly send an error.. and return nothing.
-Request*
-IODispatch::_get_single_request()
+// Read a single line from the network, but don't return it.
+// This will possibly do network I/O and return an unparsed buffer.
+IOProtoHandler::IOStatus
+IOProtoHandler::getRawMessage(std::string& msgbuf, bool do_block)
 {
-    if (!newlines.size()) {
-        return NULL;
+    if (newlines.size()) {
+        msgbuf.assign(newlines.front());
+        newlines.pop_front();
+        if (msgbuf.size()) {
+            return this->OK;
+        }
     }
 
-    std::string line = newlines.front();
-    if (!line.size()) {
-        return NULL;
-    }
-    Request *ret = Request::decode(line, NULL, true);
-    if (ret->isValid()) {
-        return ret;
-    }
-
-    // It's bad!
-    assert(ret->getError() );
-    writeResponse( Response(ret, ret->getError()) );
-    delete ret;
-
-    return NULL;
-}
-
-Request *
-IODispatch::readRequest(bool do_block)
-{
     char buf[4096];
-    int rv;
-    int pos_begin = 0;
-    int rflags = (do_block) ? MSG_DONTWAIT : 0;
-    int do_read =  1;
-    Request *ret;
+    int rv, pos_begin = 0, rflags = (do_block) ? 0 : MSG_DONTWAIT, do_read = 1;
+    int nmsgs = 0;
 
     while (do_read) {
 
-        while ( (rv = recv(sockfd, buf, 4096, rflags)) > 0 ) {
-
+        while ( (rv = recv(sockfd, buf, 4096, rflags)) > 0) {
             for (int ii = 0; ii < rv; ii++) {
                 if (buf[ii] == '\n') {
-
                     std::string tmpbuf = inbuf;
-                    tmpbuf.append(buf, rv - ii);
+                    tmpbuf.append(buf, ii+1);
                     newlines.push_back(tmpbuf);
-                    inbuf = "";
+                    inbuf.clear();
                     pos_begin = ii;
+                    nmsgs++;
                 }
             }
-
             inbuf.append(buf + pos_begin, rv - pos_begin);
-
-            if (do_block && (ret = _get_single_request())) {
+            if (nmsgs) {
+                do_read = false;
                 break;
             }
-
         }
 
         if (rv == 0) {
             close(sockfd);
-            cerr << "Socket Closed\n";
+            log_error("Remote closed the connection..");
             sockfd = -1;
-            return NULL;
+            return this->ERR;
         }
-
         int errno_save = errno;
         if (errno_save == EAGAIN && do_block == false) {
             break;
-        }
-
-        if (errno_save == EINTR) {
+        } else if (errno_save == EINTR) {
             continue;
         }
+    }
+    if (!nmsgs) {
+        return this->NOTYET;
+    } else {
+        // Recurse
+        return getRawMessage(msgbuf, do_block);
+    }
+}
 
+
+
+Request *
+IOProtoHandler::readRequest(bool do_block, Request *reqp)
+{
+
+    std::string reqbuf;
+    int reqp_is_alloc = (reqp == NULL);
+
+    if (getRawMessage(reqbuf, do_block) != this->OK) {
+        return NULL;
     }
-    if (!ret) {
-        ret = _get_single_request();
+    if (reqp) {
+        reqp->refreshWith(reqbuf, true);
+    } else {
+        reqp = Request::decode(reqbuf, NULL, true);
     }
-    return ret;
+    if (reqp->isValid()) {
+        return reqp;
+    }
+
+    // It's bad!
+    assert(reqp->getError() );
+    writeResponse( Response(reqp, reqp->getError()) );
+    if (reqp_is_alloc) {
+        delete reqp;
+    }
+    return NULL;
+}
+
+IOProtoHandler::IOStatus
+IOProtoHandler::putRawMessage(const string& msgbuf, bool do_block)
+{
+    std::string nlbuf = msgbuf + "\n";
+    if (-1 == send(sockfd, msgbuf.c_str(), msgbuf.size(), 0)) {
+        log_error("Couldn't send: %s", strerror(errno));
+        return this->ERR;
+    }
+    return this->OK;
 }
 
 void
-IODispatch::writeResponse(const Response& res)
+IOProtoHandler::writeResponse(const Response& res)
 {
-    std::string outbuf = res.encode() + "\n";
-    if (-1 == send(sockfd, outbuf.c_str(), outbuf.size(), 0)) {
-        cerr << "Couldn't send! " << errno << endl;
-    }
+    std::string encoded = res.encode();
+    putRawMessage(encoded, true);
 }
 
 
 MainDispatch::MainDispatch() : IODispatch(), acceptfd(-1)
 {
+    setLogPrefix("LCB SDKD Control");
+    int status = pthread_mutex_init(&dsmutex, NULL);
+    if (status != 0) {
+        log_error("Couldn't initialize mutex: %s", strerror(status));
+        abort();
+    }
 }
 
 MainDispatch::~MainDispatch()
@@ -135,6 +154,14 @@ MainDispatch::~MainDispatch()
     if (acceptfd >= 0) {
         close(acceptfd);
         acceptfd = -1;
+    }
+    log_error("Bye Bye!");
+    while (children.size()) {
+        for (std::list<WorkerDispatch*>::iterator iter = children.begin();
+                iter != children.end(); iter++) {
+            pthread_kill( (*iter)->thr, SIGINT );
+        }
+        _collect_workers();
     }
 }
 
@@ -175,6 +202,22 @@ new_worker_thread(void *worker)
 }
 
 void
+MainDispatch::_collect_workers()
+{
+    std::list<WorkerDispatch*>::iterator iter = children.begin();
+    while (iter != children.end()) {
+        if (pthread_kill((*iter)->thr, 0) != 0) {
+            pthread_join( (*iter)->thr, NULL );
+            log_warn("Joined thread '%s'", (*iter)->getLogPrefix().c_str());
+            delete *iter;
+            children.erase(iter++);
+        } else {
+            iter++;
+        }
+    }
+}
+
+void
 MainDispatch::run()
 {
     // So we've already established the socket..
@@ -201,6 +244,7 @@ MainDispatch::run()
     FD_SET(sockfd, &origfds);
     FD_SET(acceptfd, &origfds);
     int fdmax = max(acceptfd, sockfd) + 1;
+    int status;
 
     while (1) {
         memcpy(&rfds, &origfds, sizeof(origfds));
@@ -217,18 +261,17 @@ MainDispatch::run()
             }
 
             // Check any children that might need to be cleaned up:
-            for (std::list<WorkerDispatch*>::iterator iter =
-                    children.begin(); iter != children.end(); iter++) {
-                if (pthread_kill((*iter)->thr, 0)) {
-                    pthread_join((*iter)->thr, NULL);
-                    delete *iter;
-                    children.remove(*iter);
-                }
-            }
+            _collect_workers();
             WorkerDispatch *w = new WorkerDispatch(newsock, this);
             children.push_back(w);
 
-            pthread_create(&w->thr, NULL, new_worker_thread, w);
+            if (0 != (status =  pthread_create(&w->thr,
+                                               NULL,
+                                               new_worker_thread, w))) {
+                log_error("Failed to create new worker thread: %s",
+                        strerror(status));
+
+            }
         } else {
             Request *reqp = readRequest();
             // Process request..
@@ -300,11 +343,18 @@ MainDispatch::getDatasetById(const std::string& dsid)
     return ret;
 }
 
+WorkerDispatch::~WorkerDispatch()
+{
+}
+
 WorkerDispatch::WorkerDispatch(int newsock, MainDispatch *parent)
 : IODispatch(),
   parent(parent)
 {
     sockfd = newsock;
+    stringstream ss;
+    ss << "lcb-sdkd-worker fd=" << newsock;
+    setLogPrefix(ss.str());
 }
 
 // Worker does some stuff here.. dispatching commands to its own handle
@@ -314,40 +364,42 @@ WorkerDispatch::WorkerDispatch(int newsock, MainDispatch *parent)
 
 void
 WorkerDispatch::run() {
-    Request *reqp = readRequest(true);
-    if (!reqp) {
-        cerr << "Couldn't negotiate initial request!\n";
+
+    Request req;
+    readRequest(true, &req);
+
+    if (!req.isValid()) {
+        log_error("Couldn't negotiate initial request");
         return;
     }
 
     Error errp;
 
-    HandleOptions hopts = HandleOptions(reqp->payload);
+    HandleOptions hopts = HandleOptions(req.payload);
     if (!hopts.isValid()) {
-        writeResponse(Response(reqp, Error(Error::SUBSYSf_SDKD,
+        writeResponse(Response(&req, Error(Error::SUBSYSf_SDKD,
                                             Error::SDKD_EINVAL,
                                             "Problem with handle input params")));
     }
     Handle h(hopts);
 
     if (!h.connect(&errp)) {
-        writeResponse(Response(reqp, errp));
-        delete reqp;
+        log_error("Couldn't establish initial control connection");
+        writeResponse(Response(&req, errp));
         return;
     }
 
     // Notify a success
-    writeResponse(Response(reqp));
+    log_info("Successful handle established");
 
+    writeResponse(Response(&req));
     // Now start receiving responses, now that the handle has
     // been established..
-    delete reqp;
 
     auto_ptr<ResultSet> rs(new ResultSet);
     while (1) {
-        reqp = readRequest(true);
-        if (!reqp) {
-            cerr << "Problem reading request...?\n";
+        readRequest(true, &req);
+        if (!req.isValid()) {
             return;
         }
 
@@ -355,7 +407,7 @@ WorkerDispatch::run() {
         Dataset::Type dstype;
         std::string refid;
 
-        dstype = Dataset::determineType(*reqp, &refid);
+        dstype = Dataset::determineType(req, &refid);
         if (dstype == Dataset::DSTYPE_INVALID) {
             errp.setCode(Error::SUBSYSf_SDKD|Error::SDKD_EINVAL);
             errp.setString("Couldn't parse dataset");
@@ -371,7 +423,7 @@ WorkerDispatch::run() {
                 goto GT_CHECKERR;
             }
         } else {
-            ds = Dataset::fromType(dstype, *reqp);
+            ds = Dataset::fromType(dstype, req);
             if (ds == NULL) {
                 errp.setCode(Error::SUBSYSf_SDKD|Error::SDKD_EINVAL);
                 errp.setString("Bad dataset parameters");
@@ -381,18 +433,17 @@ WorkerDispatch::run() {
 
         GT_CHECKERR:
         if (errp) {
-            writeResponse(Response(reqp, errp));
+            writeResponse(Response(&req, errp));
             errp.clear();
-            delete reqp;
             continue;
         }
 
-        ResultOptions opts = ResultOptions(reqp->payload["Options"]);
+        ResultOptions opts = ResultOptions(req.payload["Options"]);
 
-        switch (reqp->command) {
+        switch (req.command) {
         case Command::MC_DS_DELETE:
         case Command::MC_DS_TOUCH:
-            h.dsKeyop(reqp->command, *ds, *rs, opts);
+            h.dsKeyop(req.command, *ds, *rs, opts);
             break;
 
         case Command::MC_DS_MUTATE_ADD:
@@ -400,24 +451,24 @@ WorkerDispatch::run() {
         case Command::MC_DS_MUTATE_APPEND:
         case Command::MC_DS_MUTATE_PREPEND:
         case Command::MC_DS_MUTATE_SET:
-            h.dsMutate(reqp->command, *ds, *rs, opts);
+            h.dsMutate(req.command, *ds, *rs, opts);
             break;
 
         case Command::MC_DS_GET:
-            h.dsGet(reqp->command, *ds, *rs, opts);
+            h.dsGet(req.command, *ds, *rs, opts);
             break;
 
         default:
-            writeResponse(Response(reqp, Error(Error::SUBSYSf_SDKD,
+            writeResponse(Response(&req, Error(Error::SUBSYSf_SDKD,
                                                 Error::SDKD_ENOIMPL)));
             continue;
             break;
         }
 
         if (rs->getError()) {
-            writeResponse(Response(reqp, rs->getError()));
+            writeResponse(Response(&req, rs->getError()));
         } else {
-            Response *resp = new Response(reqp);
+            Response *resp = new Response(&req);
             Json::Value root;
             rs->resultsJson(&root);
             resp->setResponseData(root);

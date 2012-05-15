@@ -17,6 +17,7 @@
 #include "Message.h"
 #include "utils.h"
 #include "cbsdkd.h"
+#include "contrib/debug++.h"
 
 namespace CBSdkd {
 using std::map;
@@ -31,28 +32,60 @@ public:
     unsigned int expiry;
 };
 
+
 class ResultOptions {
 
 public:
     bool full;
-    bool multi;
+    unsigned int multi;
     unsigned int expiry;
+    bool iterwait;
+
+    unsigned int delay_min;
+    unsigned int delay_max;
     unsigned int delay;
 
     ResultOptions(const Json::Value& opts)
     :
         full(opts[CBSDKD_MSGFLD_DSREQ_FULL].asBool()),
-        multi(opts[CBSDKD_MSGFLD_DSREQ_MULTI].asBool()),
+        multi(opts[CBSDKD_MSGFLD_DSREQ_MULTI].asUInt()),
         expiry(opts[CBSDKD_MSGFLD_DSREQ_EXPIRY].asUInt()),
+        iterwait(opts[CBSDKD_MSGFLD_DSREQ_ITERWAIT].asBool()),
+        delay_min(opts[CBSDKD_MSGFLD_DSREQ_DELAY_MIN].asUInt()),
+        delay_max(opts[CBSDKD_MSGLFD_DSREQ_DELAY_MAX].asUInt()),
         delay(opts[CBSDKD_MSGFLD_DSREQ_DELAY].asUInt())
     {
+        _determine_delay();
     }
 
     ResultOptions(bool full = false,
                   unsigned int expiry = 0,
                   unsigned int delay = 0) :
-        full(full), expiry(expiry), delay(delay) { }
+        full(full), expiry(expiry),
+        delay_min(0), delay_max(0), delay(delay), iterwait(false) {
 
+        _determine_delay();
+    }
+
+    unsigned int getDelay() {
+        if (delay) {
+            return delay;
+        }
+        if (delay_min == delay_max && delay_max == 0) {
+//            cerr << "No Delay.." << endl;
+            return 0;
+        }
+        return (delay_min + (rand() % (delay_max - delay_min)));
+    }
+
+private:
+    void _determine_delay() {
+        if (delay) {
+            delay_min = delay_max = delay;
+        } else if (delay_min == delay_max) {
+            delay = delay_min = delay_max;
+        }
+    }
 };
 
 // Result set/cookie
@@ -79,11 +112,16 @@ private:
     int status;
 };
 
+class Handle;
+
 class ResultSet {
 public:
     ResultSet() :
         remaining(0),
-        parent(NULL) {}
+        parent(NULL),
+        dsiter(NULL) {
+        clear();
+    }
 
     void setError(libcouchbase_t, libcouchbase_error_t,
                   const std::string& key);
@@ -111,7 +149,9 @@ public:
     unsigned int remaining;
 
 private:
+    friend class Handle;
     const Handle* parent;
+    DatasetIterator *dsiter;
 };
 
 
@@ -122,15 +162,24 @@ public:
 
     HandleOptions(const Json::Value& json) :
         hostname(json[CBSDKD_MSGFLD_HANDLE_HOSTNAME].asString()),
-        username(json[CBSDKD_MSGFLD_HANDLE_USERNAME].asString()),
-        password(json[CBSDKD_MSGFLD_HANDLE_PASSWORD].asString()),
+        username(""),
+        password(""),
         bucket(json[CBSDKD_MSGFLD_HANDLE_BUCKET].asString())
     {
         const Json::Value& opts = json[CBSDKD_MSGFLD_HANDLE_OPTIONS];
         if ( opts.asBool() ) {
             timeout = opts[CBSDKD_MSGFLD_HANDLE_OPT_TMO].asUInt();
+            username = opts[CBSDKD_MSGFLD_HANDLE_USERNAME].asString();
+            password = opts[CBSDKD_MSGFLD_HANDLE_PASSWORD].asString();
         } else {
             timeout = 0;
+        }
+
+        if (json[CBSDKD_MSGFLD_HANDLE_PORT].asInt()) {
+            hostname += ":";
+            stringstream ss;
+            ss << json[CBSDKD_MSGFLD_HANDLE_PORT].asInt();
+            hostname += ss.str();
         }
     }
 
@@ -146,7 +195,7 @@ public:
     unsigned long timeout;
 };
 
-class Handle {
+class Handle : protected DebugContext {
 public:
     virtual ~Handle();
 
@@ -179,7 +228,6 @@ public:
         }
         return defl;
     }
-
 
 private:
     HandleOptions options;
@@ -216,6 +264,9 @@ private:
     cb_keyop(libcouchbase_t, ResultSet*,
              libcouchbase_error_t,
              const void*, libcouchbase_size_t);
+
+    void collect_result(ResultSet& rs);
+    void postsubmit(ResultSet& rs, unsigned int nsubmit = 1);
 };
 
 #define CBSDKD_XERRMAP(X) \

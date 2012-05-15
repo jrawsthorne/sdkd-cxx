@@ -36,20 +36,36 @@ Command::Command(const string& str)
     this->cmdstr = str;
 }
 
-Message::Message(string& str) {
+bool
+Message::refreshWith(const std::string& str, bool reset)
+{
     Json::Value json;
     Json::Reader reader;
+
+    if (reset) {
+        reqid = 0;
+        handle_id = 0;
+        command.code = Command::INVALID_COMMAND;
+        command.cmdstr = "";
+        payload.clear();
+        err = 0;
+    }
 
     if (! reader.parse(str, json, false)) {
         err = Error(Error::SUBSYSf_SDKD, Error::SDKD_EINVAL,
                     reader.getFormatedErrorMessages());
-        return;
+        return false;
     }
 
     this->reqid = json[CBSDKD_MSGFLD_REQID].asUInt();
     this->handle_id = json[CBSDKD_MSGFLD_HID].asUInt();
     this->command = Command(json[CBSDKD_MSGFLD_CMD].asString());
     this->payload = json;
+    return true;
+}
+
+Message::Message(string& str) {
+    refreshWith(str, false);
 }
 
 Message::~Message() {

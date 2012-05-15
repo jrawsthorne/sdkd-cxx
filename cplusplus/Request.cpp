@@ -11,13 +11,27 @@
 namespace CBSdkd {
 
 
-Request::Request(std::string& str): Message(str) {
-    this->payload = this->payload[CBSDKD_MSGFLD_REQDATA];
-    if (!this->payload) {
-        this->err = Error(Error::SUBSYSf_SDKD,
-                          Error::SDKD_EINVAL,
-                          "Couldn't find CommandData ");
+bool
+Request::refreshWith(const string& str, bool reset)
+{
+    bool ret = Message::refreshWith(str, reset);
+    if (ret) {
+        payload = payload[CBSDKD_MSGFLD_REQDATA];
+        if (!payload) {
+            this->err = Error(Error::SUBSYSf_SDKD,
+                              Error::SDKD_EINVAL,
+                              "Couldn't find CommandData ");
+            ret = false;
+        }
     }
+    return ret;
+}
+
+Request::Request(std::string& str): Message(str) {
+    refreshWith(str, false);
+}
+
+Request::Request() {
 }
 
 

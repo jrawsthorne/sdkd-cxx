@@ -40,6 +40,8 @@ Handle::connect(Error *errp)
 {
     // Gather parameters
     libcouchbase_error_t the_error;
+    log_debug("Using %s as hostname", options.hostname.c_str());
+
     instance = libcouchbase_create(cstr_ornull(options.hostname),
                                    cstr_ornull(options.username),
                                    cstr_ornull(options.password),
@@ -52,7 +54,7 @@ Handle::connect(Error *errp)
         return false;
     }
     if (options.timeout) {
-        libcouchbase_set_timeout(instance, options.timeout * 1000000);
+//        libcouchbase_set_timeout(instance, options.timeout * 1000000);
     }
 
     libcouchbase_set_error_callback(instance, cb_err);
@@ -72,7 +74,12 @@ Handle::connect(Error *errp)
 
     the_error = libcouchbase_connect(instance);
     if (the_error != LIBCOUCHBASE_SUCCESS) {
-        errp->setCode(mapError(the_error));
+        errp->setCode(mapError(the_error,
+                               Error::SUBSYSf_NETWORK|Error::ERROR_GENERIC));
+        errp->errstr = libcouchbase_strerror(instance, the_error);
+
+        log_error("libcouchbase_connect failed: %s",
+                  errp->prettyPrint().c_str());
         return false;
     }
 
@@ -80,6 +87,7 @@ Handle::connect(Error *errp)
     if (pending_errors.size()) {
         *errp = pending_errors.back();
         pending_errors.clear();
+        log_error("Got errors during connection");
         return false;
     }
     return true;
@@ -145,11 +153,6 @@ Handle::cb_get(libcouchbase_t instance, ResultSet* rs,
         }
         rs->fullstats[sk] = sv;
     }
-
-    if (rs->options.delay) {
-        usleep(rs->options.delay * 1000);
-    }
-
     rs->remaining--;
 }
 
@@ -162,16 +165,49 @@ ResultSet::setError(libcouchbase_t instance, libcouchbase_error_t err,
     stats[myerr]++;
 }
 
+void
+Handle::collect_result(ResultSet& rs)
+{
+    // Here we 'wait' for a result.. we might either wait after each
+    // operation, or wait until we've accumulated all batches. It really
+    // depends on the options.
+    if (!rs.remaining) {
+        return;
+    }
+    libcouchbase_wait(instance);
+}
+
+void
+Handle::postsubmit(ResultSet& rs, unsigned int nsubmit)
+{
+    unsigned int expmsec = rs.options.getDelay();
+    // So this is called after each 'submission' for a command to
+    // libcouchbase. In here we can either do nothing (batch single/multi).
+    log_info("Hi!");
+    if (expmsec || rs.options.iterwait) {
+        log_info("About to wait..");
+        libcouchbase_wait(instance);
+        log_info("Waited!");
+    } else {
+        rs.remaining += nsubmit;
+        return;
+    }
+
+    if (expmsec) {
+        log_debug("Sleeping for %u msec", expmsec);
+        usleep(expmsec * 1000);
+    }
+}
+
 bool
 Handle::dsGet(Command cmd, Dataset const &ds, ResultSet& out,
               const ResultOptions& options)
 {
-
     out.options = options;
     out.clear();
+
     libcouchbase_time_t exp = out.options.expiry;
     DatasetIterator* iter = ds.getIter();
-
     for (iter->start(); iter->done() == false; iter->advance()) {
 
         std::string k = iter->key();
@@ -182,18 +218,15 @@ Handle::dsGet(Command cmd, Dataset const &ds, ResultSet& out,
                 libcouchbase_mget(instance, &out, 1,
                                   (const void**)&cstr, &sz, &exp);
         if (err == LIBCOUCHBASE_SUCCESS) {
-            out.remaining++;
+            postsubmit(out);
+
         } else {
             out.setError(instance, err, k);
         }
     }
 
     delete iter;
-
-    if (out.remaining) {
-        libcouchbase_wait(instance);
-    }
-
+    collect_result(out);
     return true;
 }
 
@@ -238,19 +271,13 @@ Handle::dsMutate(Command cmd, const Dataset& ds, ResultSet& out,
                                    0, exp, 0);
 
         if (err == LIBCOUCHBASE_SUCCESS) {
-            out.remaining++;
+            postsubmit(out);
         } else {
             out.setError(instance, err, k);
         }
-        if (out.options.delay) {
-            usleep(out.options.delay * 1000);
-        }
     }
     delete iter;
-
-    if (out.remaining) {
-        libcouchbase_wait(instance);
-    }
+    collect_result(out);
     return true;
 }
 
@@ -277,30 +304,28 @@ Handle::dsKeyop(Command cmd, const Dataset& ds, ResultSet& out,
                                       &exp);
         }
         if (err == LIBCOUCHBASE_SUCCESS) {
-            out.remaining++;
+            postsubmit(out);
         } else {
             out.setError(instance, err, k);
         }
-        if (out.options.delay) {
-            usleep(out.options.delay * 1000);
-        }
     }
     delete iter;
-
-    if (out.remaining) {
-        libcouchbase_wait(instance);
-    }
+    collect_result(out);
     return true;
 }
 
 void
 ResultSet::resultsJson(Json::Value *in) const
 {
-    Json::Value summaries, &root = *in;
+    Json::Value
+        summaries = Json::Value(Json::objectValue),
+        &root = *in;
 
     for (std::map<int,int>::const_iterator iter = this->stats.begin();
             iter != this->stats.end(); iter++ ) {
-        summaries[iter->first] = iter->second;
+        stringstream ss;
+        ss << iter->first;
+        summaries[ss.str()] = iter->second;
     }
 
     root[CBSDKD_MSGFLD_DSRES_STATS] = summaries;
@@ -312,7 +337,8 @@ ResultSet::resultsJson(Json::Value *in) const
                     iter = this->fullstats.begin();
                 iter != this->fullstats.end();
                 iter++
-                ) {
+                )
+        {
             Json::Value stat;
             stat[0] = iter->second.getStatus();
             stat[1] = iter->second.getString();

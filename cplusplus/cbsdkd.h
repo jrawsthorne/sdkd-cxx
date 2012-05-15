@@ -33,9 +33,12 @@
 
 #define CBSDKD_MSGFLD_DSREQ_OPTS                "Options"
 #define CBSDKD_MSGFLD_DSREQ_DELAY               "DelayMsec"
+#define CBSDKD_MSGFLD_DSREQ_DELAY_MIN           "DelayMin"
+#define CBSDKD_MSGLFD_DSREQ_DELAY_MAX           "DelayMax"
 #define CBSDKD_MSGFLD_DSREQ_FULL                "Detailed"
 #define CBSDKD_MSGFLD_DSREQ_MULTI               "Multi"
 #define CBSDKD_MSGFLD_DSREQ_EXPIRY              "Expiry"
+#define CBSDKD_MSGFLD_DSREQ_ITERWAIT            "IterWait"
 
 /**
  * DS Response fields
@@ -48,6 +51,7 @@
  * Handle request fields..
  */
 #define CBSDKD_MSGFLD_HANDLE_HOSTNAME           "Hostname"
+#define CBSDKD_MSGFLD_HANDLE_PORT               "Port"
 #define CBSDKD_MSGFLD_HANDLE_BUCKET             "Bucket"
 #define CBSDKD_MSGFLD_HANDLE_USERNAME           "Username"
 #define CBSDKD_MSGFLD_HANDLE_PASSWORD           "Password"

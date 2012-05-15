@@ -78,6 +78,8 @@ Dataset::fromType(Type t, const Request& req)
     if (t == DSTYPE_INLINE) {
         ret = new DatasetInline(req.payload[CBSDKD_MSGFLD_DSREQ_DS]);
     } else if (t == DSTYPE_SEEDED) {
+        assert(req.payload[CBSDKD_MSGFLD_DSREQ_DS].asBool());
+
         ret = new DatasetSeeded(req.payload[CBSDKD_MSGFLD_DSREQ_DS]);
     } else {
         ret = NULL;
@@ -186,7 +188,6 @@ DatasetSeeded::DatasetSeeded(const Json::Value& jspec)
 : Dataset::Dataset(Dataset::DSTYPE_SEEDED)
 {
     struct DatasetSeedSpecification *spec = &this->spec;
-    memset(spec, 0, sizeof(*spec));
 
     spec->kseed = jspec[CBSDKD_MSGFLD_DSSEED_KSEED].asString();
     spec->vseed = jspec[CBSDKD_MSGFLD_DSSEED_VSEED].asString();
