@@ -10,7 +10,7 @@
 #include <cstring>
 #include <cassert>
 #include <cstdlib>
-#include <auto_ptr.h>
+#include <memory>
 #include "cbsdkd.h"
 
 namespace CBSdkd {

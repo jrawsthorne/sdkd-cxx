@@ -15,7 +15,7 @@
 #include <unistd.h>
 #include <fcntl.h>
 #include <errno.h>
-#include <auto_ptr.h>
+#include <memory>
 #include <signal.h>
 #include "Response.h"
 #include <cstdio>
