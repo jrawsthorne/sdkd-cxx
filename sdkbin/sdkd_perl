@@ -376,9 +376,12 @@ sub process_message {
 
 sub mainloop {
     my $self = shift;
-    log_err("Initiating main loop..");
+    log_debug("Initiating main loop..");
     while ( (my $line = $self->fp->getline())) {
         my $msg = CBSdkd::Request->decode($line);
+        if ($msg->command eq 'CLOSEHANDLE') {
+            return;
+        }
         $self->fp->print($self->process_message($msg)->encode() . "\n");
     }
     log_err("Exiting main loop..", $!);
@@ -687,6 +690,9 @@ sub run {
                     exit(0);
                 }
                 my $msg = CBSdkd::Request->decode($line);
+                if ($msg->command eq 'GOODBYE') {
+                    return;
+                }
                 my $resp = $self->process_message($msg);
                 $s->print($resp->encode() . "\n");
             } elsif ($t eq 'accept') {

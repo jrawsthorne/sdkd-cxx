@@ -84,7 +84,8 @@ class Handle(object):
         
         if not resp.is_ok():
             raise Exception("Couldn't create new handle: " + str(resp))
-    
+        self.active = True
+        
     
     def invoke_command(self, msg, wait = True):
         self.conduit.send_msg(msg)
@@ -135,6 +136,13 @@ class Handle(object):
                                   op,
                                   **options)
         
+    def close(self):
+        if not self.active:
+            return
+        self.conduit.send_msg(Req.CloseHandle(self.driver.mkreqid(),
+                                              self.handle_id))
+        self.active = False
+        
     
 class Driver(object):
     """
@@ -173,7 +181,9 @@ class Driver(object):
         return handle
         
     def destroy_handle(self, handle):
-        self.handles.pop(handle.handle_id)
+        h = self.handles.pop(handle.handle_id)
+        if h:
+            h.close()
         
     def io_new_handle_conduit(self):
         raise NotImplementedError("Not yet implemented!")
@@ -201,6 +211,9 @@ class Driver(object):
         self.io_control_conduit().send_msg(msg)
         resp = self.io_control_conduit().recv_msg()
         return resp
+    
+    def close(self):
+        self.io_control_conduit().send_msg(Req.Goodbye())
     
 class DriverStdio(Driver):
     """
@@ -262,7 +275,7 @@ class DriverInet(Driver):
                 self.port = int(f.readline())
                 break
             except (OSError,IOError) as e:
-                print str(e)
+                self.log.debug("Waiting: ..." +  str(e))
                 
                 time.sleep(1)
                 continue

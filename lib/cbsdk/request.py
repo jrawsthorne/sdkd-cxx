@@ -79,8 +79,17 @@ class CreateHandle(Request):
             _verify_dict(self._allowed_options, options)
             jsondict["CommandData"]["Options"] = options
         
-
-
+class CloseHandle(Request):
+    """ Closes/Deletes a handle"""
+    def __init__(self, reqid, hid):
+        super(CloseHandle, self).__init__("CLOSEHANDLE", reqid, hid)
+    
+class Goodbye(Request):
+    """ Terminates the control connection"""
+    def __init__(self):
+        super(Goodbye, self).__init__("GOODBYE", 0, 0)
+    
+    
 class CreateDataset(Request):
     def __init__(self, reqid, ds):
         super(CreateDataset, self).__init__('NEWDATASET', reqid, 0)

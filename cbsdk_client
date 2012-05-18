@@ -61,6 +61,18 @@ parser.add_argument('-S', '--section', default = "multi", type = str,
 parser.add_argument('-X', '--debugger', type = str,
                     help = 'Spawn sdkd with this prepended to the command line'),
 
+parser.add_argument('-I', '--iterwait', action = 'store_true',
+                    help = "Do not batch (i.e. no mget)")
+
+parser.add_argument('-E', '--extra-args', dest = 'extra_args', type = str,
+                    help = "Extra sdkd args")
+
+parser.add_argument('--ksize', default = 24, type = int,
+                    help = "Default key size")
+
+parser.add_argument('--vsize', default = 512, type = int,
+                    help = "Default value size")
+
 args = parser.parse_args()
 
 confparser = ConfigParser.RawConfigParser()
@@ -74,6 +86,10 @@ if args.debugger:
     assert len(debugargs)
     print debugargs
     cmdline = debugargs + cmdline
+    
+if args.extra_args:
+    extra = args.extra_args.split(' ')
+    cmdline += extra
 
 driverclass = getattr(cbsdk.driver, confdict['driver'])
 driveropts = eval(confdict['driver_options'])
@@ -114,110 +130,104 @@ handle_args = {
 }
 
 
+# Define a dataset
 if args.simple:
-    handle = driver.create_handle(**handle_args)
-    
-    # build key set:
-    keys = []
+    dsargs = {}
     for x in xrange(0, itermax):
-        base = "KEY_%d" % (x)
-        keys.append( base )
+        k = "KEY_INL_"
+        while len(k) < args.ksize:
+            k += "REP" + str(x)
         
-    log.info("Doing simple iterations..")
-    log.info("Doing pre-deletion..")
-    
-    [ handle.invoke_command(
-        handle.delete_simple("KEY_" + str(x))) for x in keys
-     ]
-    
-    for k in keys:
-        rv = handle.invoke_command(
-            handle.set_simple(k, k,Expiry = args.expiry))
+        v = "VALUE_INL_"
+        while len(v) < args.vsize:
+            v += "REP" + str(x)
         
-        assert rv.is_ok()
+        dsargs[k] = v
         
-    for k in keys:
-        rv = handle.invoke_command(handle.get_simple(k))
-        assert rv.is_ok()
-        assert rv.value() == k
-    
-    driver.destroy_handle(handle)
-
+    ds = cbsdk.dataset.DSInline(dsargs)
+else:
+    ds = cbsdk.dataset.DSSeed(itermax,
+                               kseed = "Key__SEED_",
+                               ksize = args.ksize,
+                               vseed = "Value__SEED_",
+                               vsize = args.vsize,
+                               repeat = "MYREP")
 
 statistics = {}
+operargs = {}
+if args.iterwait:
+    operargs["IterWait"] = 1
 
-if args.batched:
-    log.info("Will do dataset operations..")
-        
-    ds = cbsdk.dataset.DSSeed(itermax,
-                              kseed = "Key__",
-                              vseed = "Value__",
-                              repeat = "MYREP")
-    
-    log.info("Defined dataset..")
-    
+
+handle = driver.create_handle(**handle_args)
+
+log.debug("Deleting Keys...")
+rv = handle.invoke_command(
+    handle.ds_keyop(ds,
+                    cbsdk.constants.KOP_DELETE,
+                    IterWait = 1))
+log.debug(rv)
+
+
+driver.destroy_handle(handle)
+
+handle = None
+handles = []
+
+handle_count = args.multi if args.multi > 0 else 1
+log.debug("Will spawn %d handles ", handle_count)
+
+for i in xrange(0, handle_count):
     handle = driver.create_handle(**handle_args)
-    
-    log.info("Deleting Keys...")
+    handles.append(handle)
+
+
+for handle in handles:    
     rv = handle.invoke_command(
-        handle.ds_keyop(ds,
-                        cbsdk.constants.KOP_DELETE,
-                        IterWait = 1))
-    log.debug(rv)
+        handle.ds_mutate(ds,
+                         Expiry = args.expiry,
+                         DelayMsec = args.delay,
+                         **operargs),
+        wait = False)
+        
+statistics['SET'] = {}
+statistics['GET'] = {}
+
+for handle in handles:
+    resp = handle.conduit.recv_msg()
     
+    getstats = statistics['SET']
+    for k,v in resp.summary().items():
+        if not getstats.has_key(k):
+            getstats[k] = 0
+            
+        getstats[k] += v
+    
+    log.debug(resp)
+
+for handle in reversed(handles):
+    rv = handle.invoke_command(
+        handle.ds_retrieve(ds,
+                           DelayMsec = args.delay,
+                           **operargs),
+        wait = False)
+    
+for handle in handles:
+    resp = handle.conduit.recv_msg()
+    
+    setstats = statistics['GET']
+    for k,v in resp.summary().items():
+        
+        if not setstats.has_key(k):
+            setstats[k] = 0
+        setstats[k] += v
+            
+    log.debug(resp)
+
+
+for handle in handles:
     driver.destroy_handle(handle)
-    handle = None
-    handles = []
-    
-    handle_count = args.multi if args.multi > 0 else 1
-    log.debug("Will spawn handles " + str(handle_count))
-    
-    for i in xrange(0, handle_count):
-        handle = driver.create_handle(**handle_args)
-        handles.append(handle)
-    
-    
-    for handle in handles:    
-        rv = handle.invoke_command(
-            handle.ds_mutate(ds,
-                             Expiry = args.expiry,
-                             DelayMsec = args.delay),
-            wait = False)
-            
-        log.debug(rv)
-    
-    statistics['SET'] = {}
-    statistics['GET'] = {}
-    
-    for handle in handles:
-        resp = handle.conduit.recv_msg()
-        
-        getstats = statistics['SET']
-        for k,v in resp.summary().items():
-            if not getstats.has_key(k):
-                getstats[k] = 0
-                
-            getstats[k] += v
-        
-        log.debug(resp)
-        
-    for handle in handles:        
-        rv = handle.invoke_command(
-            handle.ds_retrieve(ds,
-                               DelayMsec = args.delay),
-            wait = False)
-        log.debug(rv)
-    
-    for handle in handles:
-        resp = handle.conduit.recv_msg()
-        
-        setstats = statistics['GET']
-        for k,v in resp.summary().items():
-            
-            if not setstats.has_key(k):
-                setstats[k] = 0
-            setstats[k] += v
-                
-        log.debug(resp)
-        
-    print statistics
+
+driver.close()
+
+print statistics
