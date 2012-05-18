@@ -71,7 +71,7 @@ IOProtoHandler::getRawMessage(std::string& msgbuf, bool do_block)
 
         if (rv == 0) {
             close(sockfd);
-            log_error("Remote closed the connection..");
+            log_warn("Remote closed the connection.. (without sending a CLOSE)");
             sockfd = -1;
             return this->ERR;
         }
@@ -155,7 +155,7 @@ MainDispatch::~MainDispatch()
         close(acceptfd);
         acceptfd = -1;
     }
-    log_error("Bye Bye!");
+    log_info("Bye Bye!");
     while (children.size()) {
         for (std::list<WorkerDispatch*>::iterator iter = children.begin();
                 iter != children.end(); iter++) {
@@ -208,7 +208,7 @@ MainDispatch::_collect_workers()
     while (iter != children.end()) {
         if (pthread_kill((*iter)->thr, 0) != 0) {
             pthread_join( (*iter)->thr, NULL );
-            log_warn("Joined thread '%s'", (*iter)->getLogPrefix().c_str());
+            log_debug("Joined thread '%s'", (*iter)->getLogPrefix().c_str());
             delete *iter;
             children.erase(iter++);
         } else {
@@ -281,6 +281,11 @@ MainDispatch::run()
 
             if (reqp->command == Command::NEWDATASET) {
                 create_new_ds(reqp);
+
+            } else if (reqp->command == Command::GOODBYE) {
+                delete reqp;
+                return;
+
             } else {
                 // We don't currently support other types of control messages
                 writeResponse(Response(reqp,
@@ -400,7 +405,12 @@ WorkerDispatch::run() {
     while (1) {
         readRequest(true, &req);
         if (!req.isValid()) {
+            log_warn("Got invalid request..");
             return;
+        }
+
+        if (req.command == Command::CLOSEHANDLE) {
+            break; // Close
         }
 
         const Dataset *ds;
@@ -459,6 +469,8 @@ WorkerDispatch::run() {
             break;
 
         default:
+            log_warn("Command '%s' not implemented",
+                     req.command.cmdstr.c_str());
             writeResponse(Response(&req, Error(Error::SUBSYSf_SDKD,
                                                 Error::SDKD_ENOIMPL)));
             continue;
@@ -468,12 +480,11 @@ WorkerDispatch::run() {
         if (rs->getError()) {
             writeResponse(Response(&req, rs->getError()));
         } else {
-            Response *resp = new Response(&req);
+            Response resp = Response(&req);
             Json::Value root;
             rs->resultsJson(&root);
-            resp->setResponseData(root);
-            writeResponse(*resp);
-            delete resp;
+            resp.setResponseData(root);
+            writeResponse(resp);
         }
     }
 }

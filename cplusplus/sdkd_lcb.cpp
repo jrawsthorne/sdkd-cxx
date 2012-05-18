@@ -17,24 +17,21 @@ DebugContext CBSdkd::CBsdkd_Global_Debug_Context;
 
 int main(int argc, char **argv)
 {
-    if (argc != 2) {
+    if (argc < 2) {
         fprintf(stderr, "Usage: %s [option=value...]\n", argv[0]);
         exit(1);
     }
 
-    CBsdkd_Global_Debug_Context.cbsdkd__debugctx.color = 1;
-    CBsdkd_Global_Debug_Context.cbsdkd__debugctx.initialized = 1;
-    CBsdkd_Global_Debug_Context.cbsdkd__debugctx.out = stderr;
-    CBsdkd_Global_Debug_Context.cbsdkd__debugctx.prefix = "cbskd-test";
-    CBsdkd_Global_Debug_Context.cbsdkd__debugctx.level = CBSDKD_LOGLVL_DEBUG;
-
-    istringstream iss(argv[1]);
     std::string kvpair;
     std::map<std::string,std::string> opt_pairs;
 
-    while(getline(iss, kvpair, ',')) {
-        opt_pairs[kvpair.substr(0, kvpair.find_first_of('='))] =
-                kvpair.substr(kvpair.find_first_of('=')+1);
+    for (int ii = 1; ii < argc; ii++) {
+        istringstream iss(argv[ii]);
+
+        while(getline(iss, kvpair, ',')) {
+            opt_pairs[kvpair.substr(0, kvpair.find_first_of('='))] =
+                    kvpair.substr(kvpair.find_first_of('=')+1);
+        }
     }
 
     const char *fname;
@@ -49,6 +46,18 @@ int main(int argc, char **argv)
     if (!infofp) {
         perror(fname);
         exit(1);
+    }
+
+    if (opt_pairs["debug"].size()) {
+        cbsdkd_Default_Log_Level = CBSDKD_LOGLVL_DEBUG;
+    }
+    CBsdkd_Global_Debug_Context.cbsdkd__debugctx.color = 1;
+    CBsdkd_Global_Debug_Context.cbsdkd__debugctx.initialized = 1;
+    CBsdkd_Global_Debug_Context.cbsdkd__debugctx.out = stderr;
+    CBsdkd_Global_Debug_Context.cbsdkd__debugctx.prefix = "cbskd-test";
+
+    if (opt_pairs["nocolor"].size()) {
+        CBsdkd_Global_Debug_Context.cbsdkd__debugctx.color = 0;
     }
 
     MainDispatch server = MainDispatch();

@@ -20,7 +20,10 @@
     XX(MC_DS_TOUCH) \
     XX(MC_DS_GET) \
     XX(NEWHANDLE) \
-    XX(NEWDATASET)
+    XX(CLOSEHANDLE) \
+    XX(NEWDATASET) \
+    XX(DELDATASET) \
+    XX(GOODBYE)
 
 namespace CBSdkd {
 

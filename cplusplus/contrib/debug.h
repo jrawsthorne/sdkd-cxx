@@ -87,6 +87,9 @@ void cbsdkd_hex_dump(const void *data, size_t nbytes);
  * compiled with debugging.
  */
 
+extern
+cbsdkd_loglevel_t cbsdkd_Default_Log_Level;
+
 
 
 #ifndef CBSDKD_DEBUG_STATIC_INIT

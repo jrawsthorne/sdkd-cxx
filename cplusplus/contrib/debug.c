@@ -48,6 +48,8 @@
 static const char *Color_title_fmt = "\033["  _INTENSE_FG _MAGENTA "m";
 static const char *Color_reset_fmt = "\033[0m";
 
+cbsdkd_loglevel_t cbsdkd_Default_Log_Level = CBSDKD_LOGLVL_WARN;
+
 static void init_logging(cbsdkd_debug_st *debugp)
 {
     char *tmp_env;

@@ -58,12 +58,11 @@ namespace CBSdkd {
 
 
 
-
 class DebugContext {
 public:
     DebugContext() : allocstr(NULL) {
         cbsdkd__debugctx.color = 1;
-        cbsdkd__debugctx.level = CBSDKD_LOGLVL_WARN;
+        cbsdkd__debugctx.level = cbsdkd_Default_Log_Level;
         cbsdkd__debugctx.out = stderr;
         cbsdkd__debugctx.initialized = 1;
         cbsdkd__debugctx.prefix = "CBSDKD";
@@ -78,7 +77,7 @@ public:
         cbsdkd__debugctx.prefix = allocstr;
     }
 
-    std::string getLogPrefix() {
+    std::string getLogPrefix() const {
         std::string ret = std::string(cbsdkd__debugctx.prefix);
         return ret;
     }

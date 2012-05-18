@@ -183,18 +183,14 @@ Handle::postsubmit(ResultSet& rs, unsigned int nsubmit)
     unsigned int expmsec = rs.options.getDelay();
     // So this is called after each 'submission' for a command to
     // libcouchbase. In here we can either do nothing (batch single/multi).
-    log_info("Hi!");
     if (expmsec || rs.options.iterwait) {
-        log_info("About to wait..");
         libcouchbase_wait(instance);
-        log_info("Waited!");
     } else {
         rs.remaining += nsubmit;
         return;
     }
 
     if (expmsec) {
-        log_debug("Sleeping for %u msec", expmsec);
         usleep(expmsec * 1000);
     }
 }
@@ -207,16 +203,18 @@ Handle::dsGet(Command cmd, Dataset const &ds, ResultSet& out,
     out.clear();
 
     libcouchbase_time_t exp = out.options.expiry;
+    libcouchbase_time_t *exp_pp = (exp) ? &exp : NULL;
+
     DatasetIterator* iter = ds.getIter();
     for (iter->start(); iter->done() == false; iter->advance()) {
-
         std::string k = iter->key();
+        log_trace("GET: %s", k.c_str());
         libcouchbase_size_t sz = k.size();
         const char *cstr = k.c_str();
 
         libcouchbase_error_t err =
                 libcouchbase_mget(instance, &out, 1,
-                                  (const void**)&cstr, &sz, &exp);
+                                  (const void**)&cstr, &sz, exp_pp);
         if (err == LIBCOUCHBASE_SUCCESS) {
             postsubmit(out);
 
