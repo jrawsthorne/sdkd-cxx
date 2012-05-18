@@ -1,0 +1,393 @@
+=head1 NAME
+
+Couchbase SDK Test-opts Driver/Daemon protocol
+
+=head1 DESCRIPTION
+
+This describes the message format and message types which will be used in the
+B<SDKD> framework.
+
+The term I<Controller> will be used to refer to the component within
+I<testrunner> which shall 'drive' the test, and the term I<sdkd> shall refer
+to an implementation of the protocol which interacts natively with an SDK for
+a specific language
+
+=head1 Basic Message Format
+
+The basic message format for requests and responses is a single JSON object.
+The object shall be followed by a newline C<\n>.
+
+All messages have the following common keys in the JSON object:
+
+=over
+
+=item C<ReqID>
+
+This is an opaque request or transaction ID. It shall be an integral type,
+and shall be non-zero.
+
+This is generate by the controller, and relayed by the C<sdkd> for responses
+relating to the request.
+
+=item C<Command>
+
+This is a string command. The types of commands will be listed and documented
+below.
+
+=item C<Handle>
+
+This is a numeric identifier relating to a 'handle', representing a single
+C<sdkd> connection to a couchbase bucket.
+
+=back
+
+=head1 Requests
+
+Requests add an additional field to the message format:
+
+=over
+
+=item C<CommandData>
+
+This is a command-specific payload. Some commands do not have a payload, but should
+still be included as an empty JSON object.
+
+
+=back
+
+=head1 Responses
+
+Responses carry the same fields as the basic message format, and the additional
+fields listed here:
+
+=over
+
+=item C<Status>
+
+This is an integer representing an error code, or the number 0 in the case of no
+error.
+
+In the case of an error, the code is actually a bitmask, with the 8 least
+significant bits representing an error I<subsystem> and the rest of the bits
+representing error I<details>. The error codes and definitions can be found in
+the C<srcutil/errdefs.pl> (the Perl script which generates the error definitions),
+or in C<lib/cbsdk/constants.py>, and possibly others.
+
+=item C<ErrorString>
+
+A textual representation of the error. This can be anything, but is often intended
+to provide more details about what happened.
+
+=back
+
+=head1 Operations
+
+The following operations are supported.. they are listed here by their string
+commands.
+
+
+=head2 C<NEWHANDLE>
+
+This command requests the C<sdkd> to create a new handle. The handle shall be
+concurrent with other handles already created (though if the C<sdkd> only supports
+single-mode handles, it should make this fact known to the controller).
+
+The C<Handle> field of the message should be populated with a new handle ID by the
+controller.
+
+In addition, the controller B<must> provide the following fields in
+C<CommandData>
+
+=over
+
+=item C<Bucket>
+
+This is the name of the couchbase bucket to connect to.
+
+=item C<Hostname>
+
+A resolvable hostname for a couchbase cluster node entry point
+
+=item C<Port>
+
+The C<REST> port for the node (usually 8091)
+
+=back
+
+Additionally, the following fields may be provided:
+
+=over
+
+=item C<Username>
+
+=item C<Password>
+
+The username and password for the REST port.
+
+=back
+
+Additionally, the following options may be specified in
+the C<Options> subfield of C<CommandData>.
+
+Possibly more fields may be added here in the future..
+
+=over
+
+=item C<Timeout>
+
+This is a timeout in milliseconds. It is the generic 'handle timeout'.
+
+=back
+
+The response for C<NEWHANDLE> contains no payload, and may have a status of 0
+(indicating successful creation of the handle, and that the handle has been
+connected to the cluster), or an error.
+
+=head2 C<NEWDATASET>
+
+Constructs a new dataset. A dataset is a type-specific object representing a
+dataset of key-value pairs which will be manipulated within the cluster.
+
+The following fields are mandatory for dataset construction within C<CommandData>
+
+=over
+
+=item C<DSType>
+
+This is a dataset type, this may be one of the following
+
+=over
+
+=item C<DSTYPE_SEEDED>
+
+This specifies a dataset type whose keys and values are generated based on a set
+of criteria.
+
+=item C<DSTYPE_INLINE>
+
+This is a plain listing or enumeration of key-value pairs.
+
+=back
+
+=item C<DS>
+
+This is the dataset-type specific data, its contents depend on the dataset type
+
+=over
+
+=item Seeded
+
+For seeded datasets, the following fields are available
+
+=over 2
+
+=item C<KSize>, C<VSize>
+
+B<Required>. The approximate size of the generated keys and values (respectively)
+of the dataset.
+
+Both must be non-zero.
+
+=item C<KSeed>, C<VSeed>
+
+B<Required>. A non-empty 'base' string. Keys and values shall be prefixed with
+their respective seeds.
+
+=item C<Count>
+
+B<Required>. How many key-value pairs should be generated from this data set
+
+=item C<Repeat>
+
+B<Required>. This is a non-empty string which is interpolated with the current
+count.
+
+For example, if the C<KSeed> is C<"a_key">, and C<Repeat> is 'blah' then
+the following is used to generate the key:
+
+    1) The key base is contructed. Thus, k = "a_key".
+    2) For each iteration of 0..Count, the repeat-base is "blah" + <i> where <i>
+        is the current iteration.
+    3) The 'repeate-base' is repeatedly appeneded to the key, until the key's
+        length exceeds the KSize parameter.
+
+This process shall occur with values, but replacing C<KSize> and C<KSeed> with
+their value-specific equivalents.
+
+=back
+
+=item Inline
+
+The inline dataset's C<DS> field shall contain the following
+
+=over
+
+=item C<Items>
+
+B<Required>. This is an array of either string keys, or C<[key,value]> tuples depending on
+the context of the operation.
+
+=item C<ID>
+
+This is an opaque reference (which may be a string, but I<must> be unique). This
+can be used to refer to this dataset across operations and may greatly improve
+performance for large datasets with concurrent operations.
+
+This field is optional for inline-command datasets, and required for explicit
+C<NEWDATASET> commands
+
+=back
+
+=back
+
+=back
+
+
+=head2 C<MC_DS_GET>
+
+This retrieves the values which correspond to keys of a given dataset.
+
+The following fields are understood in the C<CommandData> section of the
+request
+
+=over
+
+=item C<DSType>
+
+B<Required>. Follows the same semantics of the C<NEWHANDLE> command, with the addition that
+a C<DSTYPE_REFERENCE> may be used to refer to a previously created dataset
+with a specific ID
+
+=item C<DS>
+
+B<Required>. These are dataset-specific options, depending on C<DStype>. If the
+type is a C<DSTYPE_REFERENCE>, then this should contain the identifier by which
+the referrent dataset may be found.
+
+=item C<Options>
+
+Options for the command. The following options are understood
+
+=over
+
+=item C<Detailed>
+
+Boolean value. If set to true, then full values will be returned (see the
+response section for more information).
+
+=item C<Expiry>
+
+Make this GET operation be a GAT operation, in which the expiry of the keys
+will be changed to this value.
+
+=item C<DelayMsec>
+
+Sleep this amount of milliseconds between each operation
+
+=item C<DelayMin>
+
+=item C<DelayMax>
+
+Like C<DelayMsec>, but provides a range, the actual time slept will be a random
+amount between these two numbers.
+
+=item C<IterWait>
+
+For clients which can 'spool' multiple operations and pipeline them to the socket,
+this option forces a send-receive pattern for every pair in the dataset.
+
+=back
+
+=back
+
+The response will always be successful (that is, the C<Status> field will always
+be zero), unless an error occured in a usage error.
+
+For successful responses, the C<ResponseData> contains the following fields
+
+=over
+
+=item C<Summary>
+
+This is hash/dictionary using error codes as keys, and the amount of times that
+error was encountered as a value, thus, somethng like:
+
+    "Summary" : { "0" : 95, "520" : 5 }
+
+Means that 95 keys were found to contain a value, and 5 received the error code
+C<520> (which is C<MEMD_ENOENT|SUBSYSf_MEMD>.
+
+=item C<Details>
+
+This is only present if C<Detailed> was specified in the C<Options> field
+of the request. The format of this is a dictionary with each key in the dataset
+as the key, and the value itself being an array of [ status, value ]
+
+Thus:
+
+    "Details" : {
+        "Foo_Key" : [ 0, "Foo_Value" ],
+        "Bar_Key" : [ 520 ]
+    }
+
+means that "Foo_Key" was successfully retrieved with a value of "Foo_Value",
+whereas "Bar_Key" was not found.
+
+=back
+
+=head2 C<MC_DS_MUTATE_SET>
+
+=head2 C<MC_DS_MUTATE_APPEND>
+
+=head2 C<MC_DS_MUTATE_PREPEND>
+
+=head2 C<MC_DS_MUTATE_ADD>
+
+=head2 C<MC_DS_MUTATE_REPLACE>
+
+These commands all set values for the dataset, differing only in the format of
+the value being set.
+
+The request options follow the same conventions and semantics as the C<MC_DS_GET>
+command.
+
+The response also follows the same semantics of the C<MC_DS_GET> response,
+with the following differences
+
+=over
+
+=item *
+
+The C<Details> is a dictionary of keys and values. Unlike C<GET> where the values
+are arrays, for the C<MUTATE> commands they are always simple status codes.
+
+=back
+
+=head2 C<MC_DS_DELETE>
+
+This causes a key to be deleted. With the exception of the non-applicable
+parameters (such as expiry), this follows the same conventions as the mutation
+commands.
+
+=head2 C<MC_DS_TOUCH>
+
+This should cause a key to have its expiration time updated. Must provide an
+expiration for this command (within the C<Options> field within C<CommandDatA>).
+
+Otherwise, this follows the same semantics and conventions as the mutation
+commands
+
+=head2 C<CLOSEHANDLE>
+
+This is a per-handle goodbye message. Handle implementations should cleanly
+deallocate any resources and close the connection (if applicable). The main
+intent of this command is to be able to differentiate between a lost connection
+due to an error of some sort, or a deliberate deallocation of resources done
+by the controller
+
+=head2 C<GOODBYE>
+
+This is driver-global message, the rationale for which being the same as the
+C<CLOSEHANDLE> command. The only difference is that this command uses the special
+C<Handle> value of C<0>
+
