@@ -112,7 +112,10 @@ a log of my session:
     
     mbp:json-cpp mnunberg$ cd ~/src/cbsdkd-test/cbsdkd/
     mbp:cbsdkd mnunberg$ make -C cplusplus/ JSONCPP_CPPFLAGS=-I$HOME/src/json-cpp/include JSONCPP_LFLAGS=~/src/json-cpp/lib/libjson-cpp.a
-    mbp:cbsdkd mnunberg$ ./cbsdk_client -C conf/lcb.cfg --simple -c 5 -d -H 10.0.0.99 -b membase0
+    
+    # install python argparse
+    mbp:cbsdkd mnunberg$ easy_install-2.6 argparse
+    mbp:cbsdkd mnunberg$ python2.6 cbsdk_client -C conf/lcb.cfg --simple -c 5 -d -H 10.0.0.99 -b membase0
     [root cbsdk_client:100] Command line: ['cplusplus/sdkd_lcb', 'infofile=portinfo.txt']
     [root cbsdk_client:101] Using driver: DriverInet
     [root driver.py:149] Executing: ['cplusplus/sdkd_lcb', 'infofile=portinfo.txt']
