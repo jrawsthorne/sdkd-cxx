@@ -605,7 +605,7 @@ sub do_child {
     
     my ($resp,$cbo) = $self->msg2cbo($msg);
     if (!$cbo) {
-        $newsock->print($msg->encode() . "\n");
+        $newsock->print($resp->encode() . "\n");
         exit(1);
     }
     
