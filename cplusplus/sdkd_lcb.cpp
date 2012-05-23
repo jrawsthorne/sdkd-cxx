@@ -19,6 +19,8 @@ int main(int argc, char **argv)
 {
     if (argc < 2) {
         fprintf(stderr, "Usage: %s [option=value...]\n", argv[0]);
+        cerr << "infofile=FILE [ specify this file to exchange port information\n";
+        cerr << "debug=1 [ enable debug output ]\n";
         exit(1);
     }
 
