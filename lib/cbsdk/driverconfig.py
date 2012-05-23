@@ -3,7 +3,7 @@ import cbsdk.driver
 
 
 def _force_ve(a):
-    if isinstance(a):
+    if isinstance(a, str):
         a = a.split(' ')
     return a
 
