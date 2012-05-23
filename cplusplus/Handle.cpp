@@ -8,7 +8,7 @@
 #include "Handle.h"
 #include <cstdlib>
 #include <cstdio>
-
+#include <unistd.h>
 
 namespace CBSdkd {
 
