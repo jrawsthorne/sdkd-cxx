@@ -7,6 +7,8 @@
 #include <iostream>
 #include <map>
 #include <netinet/in.h>
+#include <signal.h>
+
 #include "IODispatch.h"
 
 using namespace std;
@@ -73,6 +75,8 @@ int main(int argc, char **argv)
 
     fprintf(infofp, "%d\n", ntohs(saddr.sin_port));
     fclose(infofp);
+
+    signal(SIGPIPE, SIG_IGN);
     server.run();
 
     return 0;
