@@ -63,6 +63,15 @@ class Status(_C.StatusCodes):
         
         return msg
     
+    def __int__(self):
+        return self.raw
+    
+    def __cmp__(self, other):
+        return cmp(self.raw, other)
+        
+    def __hash__(self):
+        return hash(self.raw)
+        
     def is_ok(self):
         return self.subsys == 0 and self.subsys_err == 0
 
@@ -141,6 +150,55 @@ class ControlResponse(HandleResponse):
         super(ControlResponse, self).__init__(reqid, data)
         
         
+class DSOperationSummary(dict):
+    """
+    Helper class for pretty displays of error summary codes
+    """
+    def __init__(self, d):
+        if not isinstance(d, dict):
+            raise ValueError("First argument must be a dict")
+            
+        new_d = {}
+        
+        for k,v in d.items():
+            
+            k = Status(int(k))
+            v = int(v)
+            new_d[k] = v
+            
+        super(DSOperationSummary, self).__init__(new_d)
+    
+    def ok_count(self):
+        """
+        Returns the amount of operations which were a success
+        """
+        if self.has_key(0):
+            return int(self[0])
+        return 0
+    
+    def details(self):
+        """
+        Returns the actual dict
+        """
+        return self.copy()
+        
+    def error_count(self, subsys = None):
+        """
+        Returns the amount of total errors which may have ocurred.
+        If subsys is not None, then only those errors conforming to a given
+        subsystem are counted
+        """
+        total = 0
+        for k,v in self.items():
+            if k == 0:
+                continue
+            if (subsys is not None) and (not k.is_subsys(subsys)):
+                continue
+            
+            total += int(v)
+        return total
+    
+        
 class DSResponse(HandleResponse):
     
     class _DetailItem(Status):
@@ -197,7 +255,7 @@ class DSResponse(HandleResponse):
         if rdata.has_key("Details"):
             self._details.update(rdata["Details"])
         
-        self._summary = rdata["Summary"]
+        self._summary = DSOperationSummary(rdata["Summary"])
         
     def summary(self):
         return self._summary
