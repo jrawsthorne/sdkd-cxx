@@ -10,7 +10,8 @@ import cbsdk
 import cbsdk.constants
 import cbsdk.driver
 import cbsdk.dataset
-import ConfigParser
+
+from cbsdk.driverconfig import DriverFactory
 
 
 parser = argparse.ArgumentParser(description = "Couchbase SDK Driver")
@@ -55,7 +56,7 @@ parser.add_argument('-M', '--multi', default = 0, type = int,
 parser.add_argument('-C', '--config', default = "conf/perl.cfg", type = str,
                     help = "Configuration file to use")
 
-parser.add_argument('-S', '--section', default = "multi", type = str,
+parser.add_argument('-S', '--section', type = str,
                     help = "Section to use within configuration")
 
 parser.add_argument('-X', '--debugger', type = str,
@@ -75,24 +76,10 @@ parser.add_argument('--vsize', default = 512, type = int,
 
 args = parser.parse_args()
 
-confparser = ConfigParser.RawConfigParser()
-confparser.read(args.config)
-
-confdict = dict(confparser.items(args.section))
-cmdline = eval(confdict["exe"])
-
-if args.debugger:
-    debugargs = args.debugger.split(' ')
-    assert len(debugargs)
-    print debugargs
-    cmdline = debugargs + cmdline
-    
-if args.extra_args:
-    extra = args.extra_args.split(' ')
-    cmdline += extra
-
-driverclass = getattr(cbsdk.driver, confdict['driver'])
-driveropts = eval(confdict['driver_options'])
+factory = DriverFactory(args.config,
+                        section = args.section,
+                        extra_args = args.extra_args,
+                        debugger = args.debugger)
 
 
 loghandler = logging.StreamHandler()
@@ -112,11 +99,7 @@ if args.debug:
 else:
     logging.getLogger().setLevel(logging.INFO)
 
-
-log.info("Command line: " + str(cmdline))
-log.info("Using driver: " + confdict["driver"])
-
-driver = driverclass(cmdline, **driveropts)
+driver = factory.create_driver()
 
 
 itermax = args.count
