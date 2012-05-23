@@ -15,7 +15,8 @@ optdefs = (
     }),
     ('-d', '--debug', {
         "help" : "Enable debugging",
-        "dest" : "debug"
+        "dest" : "debug",
+        "action" : "store_true",
     }),
     ('-L', '--libpath', {
         "dest" : "testrunner_lib",
