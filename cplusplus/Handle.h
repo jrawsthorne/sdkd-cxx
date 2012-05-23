@@ -7,6 +7,7 @@
 
 #ifndef HANDLE_H_
 #define HANDLE_H_
+#include <unistd.h>
 #include <sys/types.h>
 #include <libcouchbase/couchbase.h>
 
