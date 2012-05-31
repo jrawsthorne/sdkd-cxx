@@ -2,17 +2,23 @@
 import sys
 import optparse
 import os.path
+import warnings
+
+sys.path.append('lib')
+from cbsdk.depstrap import bootstrapTestrunnerLibs
 
 # Define a generic somewhat-compatible list of options
 optdefs = (
     ('-i', '--ini', {
         "dest" : "ini",
         "help" : "Path to .ini containing cluster information"
-    }),
+    }, { "required" : True } ),
+    
     ('-C', '--cbsdk-config', {
         "help" : "Path to SDK Driver implementation config",
         "dest" : "cbsdk_config"
     }),
+    
     ('-d', '--debug', {
         "help" : "Enable debugging",
         "dest" : "debug",
@@ -27,6 +33,15 @@ optdefs = (
         "dest" : "tests",
         "help" : "which tests to run (may be specified multiple times)",
         "action" : "append",
+        "default" : []
+    }),
+    ("-X", "--sdkd-debugger", {
+        "dest" : "sdkd_debugger",
+        "help" : "wrap sdkd implementation withi this debugger"
+    }),
+    ("-E", "--sdkd-cliextra", {
+        "dest" : "sdkd_cliextra",
+        "help" : "append to the sdkd invocation"
     })
 )
 
@@ -39,19 +54,9 @@ if not options.cbsdk_config:
     sys.exit(1)
     
 if not options.tests:
-    sys.stderr.write("Must have at least one test\n")
-    sys.exit(1)
+    warnings.warn("No tests specified..")
 
-# Now, import the libraries we need for testrunner
-extpaths = ['lib', 'pytests']
-extpaths += [ os.path.join(options.testrunner_lib, p)
-             for p in ('.', 'lib', 'pytests', 'pytests/performance')
-             ]
-extpaths = map(lambda x: os.path.abspath(os.path.join(os.path.curdir, x)),
-               extpaths)
-
-sys.path += extpaths
-
+bootstrapTestrunnerLibs(options.testrunner_lib)
 import logging
 import logging.config
 
@@ -86,7 +91,10 @@ TestInputSingleton.input = tinput
 if options.debug:
     logger.Logger.get_logger().setLevel(logger.logging.DEBUG)
 
-factory = DriverFactory(options.cbsdk_config)
+factory = DriverFactory(options.cbsdk_config,
+                        extra_args = options.sdkd_cliextra,
+                        debugger = options.sdkd_debugger)
+
 SDKBaseTestCase.setDriverFactory(factory)
 TestInputSingleton.input.test_params = { "items" : 0 }
 
