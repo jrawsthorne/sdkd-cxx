@@ -7,6 +7,8 @@ import unittest
 from TestInput import TestInputSingleton
 from membase.helper.bucket_helper import BucketOperationHelper as BOP
 from membase.helper.cluster_helper import ClusterOperationHelper as COP
+from membase.api.rest_client import RestConnection
+
 from couchbase.cluster import Cluster
 
 
@@ -53,6 +55,17 @@ class SDKBaseTestCase(unittest.TestCase):
     
     
     def resetCluster(self):
+        for s in self.servers:
+            try:
+                r = RestConnection(s)
+                r.stop_rebalance()
+                self.log.debug("Successfully stopped rebalance on " +
+                               str(s))
+                
+            except Exception as e:
+                self.log.warn("Got error while stopping rebalance: "
+                              + str(e))
+        
         BOP.delete_all_buckets_or_assert(self.servers, self)
         COP.cleanup_cluster(self.servers)
         COP.wait_for_ns_servers_or_assert(self.servers, self)
