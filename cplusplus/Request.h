@@ -21,7 +21,7 @@ public:
     virtual ~Request() {
         // TODO Auto-generated destructor stub
     }
-    bool isValid();
+    bool isValid() const;
     virtual bool refreshWith(const string&, bool);
 
     static Request* decode(std::string&, Error *errp,

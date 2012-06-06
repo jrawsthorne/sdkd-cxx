@@ -142,11 +142,19 @@ IOProtoHandler::writeResponse(const Response& res)
 MainDispatch::MainDispatch() : IODispatch(), acceptfd(-1)
 {
     setLogPrefix("LCB SDKD Control");
-    int status = pthread_mutex_init(&dsmutex, NULL);
-    if (status != 0) {
-        log_error("Couldn't initialize mutex: %s", strerror(status));
-        abort();
+    int status;
+
+#define _mutex_init_assert(cvar) \
+    status = pthread_mutex_init(cvar, NULL); \
+    if (status != 0) { \
+        log_error("Couldn't initialize mutex %s: %s", #cvar, strerror(status)); \
+        abort(); \
     }
+
+    _mutex_init_assert(&dsmutex);
+    _mutex_init_assert(&wmutex);
+
+#undef _mutex_init_assert
 }
 
 MainDispatch::~MainDispatch()
@@ -163,6 +171,25 @@ MainDispatch::~MainDispatch()
         }
         _collect_workers();
     }
+
+    pthread_mutex_destroy(&wmutex);
+    pthread_mutex_destroy(&dsmutex);
+}
+
+void
+MainDispatch::registerWDHandle(cbsdk_hid_t id, WorkerDispatch *d)
+{
+    pthread_mutex_lock(&wmutex);
+    h2wmap[id] = d;
+    pthread_mutex_unlock(&wmutex);
+}
+
+void
+MainDispatch::unregisterWDHandle(cbsdk_hid_t id)
+{
+    pthread_mutex_lock(&wmutex);
+    h2wmap.erase(id);
+    pthread_mutex_unlock(&wmutex);
 }
 
 bool
@@ -286,6 +313,16 @@ MainDispatch::run()
                 delete reqp;
                 return;
 
+            } else if (reqp->command == Command::CANCEL) {
+                WorkerDispatch *w = h2wmap[reqp->handle_id];
+                if (!w) {
+                    writeResponse(Response(reqp,
+                                           Error(Error::SUBSYSf_SDKD,
+                                                 Error::SDKD_ENOHANDLE)));
+                } else {
+                    w->cancelCurrentHandle();
+                    writeResponse(Response(reqp, 0));
+                }
             } else {
                 // We don't currently support other types of control messages
                 writeResponse(Response(reqp,
@@ -350,143 +387,202 @@ MainDispatch::getDatasetById(const std::string& dsid)
 
 WorkerDispatch::~WorkerDispatch()
 {
+    pthread_mutex_destroy(&hmutex);
 }
 
 WorkerDispatch::WorkerDispatch(int newsock, MainDispatch *parent)
 : IODispatch(),
-  parent(parent)
+  parent(parent),
+  cur_handle(NULL),
+  cur_hid(0)
 {
     sockfd = newsock;
     stringstream ss;
     ss << "lcb-sdkd-worker fd=" << newsock;
     setLogPrefix(ss.str());
+    pthread_mutex_init(&hmutex, NULL);
+}
+
+// Return false when the main loop should terminate. True otherwise.
+bool
+WorkerDispatch::_process_request(const Request& req, ResultSet* rs)
+{
+    Error errp;
+    const Dataset *ds;
+    Dataset::Type dstype;
+    std::string refid;
+    Handle& h = *cur_handle;
+
+
+    if (!req.isValid()) {
+        log_warn("Got invalid request..");
+        return false;
+    }
+
+    if (req.command == Command::CLOSEHANDLE) {
+        log_info("CLOSEHANDLE called. Returning.");
+        return false;
+    }
+
+
+    dstype = Dataset::determineType(req, &refid);
+    if (dstype == Dataset::DSTYPE_INVALID) {
+        errp.setCode(Error::SUBSYSf_SDKD|Error::SDKD_EINVAL);
+        errp.setString("Couldn't parse dataset");
+        goto GT_CHECKERR;
+    }
+
+    if (dstype == Dataset::DSTYPE_REFERENCE) {
+        // Assume it's valied
+        ds = parent->getDatasetById(refid);
+        if (!ds) {
+            errp.setCode(Error::SUBSYSf_SDKD|Error::SDKD_ENODS);
+            errp.setString("Couldn't find dataset");
+            goto GT_CHECKERR;
+        }
+    } else {
+        ds = Dataset::fromType(dstype, req);
+        if (ds == NULL) {
+            errp.setCode(Error::SUBSYSf_SDKD|Error::SDKD_EINVAL);
+            errp.setString("Bad dataset parameters");
+            goto GT_CHECKERR;
+        }
+    }
+
+    GT_CHECKERR:
+    if (errp) {
+        writeResponse(Response(&req, errp));
+        errp.clear();
+        return true;
+    }
+
+    ResultOptions opts = ResultOptions(req.payload["Options"]);
+
+    switch (req.command) {
+    case Command::MC_DS_DELETE:
+    case Command::MC_DS_TOUCH:
+        h.dsKeyop(req.command, *ds, *rs, opts);
+        break;
+
+    case Command::MC_DS_MUTATE_ADD:
+    case Command::MC_DS_MUTATE_REPLACE:
+    case Command::MC_DS_MUTATE_APPEND:
+    case Command::MC_DS_MUTATE_PREPEND:
+    case Command::MC_DS_MUTATE_SET:
+        h.dsMutate(req.command, *ds, *rs, opts);
+        break;
+
+    case Command::MC_DS_GET:
+        h.dsGet(req.command, *ds, *rs, opts);
+        break;
+
+    default:
+        log_warn("Command '%s' not implemented",
+                 req.command.cmdstr.c_str());
+        writeResponse(Response(&req, Error(Error::SUBSYSf_SDKD,
+                                            Error::SDKD_ENOIMPL)));
+        return true;
+    }
+
+    if (rs->getError()) {
+        writeResponse(Response(&req, rs->getError()));
+    } else {
+        Response resp = Response(&req);
+        Json::Value root;
+        rs->resultsJson(&root);
+        resp.setResponseData(root);
+        writeResponse(resp);
+    }
+
+    return true;
 }
 
 // Worker does some stuff here.. dispatching commands to its own handle
 // instance.
 // This is actually two phases because we first need to wait and receive the
 // initial control message..
-
 void
 WorkerDispatch::run() {
 
     Request req;
+    ResultSet *rs = new ResultSet;
+    Error errp;
+    HandleOptions hopts;
+
     readRequest(true, &req);
 
     if (!req.isValid()) {
         log_error("Couldn't negotiate initial request");
-        return;
+        goto GT_DONE;
     }
 
-    Error errp;
 
-    HandleOptions hopts = HandleOptions(req.payload);
+    hopts = HandleOptions(req.payload);
     if (!hopts.isValid()) {
         writeResponse(Response(&req, Error(Error::SUBSYSf_SDKD,
                                             Error::SDKD_EINVAL,
                                             "Problem with handle input params")));
     }
-    Handle h(hopts);
 
-    if (!h.connect(&errp)) {
+    cur_handle = new Handle(hopts);
+
+    // We need to retain a pointer to our current handle (even if it lives
+    // on the stack) in order to be able to send it signals from other
+    // threads via cancelCurrentHandle().
+    cur_hid = req.handle_id;
+
+    parent->registerWDHandle(cur_hid, this);
+    if (!cur_handle->connect(&errp)) {
         log_error("Couldn't establish initial control connection");
         writeResponse(Response(&req, errp));
-        return;
+        goto GT_DONE;
     }
 
     // Notify a success
     log_info("Successful handle established");
-
     writeResponse(Response(&req));
     // Now start receiving responses, now that the handle has
     // been established..
 
-    auto_ptr<ResultSet> rs(new ResultSet);
+
     while (1) {
         readRequest(true, &req);
-        if (!req.isValid()) {
-            log_warn("Got invalid request..");
-            return;
-        }
-
-        if (req.command == Command::CLOSEHANDLE) {
-            break; // Close
-        }
-
-        const Dataset *ds;
-        Dataset::Type dstype;
-        std::string refid;
-
-        dstype = Dataset::determineType(req, &refid);
-        if (dstype == Dataset::DSTYPE_INVALID) {
-            errp.setCode(Error::SUBSYSf_SDKD|Error::SDKD_EINVAL);
-            errp.setString("Couldn't parse dataset");
-            goto GT_CHECKERR;
-        }
-
-        if (dstype == Dataset::DSTYPE_REFERENCE) {
-            // Assume it's valied
-            ds = parent->getDatasetById(refid);
-            if (!ds) {
-                errp.setCode(Error::SUBSYSf_SDKD|Error::SDKD_ENODS);
-                errp.setString("Couldn't find dataset");
-                goto GT_CHECKERR;
-            }
-        } else {
-            ds = Dataset::fromType(dstype, req);
-            if (ds == NULL) {
-                errp.setCode(Error::SUBSYSf_SDKD|Error::SDKD_EINVAL);
-                errp.setString("Bad dataset parameters");
-                goto GT_CHECKERR;
-            }
-        }
-
-        GT_CHECKERR:
-        if (errp) {
-            writeResponse(Response(&req, errp));
-            errp.clear();
-            continue;
-        }
-
-        ResultOptions opts = ResultOptions(req.payload["Options"]);
-
-        switch (req.command) {
-        case Command::MC_DS_DELETE:
-        case Command::MC_DS_TOUCH:
-            h.dsKeyop(req.command, *ds, *rs, opts);
+        if (_process_request(req, rs) == false) {
             break;
-
-        case Command::MC_DS_MUTATE_ADD:
-        case Command::MC_DS_MUTATE_REPLACE:
-        case Command::MC_DS_MUTATE_APPEND:
-        case Command::MC_DS_MUTATE_PREPEND:
-        case Command::MC_DS_MUTATE_SET:
-            h.dsMutate(req.command, *ds, *rs, opts);
-            break;
-
-        case Command::MC_DS_GET:
-            h.dsGet(req.command, *ds, *rs, opts);
-            break;
-
-        default:
-            log_warn("Command '%s' not implemented",
-                     req.command.cmdstr.c_str());
-            writeResponse(Response(&req, Error(Error::SUBSYSf_SDKD,
-                                                Error::SDKD_ENOIMPL)));
-            continue;
-            break;
-        }
-
-        if (rs->getError()) {
-            writeResponse(Response(&req, rs->getError()));
-        } else {
-            Response resp = Response(&req);
-            Json::Value root;
-            rs->resultsJson(&root);
-            resp.setResponseData(root);
-            writeResponse(resp);
         }
     }
+
+    log_info("Loop done..");
+
+    GT_DONE:
+    if (cur_hid) {
+        /* ... */
+        parent->unregisterWDHandle(cur_hid);
+        cur_hid = 0;
+    }
+
+    pthread_mutex_lock(&hmutex);
+    if (cur_handle) {
+        delete cur_handle;
+        cur_handle = NULL;
+    }
+    pthread_mutex_unlock(&hmutex);
+
+    delete rs;
+}
+
+// We need significant indirection because of shared data access from multiple
+// threads, and the fact that we want to make sure the handle itself is never
+// destroyed from anything but the thread it was created in. (Some components
+// may not be thread safe)
+void
+WorkerDispatch::cancelCurrentHandle()
+{
+    pthread_mutex_lock(&hmutex);
+    if (cur_handle) {
+        cur_handle->cancelCurrent();
+    }
+    pthread_mutex_unlock(&hmutex);
 }
 
 } /* namespace CBSdkd */

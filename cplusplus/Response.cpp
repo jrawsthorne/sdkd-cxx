@@ -32,7 +32,8 @@ Response::encode() const {
     root[CBSDKD_MSGFLD_HID] = (int)this->handle_id;
 
     if (!this->response_data) {
-        if (this->command.code != Command::NEWHANDLE) {
+        if (this->command.code != Command::NEWHANDLE &&
+                this->command.code != Command::CANCEL) {
             log_noctx_warn("No response data for command..");
         }
         root[CBSDKD_MSGFLD_RESDATA] = Json::Value(Json::objectValue);

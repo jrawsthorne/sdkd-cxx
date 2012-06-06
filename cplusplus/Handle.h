@@ -73,7 +73,6 @@ public:
             return delay;
         }
         if (delay_min == delay_max && delay_max == 0) {
-//            cerr << "No Delay.." << endl;
             return 0;
         }
         return (delay_min + (rand() % (delay_max - delay_min)));
@@ -230,9 +229,14 @@ public:
         return defl;
     }
 
+    // Cancels the current operation, causing it to return during the next
+    // operation.
+    void cancelCurrent();
+
 private:
     HandleOptions options;
     bool is_connected;
+    bool do_cancel;
 
     int ifd;
     int ofd;

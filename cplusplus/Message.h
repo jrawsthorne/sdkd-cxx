@@ -23,7 +23,8 @@
     XX(CLOSEHANDLE) \
     XX(NEWDATASET) \
     XX(DELDATASET) \
-    XX(GOODBYE)
+    XX(GOODBYE) \
+    XX(CANCEL)
 
 namespace CBSdkd {
 
@@ -51,7 +52,7 @@ public:
     ~Command() { };
 
 
-    operator int () { return this->code; };
+    operator int () const { return this->code; };
 };
 
 class Message {

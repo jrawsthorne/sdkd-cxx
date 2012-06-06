@@ -36,7 +36,7 @@ Request::Request() {
 
 
 bool
-Request::isValid()
+Request::isValid() const
 {
     return this->err == false;
 }

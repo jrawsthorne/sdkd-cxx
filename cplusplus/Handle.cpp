@@ -53,8 +53,10 @@ Handle::connect(Error *errp)
         errp->errstr = "Could not construct handle";
         return false;
     }
+
     if (options.timeout) {
-//        libcouchbase_set_timeout(instance, options.timeout * 1000000);
+        log_debug("Setting timeout to %d sec", options.timeout);
+        libcouchbase_set_timeout(instance, options.timeout * 1000000);
     }
 
     libcouchbase_set_error_callback(instance, cb_err);
@@ -201,12 +203,16 @@ Handle::dsGet(Command cmd, Dataset const &ds, ResultSet& out,
 {
     out.options = options;
     out.clear();
+    do_cancel = false;
 
     libcouchbase_time_t exp = out.options.expiry;
     libcouchbase_time_t *exp_pp = (exp) ? &exp : NULL;
 
     DatasetIterator* iter = ds.getIter();
-    for (iter->start(); iter->done() == false; iter->advance()) {
+    for (iter->start();
+            iter->done() == false && do_cancel == false;
+            iter->advance()) {
+
         std::string k = iter->key();
         log_trace("GET: %s", k.c_str());
         libcouchbase_size_t sz = k.size();
@@ -217,7 +223,6 @@ Handle::dsGet(Command cmd, Dataset const &ds, ResultSet& out,
                                   (const void**)&cstr, &sz, exp_pp);
         if (err == LIBCOUCHBASE_SUCCESS) {
             postsubmit(out);
-
         } else {
             out.setError(instance, err, k);
         }
@@ -235,6 +240,7 @@ Handle::dsMutate(Command cmd, const Dataset& ds, ResultSet& out,
     out.options = options;
     out.clear();
     libcouchbase_storage_t storop;
+    do_cancel = false;
 
     if (cmd == Command::MC_DS_MUTATE_ADD) {
         storop = LIBCOUCHBASE_ADD;
@@ -257,7 +263,10 @@ Handle::dsMutate(Command cmd, const Dataset& ds, ResultSet& out,
     DatasetIterator *iter = ds.getIter();
 
 
-    for (iter->start(); iter->done() == false; iter->advance()) {
+    for (iter->start();
+            iter->done() == false && do_cancel == false;
+            iter->advance()) {
+
         std::string k = iter->key(), v = iter->value();
         libcouchbase_size_t ksz = k.size(), vsz = v.size();
         const char *kstr = k.data(), *vstr = v.data();
@@ -287,9 +296,12 @@ Handle::dsKeyop(Command cmd, const Dataset& ds, ResultSet& out,
     out.clear();
     libcouchbase_time_t exp = out.options.expiry;
     DatasetIterator *iter = ds.getIter();
+    do_cancel = false;
 
+    for (iter->start();
+            iter->done() == false && do_cancel == false;
+            iter->advance()) {
 
-    for (iter->start(); iter->done() == false; iter->advance()) {
         std::string k = iter->key();
         const char *kstr = k.data();
         libcouchbase_size_t ksz = k.size();
@@ -310,6 +322,12 @@ Handle::dsKeyop(Command cmd, const Dataset& ds, ResultSet& out,
     delete iter;
     collect_result(out);
     return true;
+}
+
+void
+Handle::cancelCurrent()
+{
+    do_cancel = true;
 }
 
 void
