@@ -1,8 +1,16 @@
 import logger
+from logger import Logger
 import basetestcase
 from cbsdk.constants import StatusCodes as _E
+import unittest
 
-class SDKBaseTestCase(basetestcase.BaseTestCase):
+from TestInput import TestInputSingleton
+from membase.helper.bucket_helper import BucketOperationHelper as BOP
+from membase.helper.cluster_helper import ClusterOperationHelper as COP
+from couchbase.cluster import Cluster
+
+
+class SDKBaseTestCase(unittest.TestCase):
     """
     Base class for SDK tests
     """
@@ -27,11 +35,10 @@ class SDKBaseTestCase(basetestcase.BaseTestCase):
         """
         Create a new driver, or get an existing one
         """
-        try:
-            return getattr(self, "_current_driver")
-        except AttributeError:
+        if not self._current_driver:
             self._current_driver = self.getDriverFactory().create_driver()
-            return self.getDriver()
+        
+        return self._current_driver
             
     def __del__(self):
         """
@@ -42,11 +49,88 @@ class SDKBaseTestCase(basetestcase.BaseTestCase):
         
         self._current_driver.close()
         self._current_driver = None
-
+        
+    
+    
+    def resetCluster(self):
+        BOP.delete_all_buckets_or_assert(self.servers, self)
+        COP.cleanup_cluster(self.servers)
+        COP.wait_for_ns_servers_or_assert(self.servers, self)
+        
+    def setupCluster(self, num_nodes, bucket_size = 512):
+        to_add = self._nodes_free[0:num_nodes]
+        
+        known = self._nodes_joined[::]
+        if not len(known):
+            known = [ to_add[0] ]
+            to_add.pop(0)
+        to_remove = []
+        
+        self.cluster.rebalance(known, to_add, [])
+        # Nodes free are the ones we didn't join yet, if any
+        self._nodes_free = self._nodes_free[num_nodes:]
+        self._nodes_joined = known + to_add
+        self.cluster.create_default_bucket(known[0], bucket_size)
+        
+    def removeNodes(self, num_nodes = 1):
+        
+        """
+        Asynchronously removes nodes from the cluster and rebalances
+        it.
+        @param num_nodes How many nodes to remove
+        @return A future (task.future)
+        """
+        
+        to_remove = []
+        
+        for x in xrange(0, num_nodes):
+            to_remove.append(self._nodes_joined.pop())
+            
+        self._nodes_free += to_remove
+        
+        self.log.info("Removing nodes " + str(to_remove))
+        self.log.info("Remaining: " + str(self._nodes_joined))
+        
+        f = self.cluster.async_rebalance(self._nodes_joined,
+                                         [],
+                                         to_remove)
+        return f
+    
+    def addNodes(self, num_nodes):
+        """
+        Asynchronously adds nodes to the cluster and triggers a rebalance.
+        @param num_nodes the amount of nodes to add
+        @return a future (task.future)
+        """
+        
+        available = self._nodes_free[::]
+        to_add = []
+        
+        for x in xrange(0, num_nodes):
+            newnode = self._nodes_free.pop()
+            to_add.append(newnode)
+            self._nodes_joined.append(newnode)
+        
+        f = self.cluster.async_rebalance(self._nodes_joined,
+                                         to_add,
+                                         [])
+        return f
+    
     
     def setUp(self):
         super(SDKBaseTestCase, self).setUp()
+        self.log = Logger.get_logger()
+        
         self.handles = []
+        self._current_driver = None
+        self._nodes_joined = []
+        self._nodes_free = []
+        
+        self.input = TestInputSingleton.input
+        self.servers = self.input.servers
+        self._nodes_free = self.servers[::]
+        self.cluster = Cluster()
+        
         
     def tearDown(self):
         super(SDKBaseTestCase, self).tearDown()
