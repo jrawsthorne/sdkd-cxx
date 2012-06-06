@@ -65,6 +65,8 @@ class RebalanceBasic(SDKBaseTestCase):
                     vsize = 100,
                     repeat = '_REP_')
         
+        if driver.has_cap("cancel") and driver.has_cap("continuous"):
+            ds.set_option("Continuous", True)
         
         # Remove a node asynchronously (together with a rebalance)
         task = self.removeNodes(num_nodes = rmcount)
