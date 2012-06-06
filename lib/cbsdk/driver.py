@@ -58,7 +58,7 @@ class Handle(object):
              host='127.0.0.1',
              port=8091,
              bucket='default',
-             timeout = 30,
+             timeout = None,
              handle_id = 0,
              username = "", password = ""):
         
