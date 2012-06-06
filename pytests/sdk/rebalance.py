@@ -71,11 +71,11 @@ class RebalanceBasic(SDKBaseTestCase):
         
         # Now schedule the commands for the sdkd workers
         for h in getters:
-            req = h.ds_retrieve(ds, DelayMax = 10, DelayMin = 1)
+            req = h.ds_retrieve(ds, DelayMax = 10, DelayMin = 1, IterWait = True)
             h.invoke_command(req, wait = False)
             
         for h in setters:
-            req = h.ds_mutate(ds, DelayMax = 10, DelayMin = 1)
+            req = h.ds_mutate(ds, DelayMax = 10, DelayMin = 1, IterWait = True)
             h.invoke_command(req, wait = False)            
             
         
