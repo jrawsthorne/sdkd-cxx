@@ -391,3 +391,39 @@ This is driver-global message, the rationale for which being the same as the
 C<CLOSEHANDLE> command. The only difference is that this command uses the special
 C<Handle> value of C<0>
 
+
+=head2 C<NEWHANDLE> preamble
+
+This is used before a C<NEWHANDLE> and is essentially a I<preamble> to what
+happens next.
+
+This can be used in a fork/accept mechanism where a control thread receives a
+message about a C<NEWHANDLE> and then receives a connection on a socket. In a
+simple scenario where there is only a single client, the C<sdkd> implementation
+may make the assumption that the previous C<Handle> ID used by C<PREPHANDLE> is
+the one which the currently C<accept()>-ed connection is servicing, and would
+then be able to associate the new socket handler's thread/socket ID with the given
+handle ID.
+
+This may allow for signalling via the control thread and a simplification of the
+handle thread.
+
+Note that this command is a work in progress
+
+
+=head2 C<CANCEL>
+
+This is a I<signalling> operation and is directed at a specific handle, but sent
+via the control channel.
+
+It should contain the C<Handle> id of the handle which is currently processing
+a request.
+
+The handle will hopefully complete its operation 'soon' (i.e. the next time the
+handle is able to return a coherent result while maintaining consistent state).
+
+The C<CANCEL> command can be used in conjunction with the I<preamble>-mode
+C<NEWHANDLE> request.
+
+Like the preamble-style C<NEWHANDLE>, the format and specifics of this command
+are a work in progress
