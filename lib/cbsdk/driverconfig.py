@@ -54,6 +54,11 @@ class DriverFactory(object):
         
         driveropts["caps"] = caps
         
+        # Force them all to lowercase, so we can reference them sanely
+        for k,v in caps.items():
+            caps.pop(k)
+            caps[k.lower()] = v
+        
         self.driverclass = driverclass
         self.driveropts = driveropts
         

@@ -81,7 +81,8 @@ class DSSeed(Dataset):
                  vseed = None,
                  ksize = 64,
                  vsize = 512,
-                 repeat = None):
+                 repeat = None,
+                 contiunous = False):
         
         if not repeat:
             repeat = 'C'
@@ -100,7 +101,22 @@ class DSSeed(Dataset):
             "KSeed" : kseed,
             "VSeed" : vseed,
             "Count" : count,
+            "Continuous" : contiunous
         }
     
     def as_dict(self):
         return self._spec.copy()
+        
+    def set_option(self, option, value):
+        if not self._spec.has_key(option):
+            raise KeyError("No such option")
+        self._spec[option] = value
+        
+    def copy(self):
+        """
+        Makes a copy of this dataset.
+        """
+        ret = DSSeed(kseed = 'k', vseed = 'v')
+        ret._spec.update(self._spec)
+        return ret
+    

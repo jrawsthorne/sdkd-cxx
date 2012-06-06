@@ -227,6 +227,9 @@ class Driver(object):
         resp = self.io_control_conduit().recv_msg()
         return resp
     
+    def has_cap(self, cap):
+        return self.caps.get(cap.lower(), False)
+    
     def close(self):
         self.io_control_conduit().send_msg(Req.Goodbye())
     
