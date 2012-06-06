@@ -412,7 +412,8 @@ WorkerDispatch::_process_request(const Request& req, ResultSet* rs)
     Dataset::Type dstype;
     std::string refid;
     Handle& h = *cur_handle;
-
+    auto_ptr<const Dataset> ds_scopedel;
+    ds_scopedel.reset();
 
     if (!req.isValid()) {
         log_warn("Got invalid request..");
@@ -447,6 +448,9 @@ WorkerDispatch::_process_request(const Request& req, ResultSet* rs)
             errp.setString("Bad dataset parameters");
             goto GT_CHECKERR;
         }
+
+        // Make the DS get cleaned up when we exit.
+        ds_scopedel.reset(ds);
     }
 
     GT_CHECKERR:
@@ -457,6 +461,19 @@ WorkerDispatch::_process_request(const Request& req, ResultSet* rs)
     }
 
     ResultOptions opts = ResultOptions(req.payload["Options"]);
+    // There are some sanity checking operations we should perform.
+    // Because we wrap the handle, and the handle cannot return any responses.
+
+    // Continuous must be used with IterWait
+    if (dstype == Dataset::DSTYPE_SEEDED) {
+        if (opts.iterwait == false &&
+                ((DatasetSeeded*)ds)->getSpec().continuous == true) {
+            writeResponse(Response(&req, Error(Error::SUBSYSf_SDKD,
+                                               Error::SDKD_EINVAL,
+                                               "Continuous must be used with IterWait")));
+            return true;
+        }
+    }
 
     switch (req.command) {
     case Command::MC_DS_DELETE:

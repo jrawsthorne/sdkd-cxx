@@ -104,7 +104,7 @@ struct DatasetSeedSpecification {
     unsigned int count;
     unsigned int ksize;
     unsigned int vsize;
-
+    bool continuous;
     std::string repeat;
     std::string kseed;
     std::string vseed;
@@ -129,6 +129,10 @@ public:
     DatasetSeeded(const struct DatasetSeedSpecification& spec);
     DatasetIterator* getIter() const;
     unsigned int getCount() const;
+
+    const DatasetSeedSpecification& getSpec() const {
+        return spec;
+    }
 
 private:
     struct DatasetSeedSpecification spec;

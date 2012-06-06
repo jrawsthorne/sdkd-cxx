@@ -39,6 +39,7 @@
 #define CBSDKD_MSGFLD_DSREQ_MULTI               "Multi"
 #define CBSDKD_MSGFLD_DSREQ_EXPIRY              "Expiry"
 #define CBSDKD_MSGFLD_DSREQ_ITERWAIT            "IterWait"
+#define CBSDKD_MSGFLD_DSREQ_CONTINUOUS          "Continuous"
 
 /**
  * DS Response fields

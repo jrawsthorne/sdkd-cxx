@@ -196,6 +196,7 @@ DatasetSeeded::DatasetSeeded(const Json::Value& jspec)
 
     spec->repeat = jspec[CBSDKD_MSGFLD_DSSEED_REPEAT].asString();
     spec->count = jspec[CBSDKD_MSGFLD_DSSEED_COUNT].asUInt();
+    spec->continuous = jspec[CBSDKD_MSGFLD_DSREQ_CONTINUOUS].asBool();
     verify_spec();
 
 }
@@ -278,6 +279,12 @@ DatasetSeededIterator::init_data(int idx)
 
 bool
 DatasetSeededIterator::done() {
+
+    if (this->spec->continuous) {
+        // Continuous always returns True
+        return false;
+    }
+
     if (this->curidx >= this->spec->count) {
         return true;
     }
