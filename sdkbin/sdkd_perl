@@ -154,6 +154,9 @@ use Log::Fu;
 use CBSdkd::Errors;
 use CBSdkd::Dataset;
 
+our $DoStop = 0;
+our $InProgress = 0;
+
 has 'cbo' => (is => 'rw');
 has 'fp' => (is => 'ro', required => 1);
 has 'id' => (is => 'ro', required => 1);
@@ -209,7 +212,9 @@ sub cmd_mutate {
     
     my $func = $CBSdkd::Errors::MutationMap{$subop};
     my $iter = $dataset->iter();
-    while ($iter->next) {
+    
+    while ($iter->next && $DoStop == 0) {
+        
         my $k = $iter->key();
         my $v = $iter->value();
         my $rv = $cbo->$func($k,$v,@extra_args);
@@ -229,6 +234,7 @@ sub cmd_mutate {
         }
     }
     
+    $DoStop = 0;
     my $payload = { Summary => \%stats };
     
     if ($options->{Detailed}) {
@@ -257,7 +263,8 @@ sub cmd_retrieve {
     my $is_detailed = $msg->payload->{Options}->{Detailed};
     my $delay = $msg->payload->{Options}->{DelayMsec} || 0;
     my $iter = $dataset->iter();
-    while ($iter->next()) {
+    
+    while ($iter->next() && $DoStop == 0) {
         my $k = $iter->key();
         my $v = $iter->value();
 
@@ -282,6 +289,8 @@ sub cmd_retrieve {
             sleep($delay / 1000);
         }
     }
+    
+    $DoStop = 0;
     
     my $payload = {
         Summary => \%stats
@@ -327,7 +336,7 @@ sub cmd_kop {
     
     my %stats;
     my $iter = $dataset->iter();
-    while ($iter->next) {
+    while ($iter->next && $DoStop == 0) {
         
         my $rv = $cbo->$func($iter->key(), @args);
         if ($rv->is_ok) {
@@ -342,6 +351,8 @@ sub cmd_kop {
             sleep($delay / 1000);
         }
     }
+    
+    $DoStop = 0;
     
     return $msg->create_response(status => 0,
                                  payload => { Summary => \%stats });
@@ -402,13 +413,14 @@ use Couchbase::Client::Errors;
 use CBSdkd::Errors;
 use CBSdkd::Dataset;
 
-has 'handlers' => (is => 'ro',
-                   default => sub {
-    {
-    'NEWHANDLE' => "cmd_newhandle",
-    'NEWDATASET' => "cmd_newdataset"
-    }
-});
+
+sub handlers {
+    my $self = shift;
+    return {
+        'NEWHANDLE' => 'cmd_newhandle',
+        'NEWDATASET' => 'cmd_newdataset'
+    };
+}
 
 sub msg2cbo {
     my ($self,$msg) = @_;
@@ -569,11 +581,14 @@ has 'sockinfo_file' => (is => 'ro', required => 1);
 has 'accept_fh' => (is => 'rw');
 has 'control_fh' => (is => 'rw');
 has 'pids' => (is => 'ro', default => sub { +{} } );
+has 'hids' => (is => 'ro', default => sub { +{} } );
+has 'nextid' => (is => 'rw', default => sub { -1 } );
+
 
 use IO::Select;
 use IO::Socket::INET;
 use Socket;
-use POSIX qw(:sys_wait_h :errno_h);
+use POSIX qw(:sys_wait_h :errno_h :signal_h);
 
 END {
     if ($MPControl) {
@@ -586,6 +601,12 @@ END {
 sub do_child {
     my ($self,$newsock) = @_;
     $Log::Fu::LINE_PREFIX = $$ . " ";
+    
+    # Signal for 'cancel'
+    $SIG{USR1} = sub {
+        $CBSdkd::Handle::DoStop = 1;
+    };
+
     
     log_debug("Will try and get new message...");
     
@@ -623,6 +644,53 @@ sub do_child {
     exit(1);
 }
 
+sub cmd_newhandle {
+    my ($self,$msg) = @_;
+    my $id = $msg->handle_id;
+    if (!$id) {
+        return $msg->create_response(
+            status => SUBSYSf_SDKD | SDKD_EINVAL,
+            errstr => "Bad handle ID",
+            payload => {}
+        );
+    }
+    $self->nextid($id);
+    return $msg->create_response(status => 0, payload => {} );
+}
+
+sub cmd_cancel {
+    my ($self,$msg) = @_;
+    my $id = $msg->handle_id;
+    if (!$id) {
+        return $msg->create_response(
+            status => SUBSYSf_SDKD|SDKD_EINVAL,
+            errstr => "bad handle ID",
+            paylaod => {}
+        );
+    }
+    my $pid = $self->hids->{$id};
+    if (!$pid) {
+        return $msg->create_response(
+            status => SUBSYSf_SDKD|SDKD_ENOHANDLE,
+            errstr => "No such handle",
+            payload => {}
+        );
+    }
+    kill(SIGUSR1, $pid);
+    return $msg->create_response(status => 0, payload => {} );
+}
+
+sub handlers {
+    my $self = shift;
+    my $ret = $self->SUPER::handlers();
+    $ret = {
+        %$ret,
+        'CANCEL' => 'cmd_cancel',
+        'NEWHANDLE' => 'cmd_newhandle'
+    };
+    return $ret;
+}
+
 sub run {
     my $self = shift;
     $MPControl = $self;
@@ -641,7 +709,10 @@ sub run {
     $SIG{CHLD} = sub {
         my $pid = waitpid(-1, 0);
         die "Waited for PID with WNOHANG, but returned no PID ($!)" unless $pid;
-        delete $self->pids->{$pid};
+        my $hid = delete $self->pids->{$pid};
+        if ($hid > 0) {
+            delete $self->hids->{$hid};
+        }
     };
     
     die "Couldn't establish socket: $!" unless $sock;
@@ -716,7 +787,13 @@ sub run {
                     
                     $self->do_child($newsock);
                 } else {
-                    $self->pids->{$pid} = 1;
+                    $self->pids->{$pid} = $self->nextid;
+                    if ($self->nextid == -1) {
+                        log_warn("NEWHANDLE not sent to control channel");
+                    } else {
+                        $self->hids->{$self->nextid} = $pid;
+                        $self->nextid(-1);
+                    }
                     close($newsock);
                 }
             } else {
