@@ -83,7 +83,13 @@ class CloseHandle(Request):
     """ Closes/Deletes a handle"""
     def __init__(self, reqid, hid):
         super(CloseHandle, self).__init__("CLOSEHANDLE", reqid, hid)
-    
+
+
+class CancelHandle(Request):
+    """ Cancels a handle's current operation """
+    def __init__(self, reqid, hid):
+        super(CancelHandle, self).__init__('CANCEL', reqid, hid)
+
 class Goodbye(Request):
     """ Terminates the control connection"""
     def __init__(self):

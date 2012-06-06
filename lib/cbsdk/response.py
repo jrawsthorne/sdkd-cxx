@@ -269,6 +269,8 @@ class DSResponse(HandleResponse):
         return self._details[self._details.keys()[0]]
         
 Response_Handlers.register_handler("NEWHANDLE", ControlResponse)
+Response_Handlers.register_handler("PREPHANDLE", ControlResponse)
+Response_Handlers.register_handler("CANCEL", ControlResponse)
 Response_Handlers.register_handler("NEWDATASET", Response)
 [
     Response_Handlers.register_handler("MC_DS_" + subop,

@@ -44,6 +44,16 @@ class DriverFactory(object):
         driverclass = getattr(cbsdk.driver, driver_config["driver"])
         driveropts = eval(driver_config["driver_options"])
         
+        caps = dict(p.items("caps"))
+        if not caps:
+            caps = {}
+        for k,v in caps.items():
+            v = int(v)
+            if not v:
+                caps.pop(k)
+        
+        driveropts["caps"] = caps
+        
         self.driverclass = driverclass
         self.driveropts = driveropts
         

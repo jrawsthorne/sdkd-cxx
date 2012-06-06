@@ -59,6 +59,7 @@ class Handle(object):
              port=8091,
              bucket='default',
              timeout = 30,
+             handle_id = 0,
              username = "", password = ""):
         
         logger = logging.getLogger()
@@ -66,7 +67,12 @@ class Handle(object):
         self.log = logger
         
         self.driver = driver
-        self.handle_id = self.driver.mkhandleid()
+        
+        if not handle_id:
+            handle_id = self.driver.mkhandleid()
+            
+        self.handle_id = handle_id
+        
         self.conduit = conduit
         
         regmsg = Req.CreateHandle(
@@ -136,6 +142,15 @@ class Handle(object):
                                   op,
                                   **options)
         
+    def cancel(self, reqid = None):
+        """
+        Cancels a request.. this is really a control message directed at
+        the handle's driver and uses that channel rather than via the
+        handle itself.
+        """
+        return self.driver.cancel_handle_op(self.handle_id, reqid)
+        
+        
     def close(self):
         if not self.active:
             return
@@ -164,7 +179,7 @@ class Driver(object):
         else:
             self.spawn_on_demand = False
         
-        
+        self.caps = options.get("caps", {})
         self.handles = {}
         self.datasets = set()
         
@@ -282,7 +297,51 @@ class DriverInet(Driver):
         
         assert self.port >= 0
         self._control = Conduit(fp = self._create_new_connection())
+        
+    def create_handle(self, **kwargs):
+        """
+        Reimplemented from base class. This also sends a 'preamble' to the
+        control channel.
+        
+        We need to create this 'preamble' message so the control channel
+        may signal this handle ID when we wish to cancel or otherwise
+        modify the runtime properties. We cannot assume the concurrency model
+        of the target process, so we do some weird stuff to this effect.
+        """
+        new_handleid = self.mkhandleid()
+        if self.caps.get("preamble", None):
+            preamble = Req.CreateHandle(self.mkreqid(),
+                                        new_handleid,
+                                        'localhost',
+                                        '8091',
+                                        'default')
+            
+            self.io_control_conduit().send_msg(preamble)
+            resp = self.io_control_conduit().recv_msg()
+            assert resp.is_ok()
+            
+        return super(DriverInet, self).create_handle(
+            handle_id = new_handleid,
+            **kwargs)
     
+    def cancel_handle_op(self, hid, reqid = None):
+        """
+        Cancels a current operation on a handle. The handle will stop whatever
+        it is doing 'soon' (the notification may be asynchronous), and respond
+        with a possibly partial result set.
+        Returns a response depending on whether the cancellation request was
+        issued successfuly or not
+        """
+        if not self.caps.get("cancel", None):
+            return False
+        
+        if reqid is None:
+            reqid = self.mkreqid()
+            
+        self.io_control_conduit().send_msg(Req.CancelHandle(reqid, hid))
+        resp = self.io_control_conduit().recv_msg()
+        assert resp.is_ok()
+        
     def io_control_conduit(self):
         return self._control
     
