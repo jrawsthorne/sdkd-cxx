@@ -277,6 +277,11 @@ MainDispatch::run()
         memcpy(&rfds, &origfds, sizeof(origfds));
         int selv = select(fdmax, &rfds, NULL, NULL, NULL);
         if (-1 == selv) {
+
+            if (errno == EINTR) {
+                continue;
+            }
+            log_warn("select: %d", strerror(errno));
             return;
         }
         assert(selv > 0);
