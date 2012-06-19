@@ -145,7 +145,7 @@ testNewHandle(void)
         abort();
     }
 
-    struct DatasetSeedSpecification spec;
+    struct DatasetSeedSpecification spec = { 0 };
     spec.kseed = "The_Key";
     spec.vseed = "The_Value";
     spec.ksize = spec.vsize = 12;
