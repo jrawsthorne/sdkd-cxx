@@ -2,3 +2,14 @@
 *.o
 portinfo.txt
 cplusplus/main
+[Oo]bj/
+[Bb]in/
+*.suo
+*.user
+/TestResults
+*.vspscc
+*.vssscc
+*.vsmdi
+*.vs*
+*.testsettings
+*.sln.docstates
