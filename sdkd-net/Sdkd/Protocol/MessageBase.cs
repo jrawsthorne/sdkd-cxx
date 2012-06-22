@@ -8,21 +8,25 @@ namespace Sdkd.Protocol
 {
 	public abstract class MessageBase
 	{
+		protected JsonObject _json;
+		
 		public MessageBase() { }
 		
-		public MessageBase(MessageBase message)
+		public MessageBase (MessageBase message)
 		{
 			Id = message.Id;
 			Command = message.Command;
 			Handle = message.Handle;
+			_json = message._json;
 		}
 
-		public MessageBase(string request)
+		public MessageBase (string request)
 		{
-			var jObj = JsonValue.Parse(request);
+			var jObj = JsonValue.Parse (request);
 
-			Id = jObj["ReqID"].ReadAs<int>();
-			Command = jObj["Command"].ReadAs<string>();			
+			Id = jObj ["ReqID"].ReadAs<int> ();
+			Command = jObj ["Command"].ReadAs<string> ();	
+			_json = jObj.ToJsonObject();
 		}
 
 		public int Id { get; set; }
