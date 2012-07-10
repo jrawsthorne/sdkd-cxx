@@ -1,93 +1,9 @@
-=head1 NAME
+=head1 C++ SDKD Implementation
 
-Couchbase SDK Driver Framework
+This is the libcouchbase-based sdkd implementation in C++, it utilizes
+C<libcouchbase> to perform SDK operations.
 
-=head1 OVERVIEW
-
-The aim of cbsdkd is to provide a language-neutral interface and framework
-for testing and performing various memcached operations (and in the future,
-couchdb) using pluggable "language-modules".
-
-The test controller (testrunner) written in python will implement test logic
-and will channel the necessary information to a given implementation of an
-'sdkd'.
-
-Currently, the basic operations of memcached have been implemented in both a
-python-facing API, and a perl-based sdkd plugin (it was written in Perl since
-this is the dynamic language couchbase SDK I am most familiar with, and also to
-demonstrate cross language and cross paradigm interoperability and
-functionality).
-
-=head1 CONCEPTS
-
-The implementation and architecture are both a work in progress, but the basic
-concepts should remain the same with little change.
-
-=head2 HANDLES
-
-A I<handle> is an object representing a single connection to a single couchbase
-bucket. Handles are present in all SDKs I have seen, and is therefore the main
-unit of reference.
-
-Handles are instantiated with the common bucket, hostname, and authentication
-parameters, with other options depending on plugin support.
-
-Handles may be concurrent, although the concurrency itself is implementation
-dependent (i.e. they can be forked, threaded, etc). The Perl C<sdkd> example
-implements an accept-fork model and uses sockets.
-
-=head2 DATASETS
-
-Datasets represent an abstraction of a set of key-value pairs. Datasets are
-opaque units with a deterministic output based on the inputs used to construct
-it.
-
-They may be created I<inline> (i.e. a simple list of key-value pairs), they may
-reference an external file (not really implemented) or shared memory segment
-(not yet implemented either..).
-
-A special feature that has been part of the design is the ability to create
-datasets based on B<seeds>. Where instead of transferring the entire dataset
-to the C<sdkd> implementation, a small set of parameters are passed, which should
-be decoded by the implementation and expanded on-demand.
-
-
-=head3 OPERATIONS
-
-Operations consist atomic operations performed on datasets. These are your
-good old memcached ops. However, instead of operations taking actual keys
-and returning actual values, they accept dataset identifiers as input, and
-produce statistical information as output
-
-=head1 USING
-
-There currently isn't much excitement here. The python commandline 'client',
-C<cbsdkd_client> should be self explanatory (run it with C<--help> for options.
-
-You will need Perl version 5.8.8 or greater (this shouldn't be a problem on any
-semi-modern operating system).
-
-The Perl C<sdkbin/sdkd_perl> requires several packages from CPAN.
-The simplest way to do this is using C<cpanm>
-
-    curl -L http://cpanmin.us | perl - --sudo App::cpanminus
-
-    # Then, install the following packages:
-    sudo cpanm Moo Couchbase::Client JSON::XS Data::Dumper::Concise Log::Fu
-    sudo cpanm Carp::Always
-
-To run the perl C<sdkd> with C<cbsdk_client>
-
-    ./cbsdk_client -C conf/perl.cfg < ... options ... >
-
-
-Note that C<Couchbase::Client> uses an embedded version of libcouchbase
-which may not be the most recent (I think it may use the system-provided
-library, if installed.. but I am not sure.. been a while :)
-
-
-
-The C++/libcouchbase-based C<cplusplus/sdkd_lcb> requires libcouchbase
+It requires libcouchbase
 headers and JsonCPP. On debian systems you may install it via apt:
 
     sudo apt-get install libjsoncpp0 libjsoncpp-dev
@@ -108,61 +24,7 @@ a log of my session:
     mbp:src mnunberg$ cd json-cpp/
     mbp:json-cpp mnunberg$ make -f makefiles/gcc/Makefile staticlibrary
     
-    # Now that we've built jsoncpp, go in to the cbsdk directory
+    # Now that we've built jsoncpp, go in to the main directory
     
-    mbp:json-cpp mnunberg$ cd ~/src/cbsdkd-test/cbsdkd/
-    mbp:cbsdkd mnunberg$ make -C cplusplus/ JSONCPP_CPPFLAGS=-I$HOME/src/json-cpp/include JSONCPP_LFLAGS=~/src/json-cpp/lib/libjson-cpp.a
-    
-    # install python argparse
-    mbp:cbsdkd mnunberg$ easy_install-2.6 argparse
-    mbp:cbsdkd mnunberg$ python2.6 cbsdk_client -C conf/lcb.cfg --simple -c 5 -d -H 10.0.0.99 -b membase0
-    [root cbsdk_client:100] Command line: ['cplusplus/sdkd_lcb', 'infofile=portinfo.txt']
-    [root cbsdk_client:101] Using driver: DriverInet
-    [root driver.py:149] Executing: ['cplusplus/sdkd_lcb', 'infofile=portinfo.txt']
-    [root driver.py:255] Will wait for file (portinfo.txt) to settle
-    [Errno 2] No such file or directory: 'portinfo.txt'
-    [cbskd-test] main:61 Listening on port 55232
-    [root driver.py:255] Will wait for file (portinfo.txt) to settle
-    [root driver.py:246] Created new connection to 55232
-    [root driver.py:246] Created new connection to 55232
-    [driver driver.py:36] > NEWHANDLE:1 @1 {'Hostname': '10.0.0.99', 'Bucket': 'membase0', 'Port': 8091, 'Options': {'Username': '', 'Password': '', 'Timeout': 30}}
-    [driver driver.py:44] < NEWHANDLE:1 @1 (OK) {}
-    [driver cbsdk_client:126] Doing simple iterations..
-    [driver cbsdk_client:127] Doing pre-deletion..
-    [driver driver.py:36] > MC_DS_DELETE:2 @1 {'DSType': 'DSTYPE_INLINE', 'DS': {'Items': ['KEY_KEY_0'], 'HasValues': False}, 'Options': {}}
-    [driver driver.py:44] < MC_DS_DELETE:2 @1 (OK) {u'Summary': {u'520': 1}}
-    [driver driver.py:36] > MC_DS_DELETE:3 @1 {'DSType': 'DSTYPE_INLINE', 'DS': {'Items': ['KEY_KEY_1'], 'HasValues': False}, 'Options': {}}
-    [driver driver.py:44] < MC_DS_DELETE:3 @1 (OK) {u'Summary': {u'520': 1}}
-    [driver driver.py:36] > MC_DS_DELETE:4 @1 {'DSType': 'DSTYPE_INLINE', 'DS': {'Items': ['KEY_KEY_2'], 'HasValues': False}, 'Options': {}}
-    [driver driver.py:44] < MC_DS_DELETE:4 @1 (OK) {u'Summary': {u'520': 1}}
-    [driver driver.py:36] > MC_DS_DELETE:5 @1 {'DSType': 'DSTYPE_INLINE', 'DS': {'Items': ['KEY_KEY_3'], 'HasValues': False}, 'Options': {}}
-    [driver driver.py:44] < MC_DS_DELETE:5 @1 (OK) {u'Summary': {u'520': 1}}
-    [driver driver.py:36] > MC_DS_DELETE:6 @1 {'DSType': 'DSTYPE_INLINE', 'DS': {'Items': ['KEY_KEY_4'], 'HasValues': False}, 'Options': {}}
-    [driver driver.py:44] < MC_DS_DELETE:6 @1 (OK) {u'Summary': {u'520': 1}}
-    [driver driver.py:36] > MC_DS_MUTATE_SET:7 @1 {'DSType': 'DSTYPE_INLINE', 'DS': {'Items': [('KEY_0', 'KEY_0')], 'HasValues': True}, 'Options': {'Expiry': 300}}
-    [driver driver.py:44] < MC_DS_MUTATE_SET:7 @1 (OK) {u'Summary': {u'0': 1}}
-    [driver driver.py:36] > MC_DS_MUTATE_SET:8 @1 {'DSType': 'DSTYPE_INLINE', 'DS': {'Items': [('KEY_1', 'KEY_1')], 'HasValues': True}, 'Options': {'Expiry': 300}}
-    [driver driver.py:44] < MC_DS_MUTATE_SET:8 @1 (OK) {u'Summary': {u'0': 1}}
-    [driver driver.py:36] > MC_DS_MUTATE_SET:9 @1 {'DSType': 'DSTYPE_INLINE', 'DS': {'Items': [('KEY_2', 'KEY_2')], 'HasValues': True}, 'Options': {'Expiry': 300}}
-    [driver driver.py:44] < MC_DS_MUTATE_SET:9 @1 (OK) {u'Summary': {u'0': 1}}
-    [driver driver.py:36] > MC_DS_MUTATE_SET:10 @1 {'DSType': 'DSTYPE_INLINE', 'DS': {'Items': [('KEY_3', 'KEY_3')], 'HasValues': True}, 'Options': {'Expiry': 300}}
-    [driver driver.py:44] < MC_DS_MUTATE_SET:10 @1 (OK) {u'Summary': {u'0': 1}}
-    [driver driver.py:36] > MC_DS_MUTATE_SET:11 @1 {'DSType': 'DSTYPE_INLINE', 'DS': {'Items': [('KEY_4', 'KEY_4')], 'HasValues': True}, 'Options': {'Expiry': 300}}
-    [driver driver.py:44] < MC_DS_MUTATE_SET:11 @1 (OK) {u'Summary': {u'0': 1}}
-    [driver driver.py:36] > MC_DS_GET:12 @1 {'DSType': 'DSTYPE_INLINE', 'DS': {'Items': ['KEY_0'], 'HasValues': False}, 'Options': {'Detailed': True}}
-    [driver driver.py:44] < MC_DS_GET:12 @1 (OK) {u'Details': {u'KEY_0': [0, u'KEY_0']}, u'Summary': {u'0': 1}}
-    [driver driver.py:36] > MC_DS_GET:13 @1 {'DSType': 'DSTYPE_INLINE', 'DS': {'Items': ['KEY_1'], 'HasValues': False}, 'Options': {'Detailed': True}}
-    [driver driver.py:44] < MC_DS_GET:13 @1 (OK) {u'Details': {u'KEY_1': [0, u'KEY_1']}, u'Summary': {u'0': 1}}
-    [driver driver.py:36] > MC_DS_GET:14 @1 {'DSType': 'DSTYPE_INLINE', 'DS': {'Items': ['KEY_2'], 'HasValues': False}, 'Options': {'Detailed': True}}
-    [driver driver.py:44] < MC_DS_GET:14 @1 (OK) {u'Details': {u'KEY_2': [0, u'KEY_2']}, u'Summary': {u'0': 1}}
-    [driver driver.py:36] > MC_DS_GET:15 @1 {'DSType': 'DSTYPE_INLINE', 'DS': {'Items': ['KEY_3'], 'HasValues': False}, 'Options': {'Detailed': True}}
-    [driver driver.py:44] < MC_DS_GET:15 @1 (OK) {u'Details': {u'KEY_3': [0, u'KEY_3']}, u'Summary': {u'0': 1}}
-    [driver driver.py:36] > MC_DS_GET:16 @1 {'DSType': 'DSTYPE_INLINE', 'DS': {'Items': ['KEY_4'], 'HasValues': False}, 'Options': {'Detailed': True}}
-    [driver driver.py:44] < MC_DS_GET:16 @1 (OK) {u'Details': {u'KEY_4': [0, u'KEY_4']}, u'Summary': {u'0': 1}}
-    [lcb-sdkd-worker fd=5] getRawMessage:74 Remote closed the connection..
-    [LCB SDKD Control] getRawMessage:74 Remote closed the connection..
-    [LCB SDKD Control] ~MainDispatch:158 mbp:cbsdkd mnunberg$ Bye Bye!
-    
-    mbp:cbsdkd mnunberg$
-    
-
+    mbp:json-cpp mnunberg$ cd ~/src/sdkd-cpp/
+    mbp:sdkd-cpp mnunberg$ make -C src/ JSONCPP_CPPFLAGS=-I$HOME/src/json-cpp/include JSONCPP_LFLAGS=~/src/json-cpp/lib/libjson-cpp.a
