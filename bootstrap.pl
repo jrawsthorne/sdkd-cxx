@@ -9,7 +9,8 @@ struct __PACKAGE__, [
     'release' => '$',
     'url' => '$',
     'urlbase' => '$',
-    'name' => '$'
+    'name' => '$',
+    'configure_flags' => '$',
 ];
 
 
@@ -58,7 +59,9 @@ my @pkgs = (
     LCB_Dep->new(
         name => "libcouchbase",
         release => $Release,
-        urlbase => $CBURL
+        urlbase => $CBURL,
+        configure_flags => 
+            ' --disable-tools --disable-couchbasemock'
     )
 );
 
@@ -91,7 +94,8 @@ foreach my $pkg (@pkgs) {
     sys_or_die("tar xf $tarball");
 
     chdir($dir) or die "chdir: $!";
-    sys_or_die("./configure --prefix=$p_prefix");
+    sys_or_die("./configure --prefix=$p_prefix " .
+        $pkg->configure_flags);
     sys_or_die("make");
     sys_or_die("make install");
 }
