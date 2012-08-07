@@ -74,6 +74,9 @@ append_to_env("C_INCLUDE_PATH", "$p_prefix/include");
 append_to_env("CPLUS_INCLUDE_PATH", "$p_prefix/include");
 append_to_env("LD_RUN_PATH", "$p_prefix/lib");
 
+$ENV{LDFLAGS} = "-L$p_prefix/lib";
+$ENV{CPPFLAGS} = "-I$p_prefix/include";
+
 foreach my $pkg (@pkgs) {
     chdir $old_dir;
     my $dir = sprintf("%s-%s",  $pkg->name, $pkg->release);
