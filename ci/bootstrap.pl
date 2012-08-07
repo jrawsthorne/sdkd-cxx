@@ -110,5 +110,5 @@ if ($need_deps) {
 my $fname = "sdkd-cpp-env.sh";
 open my $fh, ">", $fname or die "$fname: $!";
 print $fh <<"EOF";
-export CI_ROOT=$p_prefix/lib
+export CI_ROOT=$p_prefix/
 EOF
