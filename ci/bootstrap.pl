@@ -107,6 +107,8 @@ if ($need_deps) {
     build_deps();
 }
 
+chdir $old_dir;
+
 my $fname = "sdkd-cpp-env.sh";
 open my $fh, ">", $fname or die "$fname: $!";
 print $fh <<"EOF";
