@@ -14,6 +14,7 @@ OBJECTS := \
 	Response.o \
 	contrib/debug.o \
 	Handle.o \
+	ResultSet.o \
 	IODispatch.o
 
 

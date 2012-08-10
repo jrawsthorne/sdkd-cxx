@@ -9,6 +9,8 @@
 #define HANDLE_H_
 #include <unistd.h>
 #include <sys/types.h>
+#include <sys/time.h>
+
 #include <libcouchbase/couchbase.h>
 
 #include "Request.h"
@@ -46,46 +48,17 @@ public:
     unsigned int delay_max;
     unsigned int delay;
 
-    ResultOptions(const Json::Value& opts)
-    :
-        full(opts[CBSDKD_MSGFLD_DSREQ_FULL].asBool()),
-        multi(opts[CBSDKD_MSGFLD_DSREQ_MULTI].asUInt()),
-        expiry(opts[CBSDKD_MSGFLD_DSREQ_EXPIRY].asUInt()),
-        iterwait(opts[CBSDKD_MSGFLD_DSREQ_ITERWAIT].asBool()),
-        delay_min(opts[CBSDKD_MSGFLD_DSREQ_DELAY_MIN].asUInt()),
-        delay_max(opts[CBSDKD_MSGLFD_DSREQ_DELAY_MAX].asUInt()),
-        delay(opts[CBSDKD_MSGFLD_DSREQ_DELAY].asUInt())
-    {
-        _determine_delay();
-    }
+    unsigned int timeres;
 
+    ResultOptions(const Json::Value&);
     ResultOptions(bool full = false,
                   unsigned int expiry = 0,
-                  unsigned int delay = 0) :
-        full(full), expiry(expiry),
-        delay_min(0), delay_max(0), delay(delay), iterwait(false) {
+                  unsigned int delay = 0);
 
-        _determine_delay();
-    }
-
-    unsigned int getDelay() {
-        if (delay) {
-            return delay;
-        }
-        if (delay_min == delay_max && delay_max == 0) {
-            return 0;
-        }
-        return (delay_min + (rand() % (delay_max - delay_min)));
-    }
+    unsigned int getDelay() const;
 
 private:
-    void _determine_delay() {
-        if (delay) {
-            delay_min = delay_max = delay;
-        } else if (delay_min == delay_max) {
-            delay = delay_min = delay_max;
-        }
-    }
+    void _determine_delay();
 };
 
 // Result set/cookie
@@ -112,6 +85,22 @@ private:
     int status;
 };
 
+class TimeWindow {
+public:
+    TimeWindow() :
+        time_total(0),
+        count(0),
+        time_min(-1),
+        time_max(0),
+        time_avg(0)
+    { }
+
+    virtual ~TimeWindow() { }
+
+    unsigned time_total, count, time_min, time_max, time_avg;
+    std::map<int, int> ec;
+};
+
 class Handle;
 
 class ResultSet {
@@ -119,16 +108,35 @@ public:
     ResultSet() :
         remaining(0),
         parent(NULL),
-        dsiter(NULL) {
+        dsiter(NULL)
+    {
         clear();
     }
 
-    void setError(libcouchbase_t, libcouchbase_error_t,
-                  const std::string& key);
+    // Sets the status for a key
+    // @param err the error from the operation
+    // @param key the key (mandatory)
+    // @param nkey the size of the key (mandatory)
+    // @param expect_value whether this operation should have returned a value
+    // @param value the value (can be NULL)
+    // @param n_value the size of the value
+    void setRescode(libcouchbase_error_t err, const void* key, size_t nkey,
+                    bool expect_value, const void* value, size_t n_value);
 
+
+    void setRescode(libcouchbase_error_t err,
+                    const void *key, size_t nkey) {
+        setRescode(err, key, nkey, false, NULL, 0);
+    }
+
+    void setRescode(libcouchbase_error_t err, const std::string key,
+                    bool expect_value) {
+        setRescode(err, key.c_str(), key.length(), true, NULL, 0);
+    }
 
     std::map<int,int> stats;
     std::map<std::string,FullResult> fullstats;
+    std::vector<TimeWindow> timestats;
 
     ResultOptions options;
 
@@ -138,11 +146,33 @@ public:
 
     void resultsJson(Json::Value *in) const;
 
+    void markBegin() {
+        struct timeval tv;
+        gettimeofday(&tv, NULL);
+        opstart_tmsec = getEpochMsecs();
+    }
+
+    static suseconds_t getEpochMsecs(timeval& tv) {
+        gettimeofday(&tv, NULL);
+        return (tv.tv_usec / 1000.0) + tv.tv_sec * 1000;
+    }
+
+    static suseconds_t getEpochMsecs() {
+        struct timeval tv;
+        return getEpochMsecs(tv);
+    }
+
     void clear() {
+
         stats.clear();
         fullstats.clear();
+        timestats.clear();
         remaining = 0;
         parent = NULL;
+
+        win_begin = 0;
+        cur_wintime = 0;
+        opstart_tmsec = 0;
     }
 
     Error oper_error;
@@ -152,6 +182,13 @@ private:
     friend class Handle;
     const Handle* parent;
     DatasetIterator *dsiter;
+
+    // Timing stuff
+    time_t win_begin;
+    time_t cur_wintime;
+
+    // Time at which this result set was first batched
+    suseconds_t opstart_tmsec;
 };
 
 
@@ -229,6 +266,10 @@ public:
         return defl;
     }
 
+    void appendError(int err, const char *desc) {
+        pending_errors.push_back(Error(err, desc));
+    }
+
     // Cancels the current operation, causing it to return during the next
     // operation.
     void cancelCurrent();
@@ -247,29 +288,6 @@ private:
     libcouchbase_t instance;
 
     static std::map<libcouchbase_error_t,int> Errmap;
-
-    // Callbacks for libcouchbase
-    static void
-    cb_err(libcouchbase_t, libcouchbase_error_t, const char*);
-
-    static void
-    cb_get(libcouchbase_t, ResultSet*,
-           libcouchbase_error_t,
-           const void *, libcouchbase_size_t,
-           const void *, libcouchbase_size_t,
-           libcouchbase_uint32_t, libcouchbase_cas_t);
-
-    static void
-    cb_storage(libcouchbase_t, ResultSet*,
-               libcouchbase_storage_t,libcouchbase_error_t,
-               const void*, libcouchbase_size_t,
-               libcouchbase_cas_t);
-
-    static void
-    cb_keyop(libcouchbase_t, ResultSet*,
-             libcouchbase_error_t,
-             const void*, libcouchbase_size_t);
-
     void collect_result(ResultSet& rs);
     void postsubmit(ResultSet& rs, unsigned int nsubmit = 1);
 };

@@ -150,11 +150,13 @@ testNewHandle(void)
     spec.vseed = "The_Value";
     spec.ksize = spec.vsize = 12;
     spec.repeat = "*";
-    spec.count = 10;
+    spec.count = 10000;
 
     DatasetSeeded ds(spec);
     ResultSet rs;
     ResultOptions opts;
+
+    opts.timeres = 1;
 
     h.dsMutate(Command::MC_DS_MUTATE_SET, ds, rs);
 
@@ -188,6 +190,11 @@ testNewHandle(void)
         }
         printf("\n");
     }
+
+    Json::Value jres = Json::Value(Json::objectValue);
+    rs.resultsJson(&jres);
+    cout << Json::StyledWriter().write(jres);
+
     printf("\n");
 }
 

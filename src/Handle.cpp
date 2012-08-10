@@ -18,6 +18,46 @@ std::map<libcouchbase_error_t,int> Handle::Errmap =
 CBSDKD_XERRMAP(X);
 #undef X
 
+
+extern "C" {
+static void cb_err(libcouchbase_t instance,
+               libcouchbase_error_t err, const char *desc)
+{
+    Handle *handle = (Handle*)libcouchbase_get_cookie(instance);
+    int myerr = Handle::mapError(err,
+                                 Error::SUBSYSf_CLIENT|Error::SUBSYSf_NETWORK);
+    handle->appendError(myerr, desc);
+}
+
+static void cb_keyop(libcouchbase_t instance, void* rs,
+                 libcouchbase_error_t err,
+                 const void* key, libcouchbase_size_t nkey)
+{
+    reinterpret_cast<ResultSet*>(rs)->setRescode(err, key, nkey);
+}
+
+static void cb_storage(libcouchbase_t instance, ResultSet* rs,
+                   libcouchbase_storage_t storop,
+                   libcouchbase_error_t err,
+                   const void* key, libcouchbase_size_t nkey,
+                   libcouchbase_cas_t cas)
+{
+    reinterpret_cast<ResultSet*>(rs)->setRescode(err, key, nkey);
+}
+
+static void cb_get(libcouchbase_t instance, ResultSet* rs,
+               libcouchbase_error_t err,
+               const void *key, libcouchbase_size_t nkey,
+               const void *value, libcouchbase_size_t nvalue,
+               libcouchbase_uint32_t flags, libcouchbase_cas_t cas)
+{
+    reinterpret_cast<ResultSet*>(rs)->
+            setRescode(err, key, nkey, true, value, nvalue);
+}
+
+} /* extern "C" */
+
+
 Handle::Handle(const HandleOptions& opts) :
         options(opts),
         is_connected(false),
@@ -34,6 +74,8 @@ Handle::~Handle() {
 
 #define cstr_ornull(s) \
     ((s.size()) ? s.c_str() : NULL)
+
+
 
 bool
 Handle::connect(Error *errp)
@@ -61,16 +103,15 @@ Handle::connect(Error *errp)
 
     libcouchbase_set_error_callback(instance, cb_err);
 
-    libcouchbase_set_touch_callback(instance,
-                                    (libcouchbase_touch_callback)cb_keyop);
-    libcouchbase_set_remove_callback(instance,
-                                     (libcouchbase_remove_callback)cb_keyop);
+#define _set_cb(bname, cb) \
+    libcouchbase_set_##bname##_callback(instance, \
+                                        (libcouchbase_##bname##_callback)cb)
 
-    libcouchbase_set_storage_callback(instance,
-                                      (libcouchbase_storage_callback)cb_storage);
-
-    libcouchbase_set_get_callback(instance,
-                                  (libcouchbase_get_callback)cb_get);
+    _set_cb(touch, cb_keyop);
+    _set_cb(remove, cb_keyop);
+    _set_cb(storage, cb_storage);
+    _set_cb(get, cb_get);
+#undef _set_cb
 
     libcouchbase_set_cookie(instance, this);
 
@@ -96,78 +137,6 @@ Handle::connect(Error *errp)
 }
 
 void
-Handle::cb_err(libcouchbase_t instance,
-               libcouchbase_error_t err, const char *desc)
-{
-    Handle *handle = (Handle*)libcouchbase_get_cookie(instance);
-    int myerr = mapError(err, Error::SUBSYSf_CLIENT|Error::SUBSYSf_NETWORK);
-    handle->pending_errors.push_back(Error(myerr, desc));
-}
-
-static void
-_kop_common(ResultSet *rs,
-            const void *key, size_t nkey, libcouchbase_error_t err)
-{
-    int myerr = Handle::mapError(err, Error::SUBSYSf_MEMD|Error::ERROR_GENERIC);
-    rs->stats[myerr]++;
-    rs->remaining--;
-    if (rs->options.full) {
-        std::string str;
-        str.assign((const char*)key, nkey);
-        rs->fullstats[str] = myerr;
-    }
-}
-
-void
-Handle::cb_keyop(libcouchbase_t instance, ResultSet* rs,
-                 libcouchbase_error_t err,
-                 const void* key, libcouchbase_size_t nkey)
-{
-    _kop_common(rs, key, nkey, err);
-}
-
-void
-Handle::cb_storage(libcouchbase_t instance, ResultSet* rs,
-                   libcouchbase_storage_t storop,
-                   libcouchbase_error_t err,
-                   const void* key, libcouchbase_size_t nkey,
-                   libcouchbase_cas_t cas)
-{
-    _kop_common(rs, key, nkey, err);
-}
-
-void
-Handle::cb_get(libcouchbase_t instance, ResultSet* rs,
-               libcouchbase_error_t err,
-               const void *key, libcouchbase_size_t nkey,
-               const void *value, libcouchbase_size_t nvalue,
-               libcouchbase_uint32_t flags, libcouchbase_cas_t cas)
-{
-    int myerr = mapError(err, Error::SUBSYSf_MEMD|Error::ERROR_GENERIC);
-    rs->stats[myerr]++;
-    if (rs->options.full) {
-        std::string sk((const char*)key, nkey);
-        std::string sv;
-        if (nvalue) {
-            sv.assign((const char*)value, nvalue);
-        } else {
-            sv = "";
-        }
-        rs->fullstats[sk] = sv;
-    }
-    rs->remaining--;
-}
-
-void
-ResultSet::setError(libcouchbase_t instance, libcouchbase_error_t err,
-                    const std::string& key)
-{
-    int myerr = Handle::mapError(err,
-                                 Error::SUBSYSf_CLIENT|Error::ERROR_GENERIC);
-    stats[myerr]++;
-}
-
-void
 Handle::collect_result(ResultSet& rs)
 {
     // Here we 'wait' for a result.. we might either wait after each
@@ -182,18 +151,18 @@ Handle::collect_result(ResultSet& rs)
 void
 Handle::postsubmit(ResultSet& rs, unsigned int nsubmit)
 {
-    unsigned int expmsec = rs.options.getDelay();
+    unsigned int wait_msec = rs.options.getDelay();
     // So this is called after each 'submission' for a command to
     // libcouchbase. In here we can either do nothing (batch single/multi).
-    if (expmsec || rs.options.iterwait) {
+    if (wait_msec || rs.options.iterwait) {
         libcouchbase_wait(instance);
     } else {
         rs.remaining += nsubmit;
         return;
     }
 
-    if (expmsec) {
-        usleep(expmsec * 1000);
+    if (wait_msec) {
+        usleep(wait_msec * 1000);
     }
 }
 
@@ -218,13 +187,15 @@ Handle::dsGet(Command cmd, Dataset const &ds, ResultSet& out,
         libcouchbase_size_t sz = k.size();
         const char *cstr = k.c_str();
 
+        out.markBegin();
+
         libcouchbase_error_t err =
                 libcouchbase_mget(instance, &out, 1,
                                   (const void**)&cstr, &sz, exp_pp);
         if (err == LIBCOUCHBASE_SUCCESS) {
             postsubmit(out);
         } else {
-            out.setError(instance, err, k);
+            out.setRescode(err, k, true);
         }
     }
 
@@ -262,7 +233,6 @@ Handle::dsMutate(Command cmd, const Dataset& ds, ResultSet& out,
     libcouchbase_time_t exp = out.options.expiry;
     DatasetIterator *iter = ds.getIter();
 
-
     for (iter->start();
             iter->done() == false && do_cancel == false;
             iter->advance()) {
@@ -271,6 +241,7 @@ Handle::dsMutate(Command cmd, const Dataset& ds, ResultSet& out,
         libcouchbase_size_t ksz = k.size(), vsz = v.size();
         const char *kstr = k.data(), *vstr = v.data();
 
+        out.markBegin();
         libcouchbase_error_t err =
                 libcouchbase_store(instance, &out, storop,
                                    kstr, ksz,
@@ -280,7 +251,7 @@ Handle::dsMutate(Command cmd, const Dataset& ds, ResultSet& out,
         if (err == LIBCOUCHBASE_SUCCESS) {
             postsubmit(out);
         } else {
-            out.setError(instance, err, k);
+            out.setRescode(err, k, false);
         }
     }
     delete iter;
@@ -306,6 +277,9 @@ Handle::dsKeyop(Command cmd, const Dataset& ds, ResultSet& out,
         const char *kstr = k.data();
         libcouchbase_size_t ksz = k.size();
         libcouchbase_error_t err;
+
+        out.markBegin();
+
         if (cmd == Command::MC_DS_DELETE) {
             err = libcouchbase_remove(instance, &out, kstr, ksz, 0);
         } else {
@@ -316,7 +290,7 @@ Handle::dsKeyop(Command cmd, const Dataset& ds, ResultSet& out,
         if (err == LIBCOUCHBASE_SUCCESS) {
             postsubmit(out);
         } else {
-            out.setError(instance, err, k);
+            out.setRescode(err, k, false);
         }
     }
     delete iter;
@@ -330,38 +304,5 @@ Handle::cancelCurrent()
     do_cancel = true;
 }
 
-void
-ResultSet::resultsJson(Json::Value *in) const
-{
-    Json::Value
-        summaries = Json::Value(Json::objectValue),
-        &root = *in;
-
-    for (std::map<int,int>::const_iterator iter = this->stats.begin();
-            iter != this->stats.end(); iter++ ) {
-        stringstream ss;
-        ss << iter->first;
-        summaries[ss.str()] = iter->second;
-    }
-
-    root[CBSDKD_MSGFLD_DSRES_STATS] = summaries;
-
-    if (options.full) {
-        Json::Value fullstats;
-        for (
-                std::map<std::string,FullResult>::const_iterator
-                    iter = this->fullstats.begin();
-                iter != this->fullstats.end();
-                iter++
-                )
-        {
-            Json::Value stat;
-            stat[0] = iter->second.getStatus();
-            stat[1] = iter->second.getString();
-            fullstats[iter->first] = stat;
-        }
-        root[CBSDKD_MSGFLD_DSRES_FULL] = fullstats;
-    }
-}
 
 } /* namespace CBSdkd */

@@ -40,6 +40,7 @@
 #define CBSDKD_MSGFLD_DSREQ_EXPIRY              "Expiry"
 #define CBSDKD_MSGFLD_DSREQ_ITERWAIT            "IterWait"
 #define CBSDKD_MSGFLD_DSREQ_CONTINUOUS          "Continuous"
+#define CBSDKD_MSGFLD_DSREQ_TIMERES             "TimeRes"
 
 /**
  * DS Response fields
@@ -47,6 +48,19 @@
 
 #define CBSDKD_MSGFLD_DSRES_STATS               "Summary"
 #define CBSDKD_MSGFLD_DSRES_FULL                "Details"
+#define CBSDKD_MSGFLD_DRES_TIMINGS              "Timings"
+
+/**
+ * Fields for timing information
+ */
+#define CBSDKD_MSGFLD_TMS_BASE                  "Base"
+#define CBSDKD_MSGFLD_TMS_COUNT                 "Count"
+#define CBSDKD_MSGFLD_TMS_MIN                   "Min"
+#define CBSDKD_MSGFLD_TMS_MAX                   "Max"
+#define CBSDKD_MSGFLD_TMS_AVG                   "Avg"
+#define CBSDKD_MSGFLD_TMS_ECS                   "Errors"
+#define CBSDKD_MSGFLD_TMS_WINS                  "Windows"
+#define CBSDKD_MSGFLD_TMS_STEP                  "Step"
 
 /**
  * Handle request fields..
