@@ -300,9 +300,7 @@ X(LIBCOUCHBASE_NETWORK_ERROR,    Error::SUBSYSf_NETWORK|Error::ERROR_GENERIC) \
 X(LIBCOUCHBASE_ENOMEM,           Error::SUBSYSf_MEMD|Error::ERROR_GENERIC) \
 X(LIBCOUCHBASE_KEY_ENOENT,       Error::SUBSYSf_MEMD|Error::MEMD_ENOENT) \
 X(LIBCOUCHBASE_ETIMEDOUT,        Error::SUBSYSf_CLIENT|Error::CLIENT_ETMO) \
-X(LIBCOUCHBASE_ETMPFAIL,         Error::SUBSYSf_CLIENT| \
-                                Error::SUBSYSf_NETWORK| \
-                                                        Error::ERROR_GENERIC);
+X(LIBCOUCHBASE_ETMPFAIL,         Error::SUBSYSf_CLIENT|Error::ERROR_GENERIC);
 
 
 
