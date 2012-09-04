@@ -12,6 +12,7 @@
 #include <sys/time.h>
 
 #include <libcouchbase/couchbase.h>
+#include "lcb_10_compat.h"
 
 #include "Request.h"
 #include "Response.h"

@@ -29,6 +29,50 @@ static void cb_err(libcouchbase_t instance,
     handle->appendError(myerr, desc);
 }
 
+#ifdef LCB_VERSION
+static void cb_remove(lcb_t instance, void *rs,
+                     lcb_error_t err, const lcb_remove_resp_t *resp)
+{
+    reinterpret_cast<ResultSet*>(rs)->setRescode(err,
+            resp->v.v0.key, resp->v.v0.nkey);
+}
+
+static void cb_touch(lcb_t instance, void *rs,
+                     lcb_error_t err, const lcb_touch_resp_t *resp)
+{
+    reinterpret_cast<ResultSet*>(rs)->setRescode(err,
+            resp->v.v0.key, resp->v.v0.nkey);
+}
+
+static void cb_storage(lcb_t instance, void *rs,
+                       lcb_storage_t oper, lcb_error_t err,
+                       const lcb_store_resp_t *resp)
+{
+    reinterpret_cast<ResultSet*>(rs)->setRescode(err,
+            resp->v.v0.key, resp->v.v0.nkey);
+}
+
+static void cb_get(lcb_t instance, void *rs,
+                   lcb_error_t err, const lcb_get_resp_t *resp)
+{
+    reinterpret_cast<ResultSet*>(rs)->setRescode(err,
+            resp->v.v0.key, resp->v.v0.nkey, true,
+            resp->v.v0.bytes, resp->v.v0.nbytes);
+}
+
+static void wire_callbacks(lcb_t instance)
+{
+#define _setcb(t,cb) \
+    lcb_set_##t##_callback(instance,(lcb_##t##_callback)cb)
+    _setcb(store, cb_storage);
+    _setcb(get, cb_get);
+    _setcb(remove, cb_remove);
+    _setcb(touch, cb_touch);
+#undef _setcb
+}
+
+#else /* !LCB_VERSION */
+
 static void cb_keyop(libcouchbase_t instance, void* rs,
                  libcouchbase_error_t err,
                  const void* key, libcouchbase_size_t nkey)
@@ -54,6 +98,20 @@ static void cb_get(libcouchbase_t instance, ResultSet* rs,
     reinterpret_cast<ResultSet*>(rs)->
             setRescode(err, key, nkey, true, value, nvalue);
 }
+
+static void wire_callbacks(libcouchbase_t instance)
+{
+#define _set_cb(bname, cb) \
+    libcouchbase_set_##bname##_callback(instance, \
+                                        (libcouchbase_##bname##_callback)cb)
+
+    _set_cb(touch, cb_keyop);
+    _set_cb(remove, cb_keyop);
+    _set_cb(storage, cb_storage);
+    _set_cb(get, cb_get);
+#undef _set_cb
+}
+#endif /* !LCB_VERSION */
 
 } /* extern "C" */
 
@@ -102,18 +160,8 @@ Handle::connect(Error *errp)
     }
 
     libcouchbase_set_error_callback(instance, cb_err);
-
-#define _set_cb(bname, cb) \
-    libcouchbase_set_##bname##_callback(instance, \
-                                        (libcouchbase_##bname##_callback)cb)
-
-    _set_cb(touch, cb_keyop);
-    _set_cb(remove, cb_keyop);
-    _set_cb(storage, cb_storage);
-    _set_cb(get, cb_get);
-#undef _set_cb
-
     libcouchbase_set_cookie(instance, this);
+    wire_callbacks(instance);
 
     the_error = libcouchbase_connect(instance);
     if (the_error != LIBCOUCHBASE_SUCCESS) {
