@@ -19,8 +19,15 @@ ResultOptions::ResultOptions(const Json::Value& opts)
 
 ResultOptions::ResultOptions(bool full, unsigned int expiry,
               unsigned int delay) :
-    full(full), expiry(expiry),
-    delay_min(0), delay_max(0), delay(delay), iterwait(false) {
+    full(full),
+    multi(0),
+    expiry(expiry),
+    iterwait(false),
+    delay_min(0),
+    delay_max(0),
+    delay(delay),
+    timeres(0)
+{
 
     _determine_delay();
 }
