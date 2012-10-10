@@ -96,7 +96,7 @@ sub build_deps {
         sys_or_die("tar xf $tarball");
 
         chdir($dir) or die "chdir: $!";
-        sys_or_die("./configure --prefix=$p_prefix " .
+        sys_or_die("./configure --prefix=$p_prefix --enable-debug" .
             $pkg->configure_flags);
         sys_or_die("make");
         sys_or_die("make install");
