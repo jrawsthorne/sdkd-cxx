@@ -24,7 +24,8 @@
     XX(NEWDATASET) \
     XX(DELDATASET) \
     XX(GOODBYE) \
-    XX(CANCEL)
+    XX(CANCEL) \
+    XX(INFO)
 
 namespace CBSdkd {
 

@@ -244,6 +244,26 @@ MainDispatch::_collect_workers()
     }
 }
 
+static void make_info_response(Json::Value& res)
+{
+    Json::Value caps;
+    Json::Value components;
+    uint32_t vout = 0;
+    const char *vstr;
+
+    vstr = libcouchbase_get_version(&vout);
+    components["SDK"] = vstr;
+    components["SDK_VID"] = vout;
+
+    caps["CANCEL"] = true;
+    caps["DS_SHARED"] = true;
+    caps["CONTINUOUS"] = true;
+    caps["PREAMBLE"] = false;
+
+    res["CAPS"] = caps;
+    res["COMPONENTS"] = components;
+}
+
 void
 MainDispatch::run()
 {
@@ -328,6 +348,13 @@ MainDispatch::run()
                     w->cancelCurrentHandle();
                     writeResponse(Response(reqp, 0));
                 }
+            } else if (reqp->command == Command::INFO) {
+                Response res = Response(reqp);
+                Json::Value infores;
+                make_info_response(infores);
+                res.setResponseData(infores);
+                writeResponse(res);
+
             } else {
                 // We don't currently support other types of control messages
                 writeResponse(Response(reqp,
