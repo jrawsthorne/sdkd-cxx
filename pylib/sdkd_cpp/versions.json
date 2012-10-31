@@ -1,0 +1,81 @@
+{
+    "debian" : {
+        "1.0.4" : {
+            "urlbase" : "http://packages.couchbase.com/ubuntu/pool/lucid/main/",
+            "debs" : [
+                "libc/libcouchbase/libcouchbase1_1.0.4-1_{arch}.deb",
+            "libc/libcouchbase/libcouchbase1-dbg_1.0.4-1_{arch}.deb",
+            "libc/libcouchbase/libcouchbase-dev_1.0.4-1_{arch}.deb",
+            "libv/libvbucket/libvbucket1_1.8.0.4-1_{arch}.deb",
+            "libv/libvbucket/libvbucket1-dbg_1.8.0.4-1_{arch}.deb",
+            "http://mirror.pnl.gov/ubuntu//pool/main/libe/libevent/libevent-1.4-2_1.4.13-stable-1_{arch}.deb"
+                ]
+        },
+
+        "DEPRECATED-2.0.0-beta" : {
+            "urlbase" : "http://packages.couchbase.com/preview/ubuntu/pool/lucid/main/libc/libcouchbase/",
+            "debs" : [
+                "libcouchbase2_2.0.0beta-236_{arch}.deb",
+            "libcouchbase-dev_2.0.0beta-236_{arch}.deb",
+            "libcouchbase2-dbg_2.0.0beta-236_{arch}.deb",
+            "http://mirror.pnl.gov/ubuntu//pool/main/libe/libevent/libevent-1.4-2_1.4.13-stable-1_{arch}.deb"
+                ]
+        },
+
+        "2.0.0-beta2" : {
+            "urlbase" : "http://packages.couchbase.com/preview/ubuntu/pool/oneiric/main/libc/libcouchbase/",
+            "debs" : [
+                "libcouchbase-libev-dev_2.0.0beta2-295_{arch}.deb",
+            "libcouchbase2-dbg_2.0.0beta2-295_{arch}.deb",
+            "libcouchbase2-bin_2.0.0beta2-295_{arch}.deb",
+            "libcouchbase2-libevent_2.0.0beta2-295_{arch}.deb",
+            "libcouchbase2_2.0.0beta2-295_{arch}.deb",
+            "libcouchbase-libevent-dev_2.0.0beta2-295_{arch}.deb",
+            "libcouchbase2-libev_2.0.0beta2-295_{arch}.deb",
+            "libcouchbase-dev_2.0.0beta2-295_{arch}.deb"
+                ]
+        }
+    },
+
+    "redhat" : {
+        "1.0.4" : {
+            "urlbase" : "http://packages.couchbase.com/rpm/{el}/{arch}/",
+            "rpms" : [
+                "libcouchbase1-1.0.4-1.{arch}.rpm",
+            "libcouchbase-devel-1.0.4-1.{arch}.rpm",
+            "libcouchbase-debuginfo-1.0.4-1.{arch}.rpm",
+            "libvbucket1-1.8.0.4-1.{arch}.rpm",
+            "libvbucket-debuginfo-1.8.0.4-1.{arch}.rpm"
+                ]
+        },
+
+        "DEPRECATED-2.0.0-beta" : {
+            "urlbase" : "http://packages.couchbase.com/preview/rpm/{el}/{arch}/",
+            "rpms" : [
+                "libcouchbase-debuginfo-2.0.0beta-1.{arch}.rpm",
+            "libcouchbase-devel-2.0.0beta-1.{arch}.rpm",
+            "libcouchbase2-2.0.0beta-1.{arch}.rpm"
+                ]
+        },
+
+        "2.0.0-beta2" : {
+            "urlbase" : "http://packages.couchbase.com/preview/rpm/{el}/{arch}/",
+            "rpms" : [
+                "libcouchbase2-2.0.0beta2-1.{arch}.rpm",
+            "libcouchbase-devel-2.0.0beta2-1.{arch}.rpm",
+            "libcouchbase-debuginfo-2.0.0beta2-1.{arch}.rpm",
+            "libcouchbase-libev-devel-2.0.0beta2-1.{arch}.rpm",
+            "libcouchbase2-libev-2.0.0beta2-1.{arch}.rpm",
+            "libcouchbase2-bin-2.0.0beta2-1.{arch}.rpm",
+            "libcouchbase2-libevent-2.0.0beta2-1.{arch}.rpm",
+            "libcouchbase2-dummy-2.0.0beta2-1.{arch}.rpm",
+            "libcouchbase-libevent-devel-2.0.0beta2-1.{arch}.rpm"
+                ]
+        }
+
+    },
+
+        "tarball" : {
+            "urlbase" : "http://packages.couchbase.com/clients/c/"
+        }
+}
