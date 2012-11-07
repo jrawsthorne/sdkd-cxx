@@ -16,7 +16,7 @@ contrib/debug.o: contrib/debug.c
 	$(CC) -g -fPIC -c -o $@ $^
 
 sdkd_lcb: sdkd_lcb.cpp $(SOLIB)
-	$(CXX) -o $@ $(CPPFLAGS) $< $(BINLFLAGS)
+	$(CXX) -o $@ $(CPPFLAGS) $< $(BINLFLAGS) $(LDFLAGS)
 
 clean:
 	rm -f main $(OBJECTS) *.so *.o main sdkd_lcb
