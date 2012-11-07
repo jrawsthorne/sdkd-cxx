@@ -35,11 +35,11 @@ class Builder(object):
         # LD_LIBRARY_PATH and other stuff
         fname = self.instance.get_sdkd_dest()
         fname += "launcher-" + str(id(self))
-        
+
         fp = open(fname, "w")
 
         fp.write("#!/bin/sh\n")
-        fp.write("set -x\n")
+        #fp.write("set -x\n")
 
         fp.write(
             "export LD_LIBRARY_PATH='{0}'\n".format(

@@ -123,8 +123,13 @@ class Common(object):
     def build_sdkd(self):
         # TODO, make this smarter about re-building targets
         sdkd_path = self.get_sdkd_dest()
-        if os.path.exists(sdkd_path):
-            return
+        
+        # For now, the following block is commented out as we want to build
+        # for multiple versions, and with possible changes to the sdkd itself
+        # we'd like to rebuild the sdkd itself.
+
+        #if os.path.exists(sdkd_path):
+        #    return
 
         run_command(MAKECMD + " -C {0} clean".format(SRC_PATH))
         mklines = [

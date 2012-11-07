@@ -32,8 +32,8 @@ lcb_confcoll = ConfigOptionCollection('libcouchbase sdkd options', '', [
 
     ConfigOption('lcb_remote', None, str, "Remote path to sdkd, i.e. "
                  "user@host:/path/to/sdkd-cpp"),
-
-    ConfigOption('lcb_password', None, str, "SSH Password")
+    ConfigOption('lcb_password', None, str, "SSH Password"),
+    ConfigOption('lcb_force_build', False, bool, "Force rebuilding of sdkd")
 ])
 
 
@@ -60,9 +60,6 @@ class LcbRemote(Remote):
 
     def make_portfile_arg(self):
         return [ "infofile=" + self.get_portfile() ]
-
-    def get_python_path(self):
-        return ["/usr/bin/env", "python"]
 
     def invoke_builder(self, *args):
         # Make our options:
@@ -130,18 +127,19 @@ class RemoteConfig2(Driver2Config):
     def bootstrap(self):
         # Builder proxy
         rstr = self._confcoll['lcb_remote'].get()
-        user, host, path = Remote.parse_remote_spec(rstr)
+        rspec = Remote.parse_remote_spec(rstr)
         passwd = self._confcoll['lcb_password'].get()
 
         self.remote = LcbRemote(
-            r_host = host,
-            r_user = user,
             r_pass = passwd,
-            r_dir = path,
             r_mode = LcbRemote.MODE_UNIX,
 
+
             lcb_version = self._confcoll['lcb_version'].get(),
-            lcb_dist_type = self._confcoll['lcb_dist_type'].get()
+            lcb_dist_type = self._confcoll['lcb_dist_type'].get(),
+
+            # Contains user password and dir
+            **rspec
         )
 
         self.remote.invoke_builder()
