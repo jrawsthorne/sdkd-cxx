@@ -2,3 +2,6 @@
 *.o
 main
 sdkd_lcb
+TEST_COMPILE_CMD
+a.out
+.have_views_status

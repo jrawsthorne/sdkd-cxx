@@ -1,17 +1,5 @@
-#include "Message.h"
-#include "Dataset.h"
-#include "Request.h"
-#include "Response.h"
-#include "Handle.h"
-#include "IODispatch.h"
-
-#include <libcouchbase/couchbase.h>
-
+#include "sdkd_internal.h"
 #include <sstream>
-#include <cstdio>
-#include <cassert>
-#include <cstdlib>
-#include "contrib/debug++.h"
 
 #define KVCOUNT 5
 

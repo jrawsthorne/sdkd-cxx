@@ -5,13 +5,7 @@
  *      Author: mnunberg
  */
 
-#include "Dataset.h"
-#include <cstdio>
-#include <cstring>
-#include <cassert>
-#include <cstdlib>
-#include <memory>
-#include "cbsdkd.h"
+#include "sdkd_internal.h"
 
 namespace CBSdkd {
 
@@ -40,6 +34,7 @@ Dataset::determineType(const Request& req, std::string* refid)
 {
     // json is CommandData
     Type ret;
+
     if (!req.payload[CBSDKD_MSGFLD_DSREQ_DSTYPE]) {
         return DSTYPE_INVALID;
     }

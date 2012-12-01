@@ -1,4 +1,4 @@
-#include "Handle.h"
+#include "sdkd_internal.h"
 #include <cassert>
 
 namespace CBSdkd {
@@ -54,23 +54,23 @@ ResultOptions::_determine_delay() {
 }
 
 void
-ResultSet::setRescode(libcouchbase_error_t err,
+ResultSet::setRescode(Error err,
                       const void *key,
                       size_t nkey,
                       bool expect_value,
                       const void *value,
                       size_t nvalue)
 {
-    int myerr = 0;
-    if (err) {
-        myerr = Handle::mapError(err,
-                                 Error::SUBSYSf_CLIENT|Error::ERROR_GENERIC);
-    }
+    int myerr = err.code;
 
     stats[myerr]++;
     remaining--;
 
-    std::string strkey = string((const char*)key, nkey);
+    std::string strkey;
+
+    if (nvalue) {
+        strkey.assign((const char*)key, nkey);
+    }
 
     if (options.full) {
         if (expect_value) {
@@ -183,6 +183,13 @@ ResultSet::resultsJson(Json::Value *in) const
         root[CBSDKD_MSGFLD_DRES_TIMINGS] = jtimes;
     }
 }
+
+std::map<libcouchbase_error_t,int> ResultSet::Errmap =
+        create_map<libcouchbase_error_t,int>
+#define X(a,b) (a,b)
+CBSDKD_XERRMAP(X);
+#undef X
+
 
 
 }

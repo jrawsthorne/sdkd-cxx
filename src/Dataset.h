@@ -7,10 +7,10 @@
 
 #ifndef DATASET_H_
 #define DATASET_H_
+#ifndef SDKD_INTERNAL_H_
+#error "include sdkd_internal.h first"
+#endif
 
-#include "Message.h"
-#include "Request.h"
-#include "Error.h"
 #include <list>
 
 #define CBSDKD_DATASET_XTYPE(X) \

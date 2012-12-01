@@ -5,19 +5,9 @@
  *      Author: mnunberg
  */
 
-#include "Handle.h"
-#include <cstdlib>
-#include <cstdio>
-#include <unistd.h>
+#include "sdkd_internal.h"
 
 namespace CBSdkd {
-
-std::map<libcouchbase_error_t,int> Handle::Errmap =
-        create_map<libcouchbase_error_t,int>
-#define X(a,b) (a,b)
-CBSDKD_XERRMAP(X);
-#undef X
-
 
 extern "C" {
 static void cb_err(libcouchbase_t instance,
@@ -26,7 +16,7 @@ static void cb_err(libcouchbase_t instance,
     Handle *handle = (Handle*)libcouchbase_get_cookie(instance);
     int myerr = Handle::mapError(err,
                                  Error::SUBSYSf_CLIENT|Error::SUBSYSf_NETWORK);
-    handle->appendError(myerr, desc);
+    handle->appendError(myerr, desc ? desc : "");
 }
 
 #ifdef LCB_VERSION

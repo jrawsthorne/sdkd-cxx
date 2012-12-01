@@ -7,19 +7,11 @@
 
 #ifndef IODISPATCH_H_
 #define IODISPATCH_H_
+#ifndef SDKD_INTERNAL_H_
+#error "Include sdkd_internal.h first"
+#endif
 
-#include <sys/socket.h>
-#include <netinet/in.h>
-#include <pthread.h>
-#include <unistd.h>
-
-#include "Dataset.h"
-#include "Request.h"
-#include "Response.h"
-#include "Handle.h"
-#include "contrib/debug++.h"
-#include <cstdio>
-
+#include "sdkd_internal.h"
 
 namespace CBSdkd {
 
@@ -105,6 +97,8 @@ private:
     void dispatch_cancel(const Request&);
 };
 
+
+#define SDKD_INIT_WORKER_GLOBALS()
 class WorkerDispatch : protected IODispatch {
 
 public:
@@ -122,15 +116,17 @@ public:
 
 private:
     MainDispatch *parent;
-    bool is_alive;
     char *friendly_cstr;
 
     Handle *cur_handle;
     cbsdk_hid_t cur_hid;
 
+    ResultSet persistRs;
+
     bool _process_request(const Request&, ResultSet*);
 
     static void *pthr_run(WorkerDispatch *w);
+    ResultSet *rs;
 
     pthread_mutex_t hmutex;
 };

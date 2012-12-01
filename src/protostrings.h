@@ -73,4 +73,33 @@
 #define CBSDKD_MSGFLD_HANDLE_OPTIONS            "Options"
 #define CBSDKD_MSGFLD_HANDLE_OPT_TMO            "Timeout"
 
+
+/** View Query Parameters */
+#define CBSDKD_MSGFLD_QVOPT_STALE "stale"
+#define CBSDKD_MSGFLD_QVOPT_LIMIT "limit"
+#define CBSDKD_MSGFLD_QVOPT_ONERR "on_error"
+#define CBSDKD_MSGFLD_QVOPT_DESC "descending"
+#define CBSDKD_MSGFLD_QVOPT_SKIP "skip"
+#define CBSDKD_MSGFLD_QVOPT_REDUCE "reduce"
+#define CBSDKD_MSGFLD_QVOPT_INCDOCS "include_docs"
+#define CBSDKD_MSGFLD_QV_ONERR_CONTINUE "continue"
+#define CBSDKD_MSGFLD_QV_ONERR_STOP "stop"
+#define CBSDKD_MSGFLD_QV_STALE_UPDATEAFTER "update_after"
+
+
+/** View Load Options */
+#define CBSDKD_MSGFLD_V_SCHEMA "Schema"
+#define CBSDKD_MSGFLD_V_INFLATEBASE "InflateContent"
+#define CBSDKD_MSGFLD_V_INFLATECOUNT "InflateLevel"
+#define CBSDKD_MSGFLD_V_KIDENT "KIdent"
+#define CBSDKD_MSGFLD_V_KSEQ "KVSequence"
+#define CBSDKD_MSGFLD_V_DESNAME "DesignName"
+#define CBSDKD_MSGFLD_V_MRNAME "ViewName"
+
+
+/** View Query Control Options */
+#define CBSDKD_MSGFLD_V_QOPTS "ViewParameters"
+#define CBSDKD_MSGFLD_V_QDELAY "ViewQueryDelay"
+#define CBSDKD_MSGFLD_V_QITERCOUNT "ViewQueryCount"
+
 #endif /* CBSDKD_H_ */

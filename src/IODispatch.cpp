@@ -5,21 +5,7 @@
  *      Author: mnunberg
  */
 
-#include "IODispatch.h"
-#include <cstring>
-#include <cstdlib>
-#include <cassert>
-
-#include <sys/time.h>
-#include <sys/types.h>
-#include <unistd.h>
-#include <fcntl.h>
-#include <errno.h>
-#include <memory>
-#include <signal.h>
-#include "Response.h"
-#include <cstdio>
-
+#include "sdkd_internal.h"
 
 namespace CBSdkd {
 
@@ -135,6 +121,7 @@ void
 IOProtoHandler::writeResponse(const Response& res)
 {
     std::string encoded = res.encode();
+    log_debug("Encoded: %s\n", encoded.c_str());
     putRawMessage(encoded, true);
 }
 
@@ -163,11 +150,13 @@ MainDispatch::~MainDispatch()
         close(acceptfd);
         acceptfd = -1;
     }
+
     log_info("Bye Bye!");
     while (children.size()) {
         for (std::list<WorkerDispatch*>::iterator iter = children.begin();
                 iter != children.end(); iter++) {
-            pthread_kill( (*iter)->thr, SIGINT );
+//            pthread_kill( (*iter)->thr, SIGUSR1 );
+            pthread_cancel((*iter)->thr);
         }
         _collect_workers();
     }
@@ -199,10 +188,10 @@ MainDispatch::establishSocket(struct sockaddr_in *addr)
         return false;
     }
 
-    struct sockaddr_in myaddr;
-    memset(&myaddr, 0, sizeof(myaddr));
+    int optval = 1;
+    setsockopt(acceptfd, SOL_SOCKET, SO_REUSEADDR, &optval, sizeof(optval));
 
-    if (-1 == bind(acceptfd, (struct sockaddr*)&myaddr, sizeof(myaddr)) ) {
+    if (-1 == bind(acceptfd, (struct sockaddr*)addr, sizeof(*addr)) ) {
         close(acceptfd);
         return false;
     }
@@ -259,6 +248,9 @@ static void make_info_response(Json::Value& res)
     caps["DS_SHARED"] = true;
     caps["CONTINUOUS"] = true;
     caps["PREAMBLE"] = false;
+#ifdef SDKD_HAVE_VIEW_SUPPORT
+    caps["VIEWS"] = true;
+#endif
 
     res["CAPS"] = caps;
     res["COMPONENTS"] = components;
@@ -420,6 +412,12 @@ MainDispatch::getDatasetById(const std::string& dsid)
 WorkerDispatch::~WorkerDispatch()
 {
     pthread_mutex_destroy(&hmutex);
+    if (cur_handle) {
+        delete cur_handle;
+        cur_handle = NULL;
+    }
+    delete rs;
+    rs = NULL;
 }
 
 WorkerDispatch::WorkerDispatch(int newsock, MainDispatch *parent)
@@ -433,6 +431,7 @@ WorkerDispatch::WorkerDispatch(int newsock, MainDispatch *parent)
     ss << "lcb-sdkd-worker fd=" << newsock;
     setLogPrefix(ss.str());
     pthread_mutex_init(&hmutex, NULL);
+    rs = new ResultSet();
 }
 
 // Return false when the main loop should terminate. True otherwise.
@@ -444,6 +443,7 @@ WorkerDispatch::_process_request(const Request& req, ResultSet* rs)
     Dataset::Type dstype;
     std::string refid;
     Handle& h = *cur_handle;
+    bool needs_ds = true;
     auto_ptr<const Dataset> ds_scopedel;
     ds_scopedel.reset();
 
@@ -457,32 +457,37 @@ WorkerDispatch::_process_request(const Request& req, ResultSet* rs)
         return false;
     }
 
-
-    dstype = Dataset::determineType(req, &refid);
-    if (dstype == Dataset::DSTYPE_INVALID) {
-        errp.setCode(Error::SUBSYSf_SDKD|Error::SDKD_EINVAL);
-        errp.setString("Couldn't parse dataset");
-        goto GT_CHECKERR;
+    if (req.command == Command::CB_VIEW_QUERY) {
+        needs_ds = false;
     }
 
-    if (dstype == Dataset::DSTYPE_REFERENCE) {
-        // Assume it's valied
-        ds = parent->getDatasetById(refid);
-        if (!ds) {
-            errp.setCode(Error::SUBSYSf_SDKD|Error::SDKD_ENODS);
-            errp.setString("Couldn't find dataset");
-            goto GT_CHECKERR;
-        }
-    } else {
-        ds = Dataset::fromType(dstype, req);
-        if (ds == NULL) {
+    if (needs_ds) {
+        dstype = Dataset::determineType(req, &refid);
+        if (dstype == Dataset::DSTYPE_INVALID) {
             errp.setCode(Error::SUBSYSf_SDKD|Error::SDKD_EINVAL);
-            errp.setString("Bad dataset parameters");
+            errp.setString("Couldn't parse dataset");
             goto GT_CHECKERR;
         }
 
-        // Make the DS get cleaned up when we exit.
-        ds_scopedel.reset(ds);
+        if (dstype == Dataset::DSTYPE_REFERENCE) {
+            // Assume it's valied
+            ds = parent->getDatasetById(refid);
+            if (!ds) {
+                errp.setCode(Error::SUBSYSf_SDKD|Error::SDKD_ENODS);
+                errp.setString("Couldn't find dataset");
+                goto GT_CHECKERR;
+            }
+        } else {
+            ds = Dataset::fromType(dstype, req);
+            if (ds == NULL) {
+                errp.setCode(Error::SUBSYSf_SDKD|Error::SDKD_EINVAL);
+                errp.setString("Bad dataset parameters");
+                goto GT_CHECKERR;
+            }
+
+            // Make the DS get cleaned up when we exit.
+            ds_scopedel.reset(ds);
+        }
     }
 
     GT_CHECKERR:
@@ -497,7 +502,7 @@ WorkerDispatch::_process_request(const Request& req, ResultSet* rs)
     // Because we wrap the handle, and the handle cannot return any responses.
 
     // Continuous must be used with IterWait
-    if (dstype == Dataset::DSTYPE_SEEDED) {
+    if (needs_ds && dstype == Dataset::DSTYPE_SEEDED) {
         if (opts.iterwait == false &&
                 ((DatasetSeeded*)ds)->getSpec().continuous == true) {
             writeResponse(Response(&req, Error(Error::SUBSYSf_SDKD,
@@ -506,6 +511,9 @@ WorkerDispatch::_process_request(const Request& req, ResultSet* rs)
             return true;
         }
     }
+
+    log_debug("Command is %s (%d)", req.command.cmdstr.c_str(),
+              req.command.code);
 
     switch (req.command) {
     case Command::MC_DS_DELETE:
@@ -524,6 +532,34 @@ WorkerDispatch::_process_request(const Request& req, ResultSet* rs)
     case Command::MC_DS_GET:
         h.dsGet(req.command, *ds, *rs, opts);
         break;
+
+#ifdef SDKD_HAVE_VIEW_SUPPORT
+
+    case Command::CB_VIEW_LOAD:
+    {
+        ViewLoader vl = ViewLoader(cur_handle);
+        vl.populateViewData(req.command, *ds, *rs, opts, req);
+        break;
+    }
+
+    case Command::CB_VIEW_QUERY:
+    {
+        ViewExecutor ve = ViewExecutor(cur_handle);
+        ve.executeView(req.command, *rs, opts, req);
+        break;
+    }
+
+#else
+
+    case Command::CB_VIEW_LOAD:
+    case Command::CB_VIEW_QUERY:
+        writeResponse(Response(&req, Error(Error::SUBSYSf_SDKD,
+                                           Error::SDKD_ENOIMPL,
+                                           "View commands not supported "
+                                           "on this version")));
+        return true;
+        break;
+#endif /* LCB_VERSION */
 
     default:
         log_warn("Command '%s' not implemented",
@@ -554,7 +590,6 @@ void
 WorkerDispatch::run() {
 
     Request req;
-    ResultSet *rs = new ResultSet;
     Error errp;
     HandleOptions hopts;
 
@@ -564,7 +599,6 @@ WorkerDispatch::run() {
         log_error("Couldn't negotiate initial request");
         goto GT_DONE;
     }
-
 
     hopts = HandleOptions(req.payload);
     if (!hopts.isValid()) {
@@ -590,11 +624,12 @@ WorkerDispatch::run() {
     // Notify a success
     log_info("Successful handle established");
     writeResponse(Response(&req));
+
     // Now start receiving responses, now that the handle has
     // been established..
 
 
-    while (1) {
+    while (true) {
         readRequest(true, &req);
         if (_process_request(req, rs) == false) {
             break;
@@ -616,8 +651,6 @@ WorkerDispatch::run() {
         cur_handle = NULL;
     }
     pthread_mutex_unlock(&hmutex);
-
-    delete rs;
 }
 
 // We need significant indirection because of shared data access from multiple

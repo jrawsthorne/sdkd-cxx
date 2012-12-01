@@ -8,8 +8,9 @@
 #ifndef RESPONSE_H_
 #define RESPONSE_H_
 
-#include "Message.h"
-#include "Request.h"
+#ifndef SDKD_INTERNAL_H_
+#error "Include sdkd_internal.h first"
+#endif
 
 namespace CBSdkd {
 

@@ -5,8 +5,7 @@
  *      Author: mnunberg
  */
 
-#include "Request.h"
-#include "cbsdkd.h"
+#include "sdkd_internal.h"
 
 namespace CBSdkd {
 

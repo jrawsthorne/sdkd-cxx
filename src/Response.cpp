@@ -5,9 +5,7 @@
  *      Author: mnunberg
  */
 
-#include "Response.h"
-#include "cbsdkd.h"
-#include "contrib/debug++.h"
+#include "sdkd_internal.h"
 
 namespace CBSdkd {
 

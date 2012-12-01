@@ -7,8 +7,10 @@
 
 #ifndef MESSAGE_H_
 #define MESSAGE_H_
-#include <json/json.h>
-#include "Error.h"
+
+#ifndef SDKD_INTERNAL_H_
+#error "include sdkd_internal.h first"
+#endif
 
 #define CBSDKD_XCOMMAND(XX) \
     XX(MC_DS_MUTATE_SET) \
@@ -19,6 +21,8 @@
     XX(MC_DS_DELETE) \
     XX(MC_DS_TOUCH) \
     XX(MC_DS_GET) \
+    XX(CB_VIEW_LOAD) \
+    XX(CB_VIEW_QUERY) \
     XX(NEWHANDLE) \
     XX(CLOSEHANDLE) \
     XX(NEWDATASET) \

@@ -1,4 +1,5 @@
-all: main sdkd_lcb
+# vim: ft=make
+all :: main sdkd_lcb
 
 BINLFLAGS := -L$(shell pwd) -Wl,-rpath='$$ORIGIN' -lcbsdkd
 SOLIB=libcbsdkd.so
@@ -7,16 +8,19 @@ $(SOLIB): $(OBJECTS)
 	$(CXX) -shared -o $@ $^ $(LDFLAGS)
 
 main: main.cpp $(SOLIB)
-	$(CXX) -o $@ $(CPPFLAGS) $< $(BINLFLAGS) $(LDFLAGS)
+	$(CXX) -o $@ $(CPPFLAGS) $(CXXFLAGS) $< $(BINLFLAGS) $(LDFLAGS)
 
 %.o: %.cpp
-	$(CXX) -fPIC -c -o $@ $^ $(CPPFLAGS)
+	$(CXX) -fPIC -c -o $@ $^ $(CPPFLAGS) $(CXXFLAGS)
 
-contrib/debug.o: contrib/debug.c
-	$(CC) -g -fPIC -c -o $@ $^
+#contrib/debug.o: contrib/debug.c
+#	$(CC) -g -fPIC -c -o $@ $^
+
+%.o: %.c
+	$(CC) -fPIC -c -o $@ $^ $(CPPFLAGS)
 
 sdkd_lcb: sdkd_lcb.cpp $(SOLIB)
-	$(CXX) -o $@ $(CPPFLAGS) $< $(BINLFLAGS) $(LDFLAGS)
+	$(CXX) -o $@ $(CPPFLAGS) $(CXXFLAGS) $< $(BINLFLAGS) $(LDFLAGS)
 
-clean:
+clean :: 
 	rm -f main $(OBJECTS) *.so *.o main sdkd_lcb

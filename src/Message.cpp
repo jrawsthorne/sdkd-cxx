@@ -5,10 +5,7 @@
  *      Author: mnunberg
  */
 
-#include "Message.h"
-#include "cbsdkd.h"
-
-#include <cstdlib>
+#include "sdkd_internal.h"
 
 namespace CBSdkd {
 
@@ -23,16 +20,11 @@ Command::Command(Command::Code code)
 
 Command::Command(const string& str)
 {
+    this->code = INVALID_COMMAND;
     // Figure out what our command is..
-#define X(c) if (str == #c) this->code = c;
+#define X(c) if (str == #c) { this->code = c; }
     CBSDKD_XCOMMAND(X)
 #undef X
-
-    if (!this->code) {
-        cerr << "Couldn't determine code from " << str;
-        abort();
-    }
-
     this->cmdstr = str;
 }
 

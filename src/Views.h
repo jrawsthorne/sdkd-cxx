@@ -1,0 +1,77 @@
+#ifndef SDKD_VIEWS_H_
+#define SDKD_VIEWS_H_
+
+#ifndef SDKD_INTERNAL_H_
+#error "include sdkd_internal.h first"
+#endif
+
+#include "sdkd_internal.h"
+
+namespace CBSdkd {
+using namespace std;
+
+class ViewLoader : protected DebugContext {
+
+public:
+    ViewLoader(Handle* handle);
+    virtual ~ViewLoader() {}
+
+    bool populateViewData(Command cmd,
+                          const Dataset& ds,
+                          ResultSet& out,
+                          const ResultOptions& options,
+                          const Request& req);
+
+private:
+    void flushValues(ResultSet& rs);
+    struct _kvp {
+        string key;
+        string value;
+    };
+    // Make view loading quicker by employing multi operations
+    typedef vector<_kvp> kvp_list;
+    kvp_list values;
+    Handle* handle;
+    unsigned total;
+};
+
+class ViewExecutor : protected DebugContext {
+public:
+    ViewExecutor(Handle *handle);
+    virtual ~ViewExecutor();
+
+    bool executeView(Command cmd,
+                     ResultSet& out,
+                     const ResultOptions& options,
+                     const Request& req);
+
+    // Should really be private, but hey, can't have everything
+    void handleRowResult(const lcb_vrow_datum_t *dt);
+    bool handleHttpChunk(lcb_error_t err, const lcb_http_resp_t *resp);
+
+    static set<string> ViewOptions;
+    static void InitializeViewOptions();
+
+
+private:
+    bool genQueryString(const Request& req, string& out, Error& err);
+    void runSingleView(const lcb_http_cmd_t *htcmd);
+
+    Handle *handle;
+    ResultSet *rs;
+    lcb_vrow_ctx_t *rctx;
+    Json::Reader jreader;
+
+    bool responseTick;
+
+    // Apparently re-creating these objects each time is expensive
+    Json::Value persistRow;
+    Json::Value persistKey;
+};
+
+#define SDKD_INIT_VIEWS() ViewExecutor::InitializeViewOptions()
+
+
+} // namespace CBSdkd
+
+#endif /* SDKD_VIEWS_H_ */

@@ -8,6 +8,10 @@
 #ifndef ERROR_H_
 #define ERROR_H_
 
+#ifndef SDKD_INTERNAL_H_
+#error "Include sdkd_internal.h first"
+#endif
+
 #include <sstream>
 namespace CBSdkd {
 
@@ -24,6 +28,7 @@ public:
         SUBSYSf_NETWORK      = 0x10,
         SUBSYSf_SDKD         = 0x20,
         SUBSYSf_KVOPS        = 0x40,
+        SUBSYSf_VIEWS        = 0x41,
 
         KVOPS_EMATCH         = 0x200,
 
@@ -36,9 +41,14 @@ public:
         ERROR_GENERIC        = 0x100,
 
         CLIENT_ETMO          = 0x200,
+        CLIENT_ESCHED        = 0x300,
 
         CLUSTER_EAUTH        = 0x200,
         CLUSTER_ENOENT       = 0x300,
+
+        VIEWS_MALFORMED      = 0x200,
+        VIEWS_MISMATCH       = 0x300,
+        VIEWS_HTTP_ERROR     = 0x400,
 
         MEMD_ENOENT          = 0x200,
         MEMD_ECAS            = 0x300,
@@ -111,6 +121,14 @@ public:
 
     Code code;
     std::string errstr;
+
+
+    static Error createInvalid(string msg)
+    {
+        return Error(Error::SUBSYSf_SDKD,
+                     Error::SDKD_EINVAL,
+                     msg);
+    }
 };
 
 } /* namespace CBSdkd */
