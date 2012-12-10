@@ -129,7 +129,7 @@ ViewExecutor::genQueryString(const Request& req, string& out, Error& eo)
                                    vname.c_str(), vname.length(),
                                    tmp_pp, view_options_pointers.size());
         out.assign(vqstr);
-        printf("Generated query string %s\n", vqstr);
+        log_info("Generated query string %s", vqstr);
         free(vqstr);
     }
 
@@ -178,7 +178,7 @@ ViewExecutor::handleHttpChunk(lcb_error_t err, const lcb_http_resp_t *resp)
 {
     if (!responseTick) {
         if (resp->v.v0.status < 200 || resp->v.v0.status > 299) {
-            printf("Got HTTP Error..\n");
+            log_info("Got http code %d", resp->v.v0.status);
             rs->setRescode(Error(Error::SUBSYSf_VIEWS,
                                  Error::VIEWS_HTTP_ERROR));
             responseTick = true;
@@ -192,7 +192,10 @@ ViewExecutor::handleHttpChunk(lcb_error_t err, const lcb_http_resp_t *resp)
     responseTick = true;
 
     if (err != LCB_SUCCESS) {
-        printf("Didn't get success..\n");
+        log_warn("LCB Returned code %d (%s) for http",
+                 err,
+                 lcb_strerror(handle->getLcb(), err));
+
         rs->setRescode(err, "", 0);
         return false;
     }
