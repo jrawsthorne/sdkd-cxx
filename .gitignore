@@ -13,3 +13,4 @@ cplusplus/main
 *.vs*
 *.testsettings
 *.sln.docstates
+pylib/pkgcache

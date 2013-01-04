@@ -1,11 +1,25 @@
 all :: 
 
+JSONCPP_HAVE_DIST := $(shell pkg-config --exists jsoncpp && echo OK)
+JSONCPP_ROOT=$(shell pwd)/contrib/json-cpp
 
-JSONCPP_LFLAGS := $(shell pkg-config jsoncpp --libs)
-JSONCPP_CPPFLAGS := $(shell pkg-config jsoncpp --cflags)
+JSONCPP_CPPFLAGS := \
+	$(if $(JSONCPP_HAVE_DIST), \
+		$(shell pkg-config --cflags jsoncpp), \
+		-I"$(JSONCPP_ROOT)/include")
 
-LCB_LFLAGS := -lcouchbase
-LCB_CPPFLAGS :=
+JSONCPP_LFLAGS := \
+	$(if $(JSONCPP_HAVE_DIST),\
+		$(shell pkg-config --libs jsoncpp),\
+		-L"$(JSONCPP_ROOT)/lib" -Wl,-rpath="$(JSONCPP_ROOT)/lib" -ljson-cpp)
+
+ifdef LCB_ROOT
+	LCB_CPPFLAGS := -I$(LCB_ROOT)/include
+	LCB_LFLAGS := -L$(LCB_ROOT)/lib -Wl,-rpath=$(LCB_ROOT)/lib -lcouchbase
+else
+	LCB_LFLAGS := -lcouchbase
+	LCB_CPPFLAGS :=
+endif
 
 CXX := g++
 CC := gcc
@@ -29,8 +43,8 @@ OBJECTS := \
 	contrib/jsonsl/jsonsl.o \
 	contrib/cliopts/cliopts.o
 
-
-LDFLAGS = -lpthread
+LDFLAGS += $(LFLAGS)
+LDFLAGS += -lpthread
 LDFLAGS += $(JSONCPP_LFLAGS)
 LDFLAGS += $(LCB_LFLAGS)
 
