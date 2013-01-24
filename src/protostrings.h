@@ -73,6 +73,10 @@
 #define CBSDKD_MSGFLD_HANDLE_OPTIONS            "Options"
 #define CBSDKD_MSGFLD_HANDLE_OPT_TMO            "Timeout"
 
+/**
+ * TTL Parameters
+ */
+#define CBSDK_MSGFLD_TTL_SECONDS                "Seconds"
 
 /** View Query Parameters */
 #define CBSDKD_MSGFLD_QVOPT_STALE "stale"

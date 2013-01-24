@@ -29,7 +29,8 @@
     XX(DELDATASET) \
     XX(GOODBYE) \
     XX(CANCEL) \
-    XX(INFO)
+    XX(INFO) \
+    XX(TTL)
 
 namespace CBSdkd {
 

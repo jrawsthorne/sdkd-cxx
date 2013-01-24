@@ -47,6 +47,7 @@ LDFLAGS += $(LFLAGS)
 LDFLAGS += -lpthread
 LDFLAGS += $(JSONCPP_LFLAGS)
 LDFLAGS += $(LCB_LFLAGS)
+LDFLAGS += -lrt
 
 ifdef PROFILE
 	LDFLAGS += -lprofiler

@@ -30,6 +30,8 @@ public:
     char *portFile;
     int useColor;
     int isPersistent;
+    int initialTTL;
+
     unsigned portNumber;
     struct sockaddr_in listenAddr;
 
@@ -94,6 +96,10 @@ Program::parseCliOptions(int argc, char **argv)
                     "Keep running after GOODBYEs",
             },
 
+            { 0, "ttl", CLIOPTS_ARGT_INT, &initialTTL,
+                    "TTL For daemon"
+            },
+
             { 0 }
     };
 
@@ -120,6 +126,7 @@ Program::Program(int argc, char **argv) :
         useColor(0),
         isPersistent(0),
         portNumber(0),
+        initialTTL(0),
         infoFp(NULL)
 {
     if (argc < 2) {
@@ -152,6 +159,8 @@ Program::Program(int argc, char **argv) :
 
     initDebugSettings();
     prepareAddress();
+    sdkd_init_timer();
+    sdkd_set_ttl(initialTTL);
 }
 
 void Program::run()

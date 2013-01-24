@@ -6,8 +6,70 @@
  */
 
 #include "sdkd_internal.h"
+#include <time.h>
+#include <signal.h>
+
+
 
 namespace CBSdkd {
+
+extern "C" {
+
+static struct {
+    pthread_mutex_t mutex;
+    timer_t tmid;
+    bool initialized;
+} Global_Timer;
+
+void sdkd_init_timer(void)
+{
+    pthread_mutex_init(&Global_Timer.mutex, NULL);
+    Global_Timer.initialized = false;
+}
+
+static void ttl_expired_func(union sigval)
+{
+    fprintf(stderr, "TTL Timer expired. Abort\n");
+    abort();
+}
+
+void sdkd_set_ttl(unsigned seconds)
+{
+    pthread_mutex_lock(&Global_Timer.mutex);
+    if (Global_Timer.initialized) {
+        timer_delete(Global_Timer.tmid);
+        Global_Timer.initialized = false;
+    }
+
+    if (seconds) {
+        struct sigevent sev;
+        struct itimerspec its;
+        int rv;
+
+        memset(&sev, 0, sizeof(sev));
+        memset(&its, 0, sizeof(its));
+
+        log_noctx_info("Setting timer to %u seconds", seconds);
+
+
+        sev.sigev_notify = SIGEV_THREAD;
+        sev.sigev_notify_function = ttl_expired_func;
+        rv = timer_create(CLOCK_REALTIME, &sev, &Global_Timer.tmid);
+        assert(rv == 0);
+
+        /**
+         * Initialize the actual time..
+         */
+        its.it_value.tv_sec = seconds;
+        rv = timer_settime(Global_Timer.tmid, 0, &its, NULL);
+        assert(rv == 0);
+
+        Global_Timer.initialized = 1;
+    }
+    pthread_mutex_unlock(&Global_Timer.mutex);
+}
+
+} //extern C
 
 IODispatch::IODispatch()
 : IOProtoHandler()
@@ -347,6 +409,21 @@ MainDispatch::run()
                 res.setResponseData(infores);
                 writeResponse(res);
 
+            } else if (reqp->command == Command::TTL) {
+                if (!reqp->payload.isMember(CBSDK_MSGFLD_TTL_SECONDS)) {
+                    writeResponse(Response(reqp,
+                                           Error::createInvalid(
+                                                   "Missing Seconds")));
+                } else {
+                    int seconds = reqp->payload[CBSDK_MSGFLD_TTL_SECONDS].asInt();
+
+                    if (seconds < 0) {
+                        seconds = 0;
+                    }
+
+                    sdkd_set_ttl(seconds);
+                    writeResponse(Response(reqp, Error(0)));
+                }
             } else {
                 // We don't currently support other types of control messages
                 writeResponse(Response(reqp,

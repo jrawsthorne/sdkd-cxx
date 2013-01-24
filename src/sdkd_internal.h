@@ -51,4 +51,16 @@
 #define SDKD_INIT_VIEWS()
 #endif
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+/* Cancellation/TTL. Not thread-safe */
+void sdkd_set_ttl(unsigned seconds);
+void sdkd_init_timer(void);
+
+#ifdef __cplusplus
+}
+#endif
+
 #endif
