@@ -72,6 +72,7 @@
 #define CBSDKD_MSGFLD_HANDLE_PASSWORD           "Password"
 #define CBSDKD_MSGFLD_HANDLE_OPTIONS            "Options"
 #define CBSDKD_MSGFLD_HANDLE_OPT_TMO            "Timeout"
+#define CBSDKD_MSGFLD_HANDLE_OPT_BACKUPS        "OtherNodes"
 
 /**
  * TTL Parameters

@@ -43,9 +43,24 @@ public:
     {
         const Json::Value& opts = json[CBSDKD_MSGFLD_HANDLE_OPTIONS];
         if ( opts.asBool() ) {
+
+            string host_extra = "";
+            if (!getExtraHosts(opts, host_extra)) {
+                hostname = "";
+                return; // invalidate
+            }
+
+            if (host_extra.size()) {
+                if (hostname.size()) {
+                    hostname += ";";
+                }
+                hostname += host_extra;
+            }
+
             timeout = opts[CBSDKD_MSGFLD_HANDLE_OPT_TMO].asUInt();
             username = opts[CBSDKD_MSGFLD_HANDLE_USERNAME].asString();
             password = opts[CBSDKD_MSGFLD_HANDLE_PASSWORD].asString();
+
         } else {
             timeout = 0;
         }
@@ -68,6 +83,47 @@ public:
                 bucket;
 
     unsigned long timeout;
+
+private:
+    // Gets extra hosts, if available. Returns false on error
+    bool getExtraHosts(Json::Value opts, string& extras) {
+        const Json::Value jothers = opts[CBSDKD_MSGFLD_HANDLE_OPT_BACKUPS];
+        if (jothers.isNull()) {
+            return true; // doesn't exist
+        }
+        if (!jothers.isArray()) {
+            log_noctx_error("Expected array. Got something else instead");
+            return false;
+        }
+
+        for (Json::Value::iterator iter = jothers.begin();
+                iter != jothers.end(); iter++) {
+            Json::Value& curbu = *iter;
+
+            if (curbu.isString()) {
+                extras += curbu.asString();
+
+            } else if (curbu.isArray()) {
+                if (curbu.size() > 2) {
+                    log_noctx_error("Expected array of <= 2 elements, or string");
+                    return false;
+                }
+                if (! curbu[0].isString()) {
+                    log_noctx_error("First element must be a string");
+                    return false;
+                }
+
+                extras += curbu[0].asString();
+                if (curbu[1].isInt()) {
+                    extras += ":";
+                    extras += curbu[1].asString();
+                }
+            }
+
+            extras += ";";
+        }
+        return true;
+    }
 };
 
 class Handle : protected DebugContext {
