@@ -189,15 +189,22 @@ Handle::collect_result(ResultSet& rs)
 void
 Handle::postsubmit(ResultSet& rs, unsigned int nsubmit)
 {
-    unsigned int wait_msec = rs.options.getDelay();
-    // So this is called after each 'submission' for a command to
-    // libcouchbase. In here we can either do nothing (batch single/multi).
-    if (wait_msec || rs.options.iterwait) {
-        libcouchbase_wait(instance);
-    } else {
-        rs.remaining += nsubmit;
+
+    rs.remaining += nsubmit;
+
+    if (!rs.options.iterwait) {
+        // everything is buffered up
         return;
     }
+
+    if (rs.remaining < rs.options.iterwait) {
+        return;
+    }
+
+
+    libcouchbase_wait(instance);
+
+    unsigned int wait_msec = rs.options.getDelay();
 
     if (wait_msec) {
         usleep(wait_msec * 1000);

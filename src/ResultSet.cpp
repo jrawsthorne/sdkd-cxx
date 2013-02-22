@@ -8,7 +8,7 @@ ResultOptions::ResultOptions(const Json::Value& opts)
     full(opts[CBSDKD_MSGFLD_DSREQ_FULL].asBool()),
     multi(opts[CBSDKD_MSGFLD_DSREQ_MULTI].asUInt()),
     expiry(opts[CBSDKD_MSGFLD_DSREQ_EXPIRY].asUInt()),
-    iterwait(opts[CBSDKD_MSGFLD_DSREQ_ITERWAIT].asBool()),
+    iterwait(opts[CBSDKD_MSGFLD_DSREQ_ITERWAIT].asUInt()),
     delay_min(opts[CBSDKD_MSGFLD_DSREQ_DELAY_MIN].asUInt()),
     delay_max(opts[CBSDKD_MSGLFD_DSREQ_DELAY_MAX].asUInt()),
     delay(opts[CBSDKD_MSGFLD_DSREQ_DELAY].asUInt()),

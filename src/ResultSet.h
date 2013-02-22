@@ -25,7 +25,7 @@ public:
     bool full;
     unsigned int multi;
     unsigned int expiry;
-    bool iterwait;
+    unsigned int iterwait;
 
     unsigned int delay_min;
     unsigned int delay_max;
