@@ -259,6 +259,15 @@ _fill_repeat(const std::string base,
 }
 
 void
+DatasetSeededIterator::advance()
+{
+    DatasetIterator::advance();
+    if (spec->continuous && curidx > spec->count) {
+        curidx = 0;
+    }
+}
+
+void
 DatasetSeededIterator::init_data(int idx)
 {
     this->curk = _fill_repeat(this->spec->kseed,

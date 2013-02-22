@@ -33,7 +33,7 @@ public:
     const std::string key() const;
     const std::string value() const;
     void start();
-    void advance();
+    virtual void advance();
     virtual bool done() = 0;
 
 protected:
@@ -115,6 +115,7 @@ class DatasetSeededIterator : public DatasetIterator
 public:
     DatasetSeededIterator(const struct DatasetSeedSpecification *spec);
     bool done();
+    virtual void advance();
 
 private:
     void init_data(int idx);
