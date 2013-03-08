@@ -1,9 +1,9 @@
 [submodule "src/contrib/jsonsl"]
 	path = src/contrib/jsonsl
-	url = git@github.com:mnunberg/jsonsl.git
+	url = git://github.com/mnunberg/jsonsl.git
 [submodule "src/contrib/cliopts"]
 	path = src/contrib/cliopts
-	url = git@github.com:mnunberg/cliopts.git
+	url = git://github.com/mnunberg/cliopts.git
 [submodule "src/contrib/json-cpp"]
 	path = src/contrib/json-cpp
 	url = git://github.com/mrtazz/json-cpp.git
