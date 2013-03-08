@@ -47,6 +47,8 @@
 #include "views/viewrow.h"
 #include "Views.h"
 
+extern const char *SDKD_Conncache_Path;
+
 #else
 #define SDKD_INIT_VIEWS()
 #endif

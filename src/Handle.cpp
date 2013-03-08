@@ -10,6 +10,10 @@
 namespace CBSdkd {
 
 extern "C" {
+
+/* Declared as extern */
+const char *SDKD_Conncache_Path = NULL;
+
 static void cb_err(libcouchbase_t instance,
                libcouchbase_error_t err, const char *desc)
 {

@@ -99,7 +99,9 @@ Program::parseCliOptions(int argc, char **argv)
             { 0, "ttl", CLIOPTS_ARGT_INT, &initialTTL,
                     "TTL For daemon"
             },
-
+            { 0, "conncache", CLIOPTS_ARGT_STRING, &SDKD_Conncache_Path,
+                    "Path to cached configuration"
+            },
             { 0 }
     };
 

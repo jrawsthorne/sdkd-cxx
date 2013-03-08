@@ -52,6 +52,8 @@
 extern "C" {
 #endif
 
+extern const char *SDKD_Conncache_Path;
+
 static inline libcouchbase_error_t
 libcouchbase_store(lcb_t instance,
                    const void *cookie,
@@ -178,10 +180,23 @@ libcouchbase_create(const char *host,
     CMDFLD(cropts).host = host;
     CMDFLD(cropts).io = iops;
 
-    if (LCB_SUCCESS != (err = lcb_create(&obj, &cropts)) ) {
-        fprintf(stderr, "Couldn't create handle: EC: %d\n", err);
-        return NULL;
+    if (SDKD_Conncache_Path) {
+        lcb_cached_config_st cached;
+        memset(&cached, 0, sizeof(cached));
+        memcpy(&cached.createopt, &cropts, sizeof(cropts));
+        cached.cachefile = SDKD_Conncache_Path;
+        err = lcb_create_compat(LCB_CACHED_CONFIG, &cached, &obj, NULL);
+        if (err != LCB_SUCCESS) {
+            fprintf(stderr, "Couldn't create cached handle: %d\n", err);
+            return NULL;
+        }
+    } else {
+        if (LCB_SUCCESS != (err = lcb_create(&obj, &cropts)) ) {
+            fprintf(stderr, "Couldn't create handle: EC: %d\n", err);
+            return NULL;
+        }
     }
+
     return obj;
 }
 
