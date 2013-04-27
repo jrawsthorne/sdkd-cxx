@@ -31,6 +31,7 @@ public:
     int useColor;
     int isPersistent;
     int initialTTL;
+    int printVersion;
 
     unsigned portNumber;
     struct sockaddr_in listenAddr;
@@ -100,6 +101,10 @@ Program::parseCliOptions(int argc, char **argv)
                     "TTL For daemon"
             },
 
+            { 'V', "version", CLIOPTS_ARGT_NONE, &printVersion,
+                    "Print versions and exit"
+            },
+
             { 0 }
     };
 
@@ -127,6 +132,7 @@ Program::Program(int argc, char **argv) :
         isPersistent(0),
         portNumber(0),
         initialTTL(0),
+        printVersion(0),
         infoFp(NULL)
 {
     if (argc < 2) {
@@ -138,6 +144,14 @@ Program::Program(int argc, char **argv) :
     }
 
     parseLegacyArgs(argc, argv) || parseCliOptions(argc, argv);
+
+    if (printVersion) {
+        Json::Value value;
+        Handle::VersionInfoJson(value);
+        cout << value.toStyledString() << endl;
+        exit(0);
+    }
+
 
     SDKD_INIT_VIEWS();
     SDKD_INIT_WORKER_GLOBALS();

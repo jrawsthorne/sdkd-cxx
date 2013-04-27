@@ -295,29 +295,6 @@ MainDispatch::_collect_workers()
     }
 }
 
-static void make_info_response(Json::Value& res)
-{
-    Json::Value caps;
-    Json::Value components;
-    uint32_t vout = 0;
-    const char *vstr;
-
-    vstr = libcouchbase_get_version(&vout);
-    components["SDK"] = vstr;
-    components["SDK_VID"] = vout;
-
-    caps["CANCEL"] = true;
-    caps["DS_SHARED"] = true;
-    caps["CONTINUOUS"] = true;
-    caps["PREAMBLE"] = false;
-#ifdef SDKD_HAVE_VIEW_SUPPORT
-    caps["VIEWS"] = true;
-#endif
-
-    res["CAPS"] = caps;
-    res["COMPONENTS"] = components;
-}
-
 void
 MainDispatch::run()
 {
@@ -405,7 +382,7 @@ MainDispatch::run()
             } else if (reqp->command == Command::INFO) {
                 Response res = Response(reqp);
                 Json::Value infores;
-                make_info_response(infores);
+                Handle::VersionInfoJson(infores);
                 res.setResponseData(infores);
                 writeResponse(res);
 
