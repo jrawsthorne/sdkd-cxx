@@ -105,6 +105,14 @@ Program::parseCliOptions(int argc, char **argv)
                     "Print versions and exit"
             },
 
+            { 0, "conncache", CLIOPTS_ARGT_STRING, &SDKD_Conncache_Path,
+                    "Path to cached configuration"
+            },
+
+            { 0, "no-persist", CLIOPTS_ARGT_NONE, &SDKD_No_Persist,
+                    "Reset LCB Handle after each operation"
+            },
+
             { 0 }
     };
 

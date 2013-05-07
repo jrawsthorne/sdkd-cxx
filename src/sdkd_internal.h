@@ -47,6 +47,7 @@
 #include "views/viewrow.h"
 #include "Views.h"
 
+
 #else
 #define SDKD_INIT_VIEWS()
 #endif
@@ -58,6 +59,9 @@ extern "C" {
 /* Cancellation/TTL. Not thread-safe */
 void sdkd_set_ttl(unsigned seconds);
 void sdkd_init_timer(void);
+
+extern const char *SDKD_Conncache_Path;
+extern int SDKD_No_Persist;
 
 #ifdef __cplusplus
 }

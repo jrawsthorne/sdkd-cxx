@@ -10,6 +10,11 @@
 namespace CBSdkd {
 
 extern "C" {
+
+/* Declared as extern */
+const char *SDKD_Conncache_Path = NULL;
+int SDKD_No_Persist = 0;
+
 static void cb_err(libcouchbase_t instance,
                libcouchbase_error_t err, const char *desc)
 {
@@ -17,6 +22,7 @@ static void cb_err(libcouchbase_t instance,
     int myerr = Handle::mapError(err,
                                  Error::SUBSYSf_CLIENT|Error::SUBSYSf_NETWORK);
     handle->appendError(myerr, desc ? desc : "");
+    fprintf(stderr, "Got error %d: %s\n", err, desc ? desc : "");
 }
 
 #ifdef LCB_VERSION
@@ -130,13 +136,24 @@ Handle::connect(Error *errp)
 {
     // Gather parameters
     libcouchbase_error_t the_error;
-    log_debug("Using %s as hostname", options.hostname.c_str());
+    instance = NULL;
 
-    instance = libcouchbase_create(cstr_ornull(options.hostname),
-                                   cstr_ornull(options.username),
-                                   cstr_ornull(options.password),
-                                   cstr_ornull(options.bucket),
-                                   NULL);
+    if (!create_opts.v.v0.host) {
+        create_opts.v.v0.host = cstr_ornull(options.hostname);
+        create_opts.v.v0.user = cstr_ornull(options.username);
+        create_opts.v.v0.passwd = cstr_ornull(options.password);
+        create_opts.v.v0.bucket = cstr_ornull(options.bucket);
+        if (SDKD_Conncache_Path) {
+            memset(&cached_opts, 0, sizeof(cached_opts));
+            memcpy(&cached_opts.createopt, &create_opts, sizeof(create_opts));
+            cached_opts.cachefile = SDKD_Conncache_Path;
+        }
+    }
+    if (SDKD_Conncache_Path) {
+        the_error = lcb_create_compat(LCB_CACHED_CONFIG, &cached_opts, &instance, NULL);
+    } else {
+        the_error = lcb_create(&instance, &create_opts);
+    }
 
     if (!instance) {
         errp->setCode(Error::SUBSYSf_CLIENT|Error::ERROR_GENERIC);
@@ -145,7 +162,6 @@ Handle::connect(Error *errp)
     }
 
     if (options.timeout) {
-        log_debug("Setting timeout to %d sec", options.timeout);
         libcouchbase_set_timeout(instance, options.timeout * 1000000);
     }
 
@@ -201,13 +217,18 @@ Handle::postsubmit(ResultSet& rs, unsigned int nsubmit)
         return;
     }
 
-
     libcouchbase_wait(instance);
 
     unsigned int wait_msec = rs.options.getDelay();
 
     if (wait_msec) {
         usleep(wait_msec * 1000);
+    }
+
+    if (SDKD_No_Persist) {
+        libcouchbase_destroy(instance);
+        Error e;
+        connect(&e);
     }
 }
 
