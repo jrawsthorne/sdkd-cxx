@@ -192,9 +192,7 @@ public:
         caps["DS_SHARED"] = true;
         caps["CONTINUOUS"] = true;
         caps["PREAMBLE"] = false;
-    #ifdef SDKD_HAVE_VIEW_SUPPORT
         caps["VIEWS"] = true;
-    #endif
 
         res["CAPS"] = caps;
         res["COMPONENTS"] = components;

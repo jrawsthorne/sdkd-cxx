@@ -587,8 +587,6 @@ WorkerDispatch::_process_request(const Request& req, ResultSet* rs)
         h.dsGet(req.command, *ds, *rs, opts);
         break;
 
-#ifdef SDKD_HAVE_VIEW_SUPPORT
-
     case Command::CB_VIEW_LOAD:
     {
         ViewLoader vl = ViewLoader(cur_handle);
@@ -602,18 +600,6 @@ WorkerDispatch::_process_request(const Request& req, ResultSet* rs)
         ve.executeView(req.command, *rs, opts, req);
         break;
     }
-
-#else
-
-    case Command::CB_VIEW_LOAD:
-    case Command::CB_VIEW_QUERY:
-        writeResponse(Response(&req, Error(Error::SUBSYSf_SDKD,
-                                           Error::SDKD_ENOIMPL,
-                                           "View commands not supported "
-                                           "on this version")));
-        return true;
-        break;
-#endif /* LCB_VERSION */
 
     default:
         log_warn("Command '%s' not implemented",
