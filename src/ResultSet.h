@@ -6,14 +6,14 @@
 #endif
 
 #define CBSDKD_XERRMAP(X) \
-X(LIBCOUCHBASE_BUCKET_ENOENT,    Error::SUBSYSf_CLUSTER|Error::MEMD_ENOENT) \
-X(LIBCOUCHBASE_AUTH_ERROR,       Error::SUBSYSf_CLUSTER|Error::CLUSTER_EAUTH) \
-X(LIBCOUCHBASE_CONNECT_ERROR,    Error::SUBSYSf_NETWORK|Error::ERROR_GENERIC) \
-X(LIBCOUCHBASE_NETWORK_ERROR,    Error::SUBSYSf_NETWORK|Error::ERROR_GENERIC) \
-X(LIBCOUCHBASE_ENOMEM,           Error::SUBSYSf_MEMD|Error::ERROR_GENERIC) \
-X(LIBCOUCHBASE_KEY_ENOENT,       Error::SUBSYSf_MEMD|Error::MEMD_ENOENT) \
-X(LIBCOUCHBASE_ETIMEDOUT,        Error::SUBSYSf_CLIENT|Error::CLIENT_ETMO) \
-X(LIBCOUCHBASE_ETMPFAIL,         Error::SUBSYSf_CLIENT|Error::ERROR_GENERIC);
+X(LCB_BUCKET_ENOENT,    Error::SUBSYSf_CLUSTER|Error::MEMD_ENOENT) \
+X(LCB_AUTH_ERROR,       Error::SUBSYSf_CLUSTER|Error::CLUSTER_EAUTH) \
+X(LCB_CONNECT_ERROR,    Error::SUBSYSf_NETWORK|Error::ERROR_GENERIC) \
+X(LCB_NETWORK_ERROR,    Error::SUBSYSf_NETWORK|Error::ERROR_GENERIC) \
+X(LCB_ENOMEM,           Error::SUBSYSf_MEMD|Error::ERROR_GENERIC) \
+X(LCB_KEY_ENOENT,       Error::SUBSYSf_MEMD|Error::MEMD_ENOENT) \
+X(LCB_ETIMEDOUT,        Error::SUBSYSf_CLIENT|Error::CLIENT_ETMO) \
+X(LCB_ETMPFAIL,         Error::SUBSYSf_CLIENT|Error::ERROR_GENERIC);
 
 
 
@@ -103,10 +103,10 @@ public:
     void setRescode(Error err, const void* key, size_t nkey,
                     bool expect_value, const void* value, size_t n_value);
 
-    void setRescode(libcouchbase_error_t err, const void *key, size_t nkey,
+    void setRescode(lcb_error_t err, const void *key, size_t nkey,
                     bool expect_value, const void *value, size_t n_value) {
         Error eo = Error();
-        if (err != LIBCOUCHBASE_SUCCESS) {
+        if (err != LCB_SUCCESS) {
             eo = mapError(err, Error::SUBSYSf_CLIENT|Error::ERROR_GENERIC);
         }
         setRescode(eo, key, nkey, expect_value, value, n_value);
@@ -116,12 +116,12 @@ public:
         setRescode(err, NULL, 0, false, NULL, 0);
     }
 
-    void setRescode(libcouchbase_error_t err,
+    void setRescode(lcb_error_t err,
                     const void *key, size_t nkey) {
         setRescode(err, key, nkey, false, NULL, 0);
     }
 
-    void setRescode(libcouchbase_error_t err, const std::string key,
+    void setRescode(lcb_error_t err, const std::string key,
                     bool expect_value) {
         setRescode(err, key.c_str(), key.length(), true, NULL, 0);
     }
@@ -177,8 +177,8 @@ public:
     unsigned int remaining;
 
     static int
-    mapError(libcouchbase_error_t err, int defl = Error::SUCCESS) {
-        if (err == LIBCOUCHBASE_SUCCESS) {
+    mapError(lcb_error_t err, int defl = Error::SUCCESS) {
+        if (err == LCB_SUCCESS) {
             return 0;
         }
         if (Errmap.find(err) != Errmap.end()) {
@@ -187,7 +187,7 @@ public:
         return defl;
     }
 
-    static std::map<libcouchbase_error_t,int> Errmap;
+    static std::map<lcb_error_t,int> Errmap;
 
 
 private:

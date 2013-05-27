@@ -247,8 +247,7 @@ int main(void)
     CBsdkd_Global_Debug_Context.cbsdkd__debugctx.prefix = "cbskd-test";
     CBsdkd_Global_Debug_Context.cbsdkd__debugctx.level = CBSDKD_LOGLVL_DEBUG;
 
-    printf("Using libcouchbase version %s\n\n",
-           libcouchbase_get_version(NULL));
+    printf("Using libcouchbase version %s\n\n", lcb_get_version(NULL));
     testMessage();
     testSeededIterator();
     testInlineIterator();

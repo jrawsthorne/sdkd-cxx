@@ -22,15 +22,9 @@
 #include <signal.h>
 
 #include <libcouchbase/couchbase.h>
-#include "lcb_10_compat.h"
 #include <json/json.h>
 #include "contrib/debug++.h"
 #include "utils.h"
-
-#ifdef LCB_VERSION
-#define SDKD_HAVE_VIEW_SUPPORT
-#endif
-
 #include "protostrings.h"
 
 #include "Error.h"
@@ -42,15 +36,10 @@
 #include "Handle.h"
 #include "IODispatch.h"
 
-#ifdef SDKD_HAVE_VIEW_SUPPORT
 #include "views/viewopts.h"
 #include "views/viewrow.h"
 #include "Views.h"
 
-
-#else
-#define SDKD_INIT_VIEWS()
-#endif
 
 #ifdef __cplusplus
 extern "C" {

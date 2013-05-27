@@ -184,8 +184,8 @@ ResultSet::resultsJson(Json::Value *in) const
     }
 }
 
-std::map<libcouchbase_error_t,int> ResultSet::Errmap =
-        create_map<libcouchbase_error_t,int>
+std::map<lcb_error_t,int> ResultSet::Errmap = create_map<lcb_error_t,int>
+
 #define X(a,b) (a,b)
 CBSDKD_XERRMAP(X);
 #undef X

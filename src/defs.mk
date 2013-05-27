@@ -24,12 +24,6 @@ endif
 CXX := g++
 CC := gcc
 
-VIEWOBJECTS := \
-	ViewExecutor.o \
-	ViewLoader.o \
-	views/viewrow.o \
-	views/viewopts.o
-
 OBJECTS := \
 	Message.o \
 	Request.o \
@@ -38,6 +32,11 @@ OBJECTS := \
 	Handle.o \
 	ResultSet.o \
 	IODispatch.o \
+	\
+	ViewExecutor.o \
+	ViewLoader.o \
+	views/viewrow.o \
+	views/viewopts.o \
 	\
 	contrib/debug.o \
 	contrib/jsonsl/jsonsl.o \
@@ -60,13 +59,3 @@ CPPFLAGS = -g -Wall \
 
 CPPFLAGS += -Wno-reorder 
 CPPFLAGS += $(JSONCPP_CPPFLAGS) $(LCB_CPPFLAGS)
-
-_HAVE_VIEWS := $(shell build_helpers/have_views.sh $(CC) -xc - $(CPPFLAGS) $(LCB_LFLAGS))
-
-ifdef _HAVE_VIEWS
-	OBJECTS += $(VIEWOBJECTS)
-endif
-
-clean ::
-	rm -f .have_views_status
-

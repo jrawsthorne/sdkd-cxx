@@ -15,17 +15,15 @@ extern "C" {
 const char *SDKD_Conncache_Path = NULL;
 int SDKD_No_Persist = 0;
 
-static void cb_err(libcouchbase_t instance,
-               libcouchbase_error_t err, const char *desc)
+static void cb_err(lcb_t instance, lcb_error_t err, const char *desc)
 {
-    Handle *handle = (Handle*)libcouchbase_get_cookie(instance);
+    Handle *handle = (Handle*)lcb_get_cookie(instance);
     int myerr = Handle::mapError(err,
                                  Error::SUBSYSf_CLIENT|Error::SUBSYSf_NETWORK);
     handle->appendError(myerr, desc ? desc : "");
     fprintf(stderr, "Got error %d: %s\n", err, desc ? desc : "");
 }
 
-#ifdef LCB_VERSION
 static void cb_remove(lcb_t instance, void *rs,
                      lcb_error_t err, const lcb_remove_resp_t *resp)
 {
@@ -67,48 +65,6 @@ static void wire_callbacks(lcb_t instance)
 #undef _setcb
 }
 
-#else /* !LCB_VERSION */
-
-static void cb_keyop(libcouchbase_t instance, void* rs,
-                 libcouchbase_error_t err,
-                 const void* key, libcouchbase_size_t nkey)
-{
-    reinterpret_cast<ResultSet*>(rs)->setRescode(err, key, nkey);
-}
-
-static void cb_storage(libcouchbase_t instance, ResultSet* rs,
-                   libcouchbase_storage_t storop,
-                   libcouchbase_error_t err,
-                   const void* key, libcouchbase_size_t nkey,
-                   libcouchbase_cas_t cas)
-{
-    reinterpret_cast<ResultSet*>(rs)->setRescode(err, key, nkey);
-}
-
-static void cb_get(libcouchbase_t instance, ResultSet* rs,
-               libcouchbase_error_t err,
-               const void *key, libcouchbase_size_t nkey,
-               const void *value, libcouchbase_size_t nvalue,
-               libcouchbase_uint32_t flags, libcouchbase_cas_t cas)
-{
-    reinterpret_cast<ResultSet*>(rs)->
-            setRescode(err, key, nkey, true, value, nvalue);
-}
-
-static void wire_callbacks(libcouchbase_t instance)
-{
-#define _set_cb(bname, cb) \
-    libcouchbase_set_##bname##_callback(instance, \
-                                        (libcouchbase_##bname##_callback)cb)
-
-    _set_cb(touch, cb_keyop);
-    _set_cb(remove, cb_keyop);
-    _set_cb(storage, cb_storage);
-    _set_cb(get, cb_get);
-#undef _set_cb
-}
-#endif /* !LCB_VERSION */
-
 } /* extern "C" */
 
 
@@ -121,7 +77,7 @@ Handle::Handle(const HandleOptions& opts) :
 
 Handle::~Handle() {
     if (instance != NULL) {
-        libcouchbase_destroy(instance);
+        lcb_destroy(instance);
     }
     instance = NULL;
 }
@@ -135,7 +91,7 @@ bool
 Handle::connect(Error *errp)
 {
     // Gather parameters
-    libcouchbase_error_t the_error;
+    lcb_error_t the_error;
     instance = NULL;
 
     if (!create_opts.v.v0.host) {
@@ -162,25 +118,24 @@ Handle::connect(Error *errp)
     }
 
     if (options.timeout) {
-        libcouchbase_set_timeout(instance, options.timeout * 1000000);
+        lcb_set_timeout(instance, options.timeout * 1000000);
     }
 
-    libcouchbase_set_error_callback(instance, cb_err);
-    libcouchbase_set_cookie(instance, this);
+    lcb_set_error_callback(instance, cb_err);
+    lcb_set_cookie(instance, this);
     wire_callbacks(instance);
 
-    the_error = libcouchbase_connect(instance);
-    if (the_error != LIBCOUCHBASE_SUCCESS) {
+    the_error = lcb_connect(instance);
+    if (the_error != LCB_SUCCESS) {
         errp->setCode(mapError(the_error,
                                Error::SUBSYSf_NETWORK|Error::ERROR_GENERIC));
-        errp->errstr = libcouchbase_strerror(instance, the_error);
+        errp->errstr = lcb_strerror(instance, the_error);
 
-        log_error("libcouchbase_connect failed: %s",
-                  errp->prettyPrint().c_str());
+        log_error("lcb_connect failed: %s", errp->prettyPrint().c_str());
         return false;
     }
 
-    libcouchbase_wait(instance);
+    lcb_wait(instance);
     if (pending_errors.size()) {
         *errp = pending_errors.back();
         pending_errors.clear();
@@ -199,7 +154,7 @@ Handle::collect_result(ResultSet& rs)
     if (!rs.remaining) {
         return;
     }
-    libcouchbase_wait(instance);
+    lcb_wait(instance);
 }
 
 void
@@ -217,7 +172,7 @@ Handle::postsubmit(ResultSet& rs, unsigned int nsubmit)
         return;
     }
 
-    libcouchbase_wait(instance);
+    lcb_wait(instance);
 
     unsigned int wait_msec = rs.options.getDelay();
 
@@ -226,7 +181,7 @@ Handle::postsubmit(ResultSet& rs, unsigned int nsubmit)
     }
 
     if (SDKD_No_Persist) {
-        libcouchbase_destroy(instance);
+        lcb_destroy(instance);
         Error e;
         connect(&e);
     }
@@ -240,8 +195,7 @@ Handle::dsGet(Command cmd, Dataset const &ds, ResultSet& out,
     out.clear();
     do_cancel = false;
 
-    libcouchbase_time_t exp = out.options.expiry;
-    libcouchbase_time_t *exp_pp = (exp) ? &exp : NULL;
+    lcb_time_t exp = out.options.expiry;
 
     DatasetIterator* iter = ds.getIter();
     for (iter->start();
@@ -250,15 +204,19 @@ Handle::dsGet(Command cmd, Dataset const &ds, ResultSet& out,
 
         std::string k = iter->key();
         log_trace("GET: %s", k.c_str());
-        libcouchbase_size_t sz = k.size();
-        const char *cstr = k.c_str();
+
+        lcb_get_cmd_t gcmd;
+        const lcb_get_cmd_t *cmdp = &gcmd;
+
+        gcmd.v.v0.key = k.data();
+        gcmd.v.v0.nkey = k.size();
+        gcmd.v.v0.exptime = exp;
 
         out.markBegin();
 
-        libcouchbase_error_t err =
-                libcouchbase_mget(instance, &out, 1,
-                                  (const void**)&cstr, &sz, exp_pp);
-        if (err == LIBCOUCHBASE_SUCCESS) {
+        lcb_error_t err = lcb_get(instance, &out, 1, &cmdp);
+
+        if (err == LCB_SUCCESS) {
             postsubmit(out);
         } else {
             out.setRescode(err, k, true);
@@ -276,19 +234,19 @@ Handle::dsMutate(Command cmd, const Dataset& ds, ResultSet& out,
 {
     out.options = options;
     out.clear();
-    libcouchbase_storage_t storop;
+    lcb_storage_t storop;
     do_cancel = false;
 
     if (cmd == Command::MC_DS_MUTATE_ADD) {
-        storop = LIBCOUCHBASE_ADD;
+        storop = LCB_ADD;
     } else if (cmd == Command::MC_DS_MUTATE_SET) {
-        storop = LIBCOUCHBASE_SET;
+        storop = LCB_SET;
     } else if (cmd == Command::MC_DS_MUTATE_APPEND) {
-        storop = LIBCOUCHBASE_APPEND;
+        storop = LCB_APPEND;
     } else if (cmd == Command::MC_DS_MUTATE_PREPEND) {
-        storop = LIBCOUCHBASE_PREPEND;
+        storop = LCB_PREPEND;
     } else if (cmd == Command::MC_DS_MUTATE_REPLACE) {
-        storop = LIBCOUCHBASE_REPLACE;
+        storop = LCB_REPLACE;
     } else {
         out.oper_error = Error(Error::SUBSYSf_SDKD,
                                Error::SDKD_EINVAL,
@@ -296,7 +254,7 @@ Handle::dsMutate(Command cmd, const Dataset& ds, ResultSet& out,
         return false;
     }
 
-    libcouchbase_time_t exp = out.options.expiry;
+    lcb_time_t exp = out.options.expiry;
     DatasetIterator *iter = ds.getIter();
 
     for (iter->start();
@@ -304,17 +262,23 @@ Handle::dsMutate(Command cmd, const Dataset& ds, ResultSet& out,
             iter->advance()) {
 
         std::string k = iter->key(), v = iter->value();
-        libcouchbase_size_t ksz = k.size(), vsz = v.size();
-        const char *kstr = k.data(), *vstr = v.data();
+
+        lcb_store_cmd_t scmd;
+        const lcb_store_cmd_t *cmdp = &scmd;
+
+        scmd.v.v0.key = k.data();
+        scmd.v.v0.nkey = k.size();
+
+        scmd.v.v0.bytes = v.data();
+        scmd.v.v0.nbytes = v.size();
+
+        scmd.v.v0.exptime = exp;
+        scmd.v.v0.operation = storop;
 
         out.markBegin();
-        libcouchbase_error_t err =
-                libcouchbase_store(instance, &out, storop,
-                                   kstr, ksz,
-                                   vstr, vsz,
-                                   0, exp, 0);
+        lcb_error_t err = lcb_store(instance, &out, 1, &cmdp);
 
-        if (err == LIBCOUCHBASE_SUCCESS) {
+        if (err == LCB_SUCCESS) {
             postsubmit(out);
         } else {
             out.setRescode(err, k, false);
@@ -331,7 +295,7 @@ Handle::dsKeyop(Command cmd, const Dataset& ds, ResultSet& out,
 {
     out.options = options;
     out.clear();
-    libcouchbase_time_t exp = out.options.expiry;
+    lcb_time_t exp = out.options.expiry;
     DatasetIterator *iter = ds.getIter();
     do_cancel = false;
 
@@ -340,20 +304,23 @@ Handle::dsKeyop(Command cmd, const Dataset& ds, ResultSet& out,
             iter->advance()) {
 
         std::string k = iter->key();
-        const char *kstr = k.data();
-        libcouchbase_size_t ksz = k.size();
-        libcouchbase_error_t err;
+        lcb_error_t err;
 
         out.markBegin();
 
         if (cmd == Command::MC_DS_DELETE) {
-            err = libcouchbase_remove(instance, &out, kstr, ksz, 0);
+            lcb_remove_cmd_t rmcmd = lcb_remove_cmd_st(k.data(), k.size());
+            const lcb_remove_cmd_t *cmdp = &rmcmd;
+            err = lcb_remove(instance, &out, 1, &cmdp);
+
         } else {
-            err = libcouchbase_mtouch(instance, &out,
-                                      1, (const void**)&kstr, &ksz,
-                                      &exp);
+            lcb_touch_cmd_t tcmd = lcb_touch_cmd_t(k.data(), k.size(), exp);
+            const lcb_touch_cmd_t *cmdp = &tcmd;
+            err = lcb_touch(instance, &out, 1, &cmdp);
+
         }
-        if (err == LIBCOUCHBASE_SUCCESS) {
+
+        if (err == LCB_SUCCESS) {
             postsubmit(out);
         } else {
             out.setRescode(err, k, false);

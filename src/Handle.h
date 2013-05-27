@@ -153,7 +153,7 @@ public:
         pending_errors.push_back(Error(err, desc));
     }
 
-    libcouchbase_t getLcb() {
+    lcb_t getLcb() {
         return instance;
     }
 
@@ -173,7 +173,7 @@ public:
     void cancelCurrent();
 
     static int
-    mapError(libcouchbase_error_t err, int defl = Error::SUCCESS) {
+    mapError(lcb_error_t err, int defl = Error::SUCCESS) {
         return ResultSet::mapError(err, defl);
     }
 
@@ -184,7 +184,7 @@ public:
         uint32_t vout = 0;
         const char *vstr;
 
-        vstr = libcouchbase_get_version(&vout);
+        vstr = lcb_get_version(&vout);
         components["SDK"] = vstr;
         components["SDK_VID"] = vout;
 
@@ -214,7 +214,7 @@ private:
     std::vector<ResultSet>pending_results;
     std::vector<Error>pending_errors;
 
-    libcouchbase_t instance;
+    lcb_t instance;
 
     void collect_result(ResultSet& rs);
     void postsubmit(ResultSet& rs, unsigned int nsubmit = 1);
