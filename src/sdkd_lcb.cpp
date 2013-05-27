@@ -35,6 +35,8 @@ public:
 
     unsigned portNumber;
     struct sockaddr_in listenAddr;
+    char *ioPluginName;
+    char *ioPluginSymbol;
 
 private:
     FILE *infoFp;
@@ -113,6 +115,14 @@ Program::parseCliOptions(int argc, char **argv)
                     "Reset LCB Handle after each operation"
             },
 
+            { 0, "io-plugin-name", CLIOPTS_ARGT_STRING, &ioPluginName,
+                    "Name of IO Plugin to use. Must be in linker search path"
+            },
+
+            { 0, "io-plugin-symbol", CLIOPTS_ARGT_STRING, &ioPluginSymbol,
+                    "Symbol within the IO plugin which contains the initializer"
+            },
+
             { 0 }
     };
 
@@ -141,6 +151,8 @@ Program::Program(int argc, char **argv) :
         portNumber(0),
         initialTTL(0),
         printVersion(0),
+        ioPluginName(NULL),
+        ioPluginSymbol(NULL),
         infoFp(NULL)
 {
     if (argc < 2) {
@@ -160,6 +172,12 @@ Program::Program(int argc, char **argv) :
         exit(0);
     }
 
+    if (ioPluginName != NULL) {
+        setenv("LIBCOUCHBASE_EVENT_PLUGIN_NAME", ioPluginName, 1);
+        if (ioPluginSymbol != NULL) {
+            setenv("LIBCOUCHBASE_EVENT_PLUGIN_SYMBOL", ioPluginSymbol, 1);
+        }
+    }
 
     SDKD_INIT_VIEWS();
     SDKD_INIT_WORKER_GLOBALS();
