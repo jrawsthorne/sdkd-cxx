@@ -14,7 +14,7 @@ Response::Response() {
 }
 
 Response::Response(const Request* req, Error const& err)
-: Message::Message(*req)
+: Message(*req)
 {
     if (err) {
         this->err = err;

@@ -177,7 +177,7 @@ Handle::postsubmit(ResultSet& rs, unsigned int nsubmit)
     unsigned int wait_msec = rs.options.getDelay();
 
     if (wait_msec) {
-        usleep(wait_msec * 1000);
+        sdkd_millisleep(wait_msec);
     }
 
     if (SDKD_No_Persist) {

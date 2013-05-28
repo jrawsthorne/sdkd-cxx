@@ -248,7 +248,6 @@ initial_push_callback(jsonsl_t jsn,
                       struct jsonsl_state_st *state,
                       const jsonsl_char_t *at)
 {
-    (void)action; /* always PUSH */
     lcb_vrow_ctx_t *ctx = (lcb_vrow_ctx_t*)jsn->data;
     jsonsl_jpr_match_t match;
 
@@ -290,6 +289,8 @@ initial_push_callback(jsonsl_t jsn,
         jsn->action_callback_PUSH = meta_header_complete_callback;
         state->data = JOBJ_ROWSET;
     }
+
+    (void)action; /* always PUSH */
 }
 
 static void

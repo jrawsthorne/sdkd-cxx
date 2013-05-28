@@ -8,6 +8,30 @@
 #include <ctype.h>
 #include <stdarg.h>
 
+#ifdef _WIN32
+
+#ifndef va_copy
+#define va_copy(a,b) (a=b)
+#endif
+
+#ifndef strndup
+static char *strndup(const char *a, int n)
+{
+    char *ret = (char*)malloc(n);
+    if (!ret) {
+        return NULL;
+    }
+    strncpy(ret, a, n);
+    return ret;
+}
+#endif
+
+#ifndef strncasecmp
+#define strncasecmp _strnicmp
+#endif
+
+#endif
+
 typedef struct view_param_st view_param;
 
 
@@ -126,7 +150,11 @@ num_param_handler(view_param *param,
         char *numbuf = malloc(128); /* should be enough */
 
         /* assuming ints never reach this large in my lifetime */
+#ifdef _WIN32
+        optobj->noptval = _snprintf(numbuf, 128, "%d", *(int*)value);
+#else
         optobj->noptval = snprintf(numbuf, 128, "%d", *(int*)value);
+#endif
         optobj->optval = numbuf;
 
         /* clear the 'constant' flag */
@@ -141,7 +169,7 @@ num_param_handler(view_param *param,
 
         do {
 
-            int ii;
+            unsigned int ii;
             if (!nvalue) {
                 *error = "Received an empty string";
                 return LCB_EINVAL;
@@ -508,17 +536,17 @@ lcb_vqstr_make_uri(const char *design, size_t ndesign,
         nview = strlen(view);
     }
 
-    /* I'm lazy */
-    path_len = snprintf(NULL, 0,
-                        "_design/%.*s/_view/%.*s",
-                        (int)ndesign, design,
-                        (int)nview, view);
-
+    path_len = sizeof("_design/")-1 + sizeof("/_view/")-1 + ndesign + nview;
     needed_len = lcb_vqstr_calc_len(options, noptions);
     needed_len += path_len + 1;
 
     buf = malloc(needed_len);
-    snprintf(buf, path_len+1,
+#ifdef _WIN32
+    _snprintf(
+#else
+    snprintf(
+#endif
+            buf, path_len+1,
              "_design/%.*s/_view/%.*s",
              (int)ndesign, design,
              (int)nview, view);

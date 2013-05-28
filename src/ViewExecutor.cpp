@@ -339,7 +339,7 @@ ViewExecutor::executeView(Command cmd,
         }
 
         if (iterdelay) {
-            usleep(iterdelay * 1000);
+            sdkd_millisleep(iterdelay);
         }
 
         lcb_vrow_reset(rctx);

@@ -90,7 +90,7 @@ ResultSet::setRescode(Error err,
 
     time_t cur_tframe;
     cur_tframe = tv.tv_sec - (tv.tv_sec % options.timeres);
-    unsigned duration = msec_now - opstart_tmsec;
+    suseconds_t duration = msec_now - opstart_tmsec;
 
     if (!cur_wintime) {
         cur_wintime = cur_tframe;
@@ -157,10 +157,9 @@ ResultSet::resultsJson(Json::Value *in) const
 
             Json::Value winstat = Json::Value(Json::objectValue);
             winstat[CBSDKD_MSGFLD_TMS_COUNT] = iter->count;
-            winstat[CBSDKD_MSGFLD_TMS_MIN] = iter->time_min;
-            winstat[CBSDKD_MSGFLD_TMS_MAX] = iter->time_max;
-            winstat[CBSDKD_MSGFLD_TMS_AVG]
-                    = iter->time_total / iter->count;
+            winstat[CBSDKD_MSGFLD_TMS_MIN] = (Json::UInt64)iter->time_min;
+            winstat[CBSDKD_MSGFLD_TMS_MAX] = (Json::UInt64)iter->time_max;
+            winstat[CBSDKD_MSGFLD_TMS_AVG] = (Json::UInt64)(iter->time_total / iter->count);
 
 
             Json::Value errstats = Json::Value(Json::objectValue);

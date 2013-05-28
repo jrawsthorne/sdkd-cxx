@@ -110,7 +110,7 @@ void DatasetIterator::advance()
 }
 
 DatasetInline::DatasetInline(const Json::Value& json)
-: Dataset::Dataset(Dataset::DSTYPE_INLINE)
+: Dataset(Dataset::DSTYPE_INLINE)
 {
     const Json::Value& dsitems = json[CBSDKD_MSGFLD_DSINLINE_ITEMS];
 
@@ -180,7 +180,7 @@ DatasetSeeded::verify_spec(void)
 }
 
 DatasetSeeded::DatasetSeeded(const Json::Value& jspec)
-: Dataset::Dataset(Dataset::DSTYPE_SEEDED)
+: Dataset(Dataset::DSTYPE_SEEDED)
 {
     struct DatasetSeedSpecification *spec = &this->spec;
 
@@ -197,7 +197,7 @@ DatasetSeeded::DatasetSeeded(const Json::Value& jspec)
 }
 
 DatasetSeeded::DatasetSeeded(const struct DatasetSeedSpecification& spec)
-: Dataset::Dataset(Dataset::DSTYPE_SEEDED)
+: Dataset(Dataset::DSTYPE_SEEDED)
 {
 //    memcpy(&this->spec, spec, sizeof(this->spec));
     this->spec = spec;
@@ -228,22 +228,42 @@ _fill_repeat(const std::string base,
              unsigned int idx)
 {
     std::string filler, ret;
-    char dummy;
     const char *fmt = "%s%lu";
 
     unsigned long multiplier;
-
     unsigned long nw;
+
+#ifndef _WIN32
+    char dummy;
     unsigned long wanted = snprintf(&dummy, 0, fmt, repeat.c_str(), idx);
-
-
     filler.resize(wanted+1);
     nw = snprintf((char*)filler.c_str(), filler.size(), fmt, repeat.c_str(), idx);
 
     // Because sprintf places an extra NUL at the end, we chop it off again.
     filler.resize(wanted);
-
     assert(nw == wanted);
+
+#else
+    int wanted = 32;
+    int spr_ret = 0;
+    filler.reserve(wanted+1);
+
+    do {
+        spr_ret = _snprintf((char*)filler.c_str(), wanted+1, fmt, repeat.c_str(), idx);
+        if (spr_ret < 0 || spr_ret == wanted) {
+            wanted *= 2;
+            filler.reserve(wanted);
+        } else {
+            assert(spr_ret < wanted);
+            break;
+        }
+    } while (true);
+
+    filler.resize(spr_ret);
+    nw = filler.size();
+#endif
+
+
     multiplier = 1;
     while ( (nw * multiplier) + base.length() < limit) {
         multiplier++;
@@ -251,7 +271,7 @@ _fill_repeat(const std::string base,
 
     ret = base;
     ret.reserve(ret.size() + (nw * multiplier));
-    for (int i = 0; i <= multiplier; i++) {
+    for (unsigned int i = 0; i <= multiplier; i++) {
         ret += filler;
     }
 

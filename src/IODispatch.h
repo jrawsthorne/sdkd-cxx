@@ -25,24 +25,24 @@ public:
         ERR
     };
 
-    IOProtoHandler(int newsock) : sockfd(newsock) { }
-    IOProtoHandler() : sockfd(-1), inbuf("") { }
+    IOProtoHandler(sdkd_socket_t newsock) : DebugContext(), sockfd(newsock) { }
+    IOProtoHandler() : DebugContext(), sockfd(INVALID_SOCKET), inbuf("") { }
 
     virtual ~IOProtoHandler()  {
-        if (sockfd >= 0) {
-            close(sockfd);
-            sockfd = -1;
+        if (sockfd != INVALID_SOCKET) {
+            closesocket(sockfd);
+            sockfd = INVALID_SOCKET;
         }
     }
 
-    IOStatus getRawMessage(std::string& msgbuf, bool do_block = true);
-    IOStatus putRawMessage(const std::string& msgbuf, bool do_block = true);
+    IOStatus getRawMessage(std::string& msgbuf);
+    IOStatus putRawMessage(const std::string& msgbuf);
 
     void writeResponse(const Response& res);
-    Request* readRequest(bool do_block = false, Request* reqp = NULL);
+    Request* readRequest(Request* reqp = NULL, bool do_loop=false);
 
 protected:
-    int sockfd;
+    sdkd_socket_t sockfd;
     std::string inbuf;
     std::list<std::string> newlines;
 };
@@ -76,9 +76,9 @@ public:
     const Dataset* getDatasetById(const std::string& dsid);
 
 private:
-    int acceptfd;
-    void
-    create_new_ds(const Request* req);
+    sdkd_socket_t acceptfd;
+
+    void create_new_ds(const Request* req);
 
     // Map from a DSID to a Dataset
     std::map<std::string,Dataset*> dsmap;
@@ -87,9 +87,8 @@ private:
     std::map<cbsdk_hid_t, WorkerDispatch*> h2wmap;
 
     std::list<WorkerDispatch*> children;
-
-    pthread_mutex_t dsmutex;
-    pthread_mutex_t wmutex;
+    Mutex *dsmutex;
+    Mutex *wmutex;
 
     void _collect_workers();
     const Handle* _get_handle(cbsdk_hid_t);
@@ -103,7 +102,7 @@ class WorkerDispatch : protected IODispatch {
 
 public:
     friend class MainDispatch;
-    WorkerDispatch(int newsock, MainDispatch* parent);
+    WorkerDispatch(sdkd_socket_t newsock, MainDispatch* parent);
     virtual ~WorkerDispatch();
 
     void run();
@@ -111,7 +110,7 @@ public:
     // Cancels the current running handle, if any
     void cancelCurrentHandle();
 
-    pthread_t thr;
+    Thread *thr;
     unsigned int id;
 
 private:
@@ -128,7 +127,7 @@ private:
     static void *pthr_run(WorkerDispatch *w);
     ResultSet *rs;
 
-    pthread_mutex_t hmutex;
+    Mutex *hmutex;
 };
 
 } /* namespace CBSdkd */

@@ -12,7 +12,6 @@
 #error "Include sdkd_internal.h first"
 #endif
 
-#include <sstream>
 namespace CBSdkd {
 
 using std::string;

@@ -181,8 +181,9 @@ public:
     {
         Json::Value caps;
         Json::Value components;
-        uint32_t vout = 0;
         const char *vstr;
+        lcb_uint32_t vout = 0;
+
 
         vstr = lcb_get_version(&vout);
         components["SDK"] = vstr;

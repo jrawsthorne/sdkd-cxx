@@ -71,15 +71,15 @@ class TimeWindow {
 public:
     TimeWindow() :
         time_total(0),
-        count(0),
         time_min(-1),
         time_max(0),
-        time_avg(0)
+        time_avg(0),
+        count(0)
     { }
 
     virtual ~TimeWindow() { }
-
-    unsigned time_total, count, time_min, time_max, time_avg;
+    suseconds_t time_total, time_min, time_max, time_avg;
+    unsigned count;
     std::map<int, int> ec;
 };
 
@@ -152,7 +152,7 @@ public:
 
     static suseconds_t getEpochMsecs(timeval& tv) {
         gettimeofday(&tv, NULL);
-        return (tv.tv_usec / 1000.0) + tv.tv_sec * 1000;
+        return (suseconds_t)(((double)tv.tv_usec / 1000.0) + tv.tv_sec * 1000);
     }
 
     static suseconds_t getEpochMsecs() {

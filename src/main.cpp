@@ -1,6 +1,6 @@
 #include "sdkd_internal.h"
 #include <sstream>
-
+#include <iostream>
 #define KVCOUNT 5
 
 using namespace CBSdkd;
@@ -213,9 +213,10 @@ _dispatchfn(void *ctx)
     req["CommandData"] = hjopts;
     std::string obuf = Json::FastWriter().write(req);
 
-    assert(iop.putRawMessage(obuf, true) == iop.OK);
+    sdkd_make_socket_nonblocking(newfd, 0);
+    assert(iop.putRawMessage(obuf) == iop.OK);
     std::string resbuf = "";
-    assert( iop.getRawMessage(resbuf, true) == iop.OK );
+    assert( iop.getRawMessage(resbuf) == iop.OK );
     log_noctx_info("Got response %s", resbuf.c_str());
     Json::Value res;
     Json::Reader().parse(resbuf, res);

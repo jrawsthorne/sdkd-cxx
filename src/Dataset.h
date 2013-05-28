@@ -11,8 +11,6 @@
 #error "include sdkd_internal.h first"
 #endif
 
-#include <list>
-
 #define CBSDKD_DATASET_XTYPE(X) \
     X(DSTYPE_FILE) \
     X(DSTYPE_INLINE) \

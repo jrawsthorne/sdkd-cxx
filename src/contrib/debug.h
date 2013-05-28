@@ -36,6 +36,7 @@ typedef struct {
 
     /*Set internally when this structure has been initialized*/
     int initialized;
+
 } cbsdkd_debug_st;
 
 /* Environment variables to control setting debug parameters */
@@ -64,6 +65,9 @@ void cbsdkd_logger(const cbsdkd_debug_st *logparams,
                          int line,
                          const char *fn,
                          const char *fmt, ...);
+
+
+void cbsdkd_init_logging(cbsdkd_debug_st *debugp);
 
 
 /**

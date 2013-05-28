@@ -7,8 +7,6 @@
 #include <algorithm>
 #include <iostream>
 #include <map>
-#include <netinet/in.h>
-#include <signal.h>
 
 #include "cliopts.h"
 
@@ -182,7 +180,9 @@ Program::Program(int argc, char **argv) :
     SDKD_INIT_VIEWS();
     SDKD_INIT_WORKER_GLOBALS();
 
+#ifndef _WIN32
     signal(SIGPIPE, SIG_IGN);
+#endif
 
     if (portFile == NULL && portNumber == 0) {
         cerr << "Must specify a port file or port number" << endl;
@@ -248,7 +248,21 @@ Program::runServer()
 int
 main(int argc, char **argv)
 {
+#ifdef _WIN32
+    // Initialize winsock
+    WORD wVersionRequested;
+    WSADATA wsaData;
+    int rv;
+    wVersionRequested = MAKEWORD(2, 2);
+    rv = WSAStartup(wVersionRequested, &wsaData);
+    assert(rv == 0);
+#endif
+
     Program program = Program(argc, argv);
     program.run();
+
+#ifdef _WIN32
+    WSACleanup();
+#endif
     return 0;
 }

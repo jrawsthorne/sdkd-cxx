@@ -45,12 +45,20 @@
 #define _BLACK "0"
 /*Logging subsystem*/
 
+#ifdef _WIN32
+#define funlockfile _unlock_file
+#define flockfile _lock_file
+#define simple_snprintf _snprintf
+#else
+#define simple_snprintf snprintf
+#endif
+
 static const char *Color_title_fmt = "\033["  _INTENSE_FG _MAGENTA "m";
 static const char *Color_reset_fmt = "\033[0m";
 
 cbsdkd_loglevel_t cbsdkd_Default_Log_Level = CBSDKD_LOGLVL_WARN;
 
-static void init_logging(cbsdkd_debug_st *debugp)
+void cbsdkd_init_logging(cbsdkd_debug_st *debugp)
 {
     char *tmp_env;
     int max_level;
@@ -159,9 +167,9 @@ void cbsdkd_hex_dump(const void *data, size_t size)
     for (n = 1; n <= size; n++) {
         if (n % 16 == 1) {
             /* store address for this line */
-            snprintf(addrstr, sizeof(addrstr), "%.4lx",
-                     (unsigned long)
-                     ((size_t)p - (size_t)data));
+            simple_snprintf(addrstr, sizeof(addrstr), "%.4lx",
+                    (unsigned long)
+                    ((size_t)p - (size_t)data));
         }
 
         c = *p;
@@ -170,11 +178,11 @@ void cbsdkd_hex_dump(const void *data, size_t size)
         }
 
         /* store hex str (for left side) */
-        snprintf(bytestr, sizeof(bytestr), "%02X ", *p);
+        simple_snprintf(bytestr, sizeof(bytestr), "%02X ", *p);
         strncat(hexstr, bytestr, sizeof(hexstr) - strlen(hexstr) - 1);
 
         /* store char str (for right side) */
-        snprintf(bytestr, sizeof(bytestr), "%c", c);
+        simple_snprintf(bytestr, sizeof(bytestr), "%c", c);
         strncat(charstr, bytestr, sizeof(charstr) - strlen(charstr) - 1);
 
         if (n % 16 == 0) {

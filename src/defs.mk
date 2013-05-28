@@ -32,6 +32,9 @@ OBJECTS := \
 	Handle.o \
 	ResultSet.o \
 	IODispatch.o \
+	ThreadUnix.o \
+	Worker.o \
+	sockutil.o \
 	\
 	ViewExecutor.o \
 	ViewLoader.o \
@@ -57,5 +60,5 @@ CPPFLAGS = -g -Wall \
 		   -Icontrib/jsonsl -DJSONSL_STATE_GENERIC \
 		   -Icontrib/cliopts
 
-CPPFLAGS += -Wno-reorder 
-CPPFLAGS += $(JSONCPP_CPPFLAGS) $(LCB_CPPFLAGS)
+CPPFLAGS += $(LCB_CPPFLAGS)
+CXXFLAGS += $(JSONCPP_CPPFLAGS) -Wno-reorder
