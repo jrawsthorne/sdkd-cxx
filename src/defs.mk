@@ -1,17 +1,7 @@
 all :: 
-
-JSONCPP_HAVE_DIST := $(shell pkg-config --exists jsoncpp && echo OK)
 JSONCPP_ROOT=$(shell pwd)/contrib/json-cpp
-
-JSONCPP_CPPFLAGS := \
-	$(if $(JSONCPP_HAVE_DIST), \
-		$(shell pkg-config --cflags jsoncpp), \
-		-I"$(JSONCPP_ROOT)/include")
-
-JSONCPP_LFLAGS := \
-	$(if $(JSONCPP_HAVE_DIST),\
-		$(shell pkg-config --libs jsoncpp),\
-		-L"$(JSONCPP_ROOT)/lib" -Wl,-rpath="$(JSONCPP_ROOT)/lib" -ljson-cpp)
+JSONCPP_LFLAGS=
+JSONCPP_CPPFLAGS=-I$(JSONCPP_ROOT)/dist/
 
 ifdef LCB_ROOT
 	LCB_CPPFLAGS := -I$(LCB_ROOT)/include
@@ -43,6 +33,7 @@ OBJECTS := \
 	\
 	contrib/debug.o \
 	contrib/jsonsl/jsonsl.o \
+	contrib/json-cpp/dist/jsoncpp.o \
 	contrib/cliopts/cliopts.o
 
 LDFLAGS += $(LFLAGS)
