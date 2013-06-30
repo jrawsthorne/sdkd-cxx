@@ -14,3 +14,9 @@ cplusplus/main
 *.testsettings
 *.sln.docstates
 pylib/pkgcache
+*.exe
+*.pdb
+*.lib
+*.manifest
+*.swp
+*.dll
