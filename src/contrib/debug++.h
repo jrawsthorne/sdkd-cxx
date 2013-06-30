@@ -63,6 +63,7 @@ namespace CBSdkd {
 class DebugContext {
 public:
     DebugContext() : allocstr(NULL) {
+        memset(&cbsdkd__debugctx, 0, sizeof(cbsdkd__debugctx));
         cbsdkd_init_logging(&cbsdkd__debugctx);
         cbsdkd__debugctx.color = 1;
         cbsdkd__debugctx.level = cbsdkd_Default_Log_Level;
