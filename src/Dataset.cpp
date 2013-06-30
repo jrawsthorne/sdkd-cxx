@@ -73,7 +73,7 @@ Dataset::fromType(Type t, const Request& req)
     if (t == DSTYPE_INLINE) {
         ret = new DatasetInline(req.payload[CBSDKD_MSGFLD_DSREQ_DS]);
     } else if (t == DSTYPE_SEEDED) {
-        assert(req.payload[CBSDKD_MSGFLD_DSREQ_DS].asBool());
+        assert(req.payload[CBSDKD_MSGFLD_DSREQ_DS].asTruthVal());
 
         ret = new DatasetSeeded(req.payload[CBSDKD_MSGFLD_DSREQ_DS]);
     } else {
@@ -114,7 +114,7 @@ DatasetInline::DatasetInline(const Json::Value& json)
 {
     const Json::Value& dsitems = json[CBSDKD_MSGFLD_DSINLINE_ITEMS];
 
-    if (!dsitems.asBool()) {
+    if (!dsitems.asTruthVal()) {
         this->err = Error(Error::SDKD_EINVAL,
                           "Expected 'Items' but couldn't find any");
         return;
@@ -191,7 +191,7 @@ DatasetSeeded::DatasetSeeded(const Json::Value& jspec)
 
     spec->repeat = jspec[CBSDKD_MSGFLD_DSSEED_REPEAT].asString();
     spec->count = jspec[CBSDKD_MSGFLD_DSSEED_COUNT].asUInt();
-    spec->continuous = jspec[CBSDKD_MSGFLD_DSREQ_CONTINUOUS].asBool();
+    spec->continuous = jspec[CBSDKD_MSGFLD_DSREQ_CONTINUOUS].asTruthVal();
     verify_spec();
 
 }

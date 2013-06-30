@@ -42,7 +42,7 @@ public:
         bucket(json[CBSDKD_MSGFLD_HANDLE_BUCKET].asString())
     {
         const Json::Value& opts = json[CBSDKD_MSGFLD_HANDLE_OPTIONS];
-        if ( opts.asBool() ) {
+        if ( opts.isObject() ) {
 
             string host_extra = "";
             if (!getExtraHosts(opts, host_extra)) {

@@ -5,7 +5,7 @@ namespace CBSdkd {
 
 ResultOptions::ResultOptions(const Json::Value& opts)
 :
-    full(opts[CBSDKD_MSGFLD_DSREQ_FULL].asBool()),
+    full(opts[CBSDKD_MSGFLD_DSREQ_FULL].asTruthVal()),
     multi(opts[CBSDKD_MSGFLD_DSREQ_MULTI].asUInt()),
     expiry(opts[CBSDKD_MSGFLD_DSREQ_EXPIRY].asUInt()),
     iterwait(opts[CBSDKD_MSGFLD_DSREQ_ITERWAIT].asUInt()),
