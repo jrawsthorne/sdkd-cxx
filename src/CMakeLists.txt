@@ -14,6 +14,16 @@ INCLUDE_DIRECTORIES(
 
 LINK_DIRECTORIES(${LCB_ROOT}/lib)
 
+IF(NOT LCB_LIBNAME)
+    IF(${WIN32})
+        SET(LCB_LIBNAME "libcouchbase")
+    ELSE()
+        SET(LCB_LIBNAME "couchbase")
+    ENDIF(${WIN32})
+
+ENDIF(NOT LCB_LIBNAME)
+
+
 SET(COMMON_SOURCES
     Message.cpp
     Request.cpp
@@ -36,19 +46,33 @@ SET(COMMON_SOURCES
     ${CLIOPTS_ROOT}/cliopts.c
     ${JSONCPP_ROOT}/dist/jsoncpp.cpp)
 
-SET(LD_DEPS)
-
 IF(${WIN32})
     LIST(APPEND COMMON_SOURCES
         win32-gettimeofday
         ThreadWin32.cpp)
-    LIST(APPEND LD_DEPS libcouchbase ws2_32.lib)
+
+    LIST(APPEND LD_DEPS
+        ${LCB_LIBNAME}
+        ws2_32.lib)
+
+    ADD_DEFINITIONS(-D_CRT_SECURE_NO_WARNINGS)
 
 ELSEIF(${UNIX})
     LIST(APPEND COMMON_SOURCES
         ThreadUnix.cpp)
-    LIST(APPEND LD_DEPS rt couchbase)
-    SET(LD_DEPS ${LD_DEPS} rt couchbase)
+
+    LIST(APPEND LD_DEPS
+        rt
+        ${LCB_LIBNAME})
+
+    IF(GPROF)
+        LIST(APPEND LD_DEPS
+            profiler)
+    ENDIF(GPROF)
+
+    SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -std=c++98 ${SDKD_PERF}")
+    SET(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall ${SDKD_PERF}")
+
 ENDIF()
 
 ADD_EXECUTABLE(sdkd_lcb ${COMMON_SOURCES} sdkd_lcb.cpp)
