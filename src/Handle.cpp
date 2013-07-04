@@ -105,6 +105,9 @@ Handle::connect(Error *errp)
             cached_opts.cachefile = SDKD_Conncache_Path;
         }
     }
+
+    create_opts.v.v0.io = sdkd_create_iops();
+
     if (SDKD_Conncache_Path) {
         the_error = lcb_create_compat(LCB_CACHED_CONFIG, &cached_opts, &instance, NULL);
     } else {

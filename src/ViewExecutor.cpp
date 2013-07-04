@@ -119,11 +119,10 @@ ViewExecutor::genQueryString(const Request& req, string& out, Error& eo)
     }
 
 
-    {
+    if (view_options_pointers.size()) {
         char *vqstr;
         const lcb_vopt_t * const * tmp_pp =
-                (const lcb_vopt_t* const *)
-                view_options_pointers.data();
+                (const lcb_vopt_t* const *) &view_options_pointers[0];
 
         vqstr = lcb_vqstr_make_uri(dname.c_str(), dname.length(),
                                    vname.c_str(), vname.length(),

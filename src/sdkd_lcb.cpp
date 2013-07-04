@@ -141,6 +141,78 @@ Program::initDebugSettings()
 
 }
 
+#ifdef _WIN32
+typedef lcb_error_t (*plugin_creator_func)(int,lcb_io_opt_t*,void*);
+static plugin_creator_func plugin_creator;
+extern "C" {
+static int init_io_plugin(const char *name, const char *symbol)
+{
+    HMODULE hPlugin;
+
+    char creator_buf[4096] = { 0 };
+
+    if (!name) {
+        return 0;
+    }
+
+    hPlugin = LoadLibrary(name);
+    if (!hPlugin) {
+        fprintf(stderr, "Couldn't load %s. %d\n", name, GetLastError());
+        abort();
+    }
+
+    if (symbol == NULL) {
+        sprintf(creator_buf, "lcb_create_%_io_iopts", name);
+        symbol = creator_buf;
+    }
+
+    plugin_creator = (plugin_creator_func) GetProcAddress(hPlugin, symbol);
+    if (!plugin_creator) {
+        fprintf(stderr, "Couldn't load symbol '%s'. [%d]\n",
+                symbol, GetLastError());
+        abort();
+    }
+    return 0;
+}
+
+lcb_io_opt_t sdkd_create_iops(void)
+{
+    lcb_io_opt_t ret;
+    lcb_error_t err;
+
+    if (!plugin_creator) {
+        return NULL;
+    }
+
+    err = plugin_creator(0, &ret, NULL);
+    if (err != LCB_SUCCESS) {
+        fprintf(stderr, "Couldn't init iops: %d\n", err);
+    }
+    return ret;
+}
+}
+#else
+
+static int init_io_plugin(const char *name, const char *symbol)
+{
+    char symbuf[4096];
+    if (!name) {
+        return 0;
+    }
+    if (!symbol) {
+        sprintf(symbuf, "lcb_create_%s_iops", name);
+    }
+    setenv("LIBCOUCHBASE_EVENT_PLUGIN_NAME", name, 1);
+    setenv("LIBCOUCHBASE_EVENT_PLUGIN_SYMBOL", symbol, 1);
+    return 0;
+}
+
+lcb_io_opt_t sdkd_create_iops(void)
+{
+    return NULL;
+}
+#endif
+
 Program::Program(int argc, char **argv) :
         debugLevel(CBSDKD_LOGLVL_DEBUG),
         portFile(NULL),
@@ -169,13 +241,7 @@ Program::Program(int argc, char **argv) :
         cout << value.toStyledString() << endl;
         exit(0);
     }
-
-    if (ioPluginName != NULL) {
-        setenv("LIBCOUCHBASE_EVENT_PLUGIN_NAME", ioPluginName, 1);
-        if (ioPluginSymbol != NULL) {
-            setenv("LIBCOUCHBASE_EVENT_PLUGIN_SYMBOL", ioPluginSymbol, 1);
-        }
-    }
+    init_io_plugin(ioPluginName, ioPluginSymbol);
 
     SDKD_INIT_VIEWS();
     SDKD_INIT_WORKER_GLOBALS();
