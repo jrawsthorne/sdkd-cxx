@@ -6,4 +6,4 @@
 	url = git://github.com/mnunberg/cliopts.git
 [submodule "src/contrib/json-cpp"]
 	path = src/contrib/json-cpp
-	url = https://github.com/mnunberg/json-cpp.git
+	url = git://github.com/mnunberg/json-cpp.git
