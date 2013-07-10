@@ -47,7 +47,7 @@ Program::parseLegacyArgs(int argc, char **argv)
         return false;
     }
 
-    userOptions.portFile = strdup(opt_pairs["infofile"].c_str());
+    userOptions.portFile = sdkd_strdup(opt_pairs["infofile"].c_str());
 
     if (opt_pairs["debug"].size()) {
         userOptions.debugLevel = CBSDKD_LOGLVL_DEBUG;

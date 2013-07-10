@@ -14,6 +14,7 @@
 
 #define closesocket close
 #define sdkd_millisleep(ms) usleep(ms * 1000)
+#define sdkd_strdup strdup
 #define SDKD_SOCK_EWOULDBLOCK EWOULDBLOCK
 #define SDKD_SOCK_EINTR EINTR
 typedef int sdkd_socket_t;
@@ -37,6 +38,7 @@ typedef int sdkd_socket_t;
 typedef SOCKET sdkd_socket_t;
 #define SDKD_SOCK_EWOULDBLOCK WSAEWOULDBLOCK
 #define SDKD_SOCK_EINTR WSAEINTR
+#define sdkd_strdup _strdup /* avoid warnings */
 #endif
 
 /************************************************************************/
