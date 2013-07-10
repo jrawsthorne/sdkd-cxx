@@ -78,7 +78,13 @@ public:
     { }
 
     virtual ~TimeWindow() { }
-    suseconds_t time_total, time_min, time_max, time_avg;
+
+    // Duration statistics
+    unsigned int time_total;
+    unsigned int time_min;
+    unsigned int time_max;
+    unsigned int time_avg;
+
     unsigned count;
     std::map<int, int> ec;
 };

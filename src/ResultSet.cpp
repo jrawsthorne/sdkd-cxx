@@ -105,8 +105,9 @@ ResultSet::setRescode(Error err,
     TimeWindow& win = timestats.back();
     win.count++;
     win.time_total += duration;
-    win.time_min = min(win.time_min, duration);
-    win.time_max = max(win.time_max, duration);
+    win.time_min = min(win.time_min, (unsigned int)duration);
+    win.time_max = max(win.time_max, (unsigned int)duration);
+    assert(win.time_min < 10000000);
     win.ec[myerr]++;
 }
 
@@ -157,10 +158,11 @@ ResultSet::resultsJson(Json::Value *in) const
 
             Json::Value winstat = Json::Value(Json::objectValue);
             winstat[CBSDKD_MSGFLD_TMS_COUNT] = iter->count;
-            winstat[CBSDKD_MSGFLD_TMS_MIN] = (Json::UInt64)iter->time_min;
-            winstat[CBSDKD_MSGFLD_TMS_MAX] = (Json::UInt64)iter->time_max;
-            winstat[CBSDKD_MSGFLD_TMS_AVG] = (Json::UInt64)(iter->time_total / iter->count);
+            assert(iter->time_min < 100000);
 
+            winstat[CBSDKD_MSGFLD_TMS_MIN] = iter->time_min;
+            winstat[CBSDKD_MSGFLD_TMS_MAX] = iter->time_max;
+            winstat[CBSDKD_MSGFLD_TMS_AVG] = (iter->time_total / iter->count);
 
             Json::Value errstats = Json::Value(Json::objectValue);
             for (std::map<int,int>::const_iterator eiter = iter->ec.begin();

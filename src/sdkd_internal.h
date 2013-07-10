@@ -29,7 +29,8 @@ typedef int sdkd_socket_t;
 #else
 #include <windows.h>
 
-#define suseconds_t lcb_uint64_t
+#define suseconds_t lcb_int64_t
+#define useconds_t lcb_uint64_t
 #define __func__ __FUNCTION__
 #define setenv(a,b,c) SetEnvironmentVariable(a,b)
 #define sdkd_millisleep(ms) Sleep(ms)
