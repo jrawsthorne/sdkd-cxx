@@ -62,7 +62,7 @@ ELSEIF(${UNIX})
         ThreadUnix.cpp)
 
     LIST(APPEND LD_DEPS
-        rt
+        pthread
         ${LCB_LIBNAME})
 
     IF(GPROF)
