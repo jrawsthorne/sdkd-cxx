@@ -177,27 +177,7 @@ public:
         return ResultSet::mapError(err, defl);
     }
 
-    static void VersionInfoJson(Json::Value& res)
-    {
-        Json::Value caps;
-        Json::Value components;
-        const char *vstr;
-        lcb_uint32_t vout = 0;
-
-
-        vstr = lcb_get_version(&vout);
-        components["SDK"] = vstr;
-        components["SDK_VID"] = vout;
-
-        caps["CANCEL"] = true;
-        caps["DS_SHARED"] = true;
-        caps["CONTINUOUS"] = true;
-        caps["PREAMBLE"] = false;
-        caps["VIEWS"] = true;
-
-        res["CAPS"] = caps;
-        res["COMPONENTS"] = components;
-    }
+    static void VersionInfoJson(Json::Value& res);
 
 private:
     HandleOptions options;

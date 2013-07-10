@@ -11,9 +11,44 @@ namespace CBSdkd {
 
 extern "C" {
 
-/* Declared as extern */
-const char *SDKD_Conncache_Path = NULL;
-int SDKD_No_Persist = 0;
+void Handle::VersionInfoJson(Json::Value &res) {
+    Json::Value caps;
+    Json::Value config;
+    Json::Value rtComponents;
+    Json::Value hdrComponents;
+    char vbuf[1000] = { 0 };
+
+    const DaemonOptions& dOpts =
+            Daemon::MainDaemon
+                ? Daemon::MainDaemon->getOptions()
+                : DaemonOptions();
+
+    lcb_uint32_t vout = 0;
+    lcb_get_version(&vout);
+    sprintf(vbuf, "0x%X", vout);
+    rtComponents["SDK"] = vbuf;
+
+    sprintf(vbuf, "0x%x", LCB_VERSION);
+    hdrComponents["SDK"] = vbuf;
+
+
+    config["IO_PLUGIN"] = dOpts.ioPluginName ? dOpts.ioPluginName : "";
+    config["CONNCACHE"] = dOpts.conncachePath ? dOpts.conncachePath : "";
+    config["RECONNECT"] = dOpts.noPersist;
+
+    caps["CANCEL"] = true;
+    caps["DS_SHARED"] = true;
+    caps["CONTINUOUS"] = true;
+    caps["PREAMBLE"] = false;
+    caps["VIEWS"] = true;
+
+    res["CAPS"] = caps;
+    res["RUNTIME"] = rtComponents;
+    res["HEADERS"] = hdrComponents;
+    res["CONFIG"] = config;
+}
+
+
 
 static void cb_err(lcb_t instance, lcb_error_t err, const char *desc)
 {
@@ -99,16 +134,16 @@ Handle::connect(Error *errp)
         create_opts.v.v0.user = cstr_ornull(options.username);
         create_opts.v.v0.passwd = cstr_ornull(options.password);
         create_opts.v.v0.bucket = cstr_ornull(options.bucket);
-        if (SDKD_Conncache_Path) {
+        if (Daemon::MainDaemon->getOptions().conncachePath) {
             memset(&cached_opts, 0, sizeof(cached_opts));
             memcpy(&cached_opts.createopt, &create_opts, sizeof(create_opts));
-            cached_opts.cachefile = SDKD_Conncache_Path;
+            cached_opts.cachefile = Daemon::MainDaemon->getOptions().conncachePath;
         }
     }
 
     create_opts.v.v0.io = sdkd_create_iops();
 
-    if (SDKD_Conncache_Path) {
+    if (Daemon::MainDaemon->getOptions().conncachePath) {
         the_error = lcb_create_compat(LCB_CACHED_CONFIG, &cached_opts, &instance, NULL);
     } else {
         the_error = lcb_create(&instance, &create_opts);
@@ -183,7 +218,7 @@ Handle::postsubmit(ResultSet& rs, unsigned int nsubmit)
         sdkd_millisleep(wait_msec);
     }
 
-    if (SDKD_No_Persist) {
+    if (Daemon::MainDaemon->getOptions().noPersist) {
         lcb_destroy(instance);
         Error e;
         connect(&e);

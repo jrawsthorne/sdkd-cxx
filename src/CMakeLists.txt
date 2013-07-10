@@ -25,6 +25,7 @@ ENDIF(NOT LCB_LIBNAME)
 
 
 SET(COMMON_SOURCES
+    Daemon.cpp
     Message.cpp
     Request.cpp
     Dataset.cpp
@@ -75,7 +76,7 @@ ELSEIF(${UNIX})
 
 ENDIF()
 
-ADD_EXECUTABLE(sdkd_lcb ${COMMON_SOURCES} sdkd_lcb.cpp)
+ADD_EXECUTABLE(sdkd_lcb ${COMMON_SOURCES} Main.cpp)
 TARGET_LINK_LIBRARIES(sdkd_lcb ${LD_DEPS})
 
 

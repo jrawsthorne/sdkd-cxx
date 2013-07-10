@@ -70,10 +70,6 @@ lcb_io_opt_t sdkd_create_iops(void);
 int gettimeofday(struct timeval *tv, void *tz);
 #endif
 
-
-extern const char *SDKD_Conncache_Path;
-extern int SDKD_No_Persist;
-
 #ifdef __cplusplus
 }
 #endif
@@ -95,6 +91,7 @@ extern int SDKD_No_Persist;
 #include "contrib/debug++.h"
 
 #include "utils.h"
+#include "Daemon.h"
 #include "Thread.h"
 #include "Error.h"
 #include "Message.h"
