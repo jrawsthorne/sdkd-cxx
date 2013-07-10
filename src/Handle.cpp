@@ -31,6 +31,12 @@ void Handle::VersionInfoJson(Json::Value &res) {
     sprintf(vbuf, "0x%x", LCB_VERSION);
     hdrComponents["SDK"] = vbuf;
 
+// Thanks mauke
+#define STRINGIFY_(X) #X
+#define STRINGIFY(X) STRINGIFY_(X)
+    hdrComponents["CHANGESET"] = STRINGIFY(LCB_VERSION_CHANGESET);
+#undef STRINGIFY
+#undef STRINGIFY_
 
     config["IO_PLUGIN"] = dOpts.ioPluginName ? dOpts.ioPluginName : "";
     config["CONNCACHE"] = dOpts.conncachePath ? dOpts.conncachePath : "";
