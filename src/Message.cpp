@@ -45,7 +45,7 @@ Message::refreshWith(const std::string& str, bool reset)
 
     if (! reader.parse(str, json, false)) {
         err = Error(Error::SUBSYSf_SDKD, Error::SDKD_EINVAL,
-                    reader.getFormatedErrorMessages());
+                    reader.getFormattedErrorMessages());
         return false;
     }
 
