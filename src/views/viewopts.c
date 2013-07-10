@@ -11,11 +11,16 @@
 #ifdef _WIN32
 
 #ifndef va_copy
-#define va_copy(a,b) (a=b)
-#endif
+  #define va_copy(a,b) (a=b)
+#endif /* va_copy */
 
-#ifndef strndup
-static char *strndup(const char *a, int n)
+#ifndef strncasecmp
+  #define strncasecmp _strnicmp
+#endif /* strncasecmp */
+
+#endif /* _WIN32 */
+
+static char *my_strndup(const char *a, int n)
 {
     char *ret = (char*)malloc(n);
     if (!ret) {
@@ -24,13 +29,6 @@ static char *strndup(const char *a, int n)
     strncpy(ret, a, n);
     return ret;
 }
-#endif
-
-#ifndef strncasecmp
-#define strncasecmp _strnicmp
-#endif
-
-#endif
 
 typedef struct view_param_st view_param;
 
@@ -93,7 +91,7 @@ static void set_user_string(struct lcb_vopt_st *optobj,
         optobj->optval = (const char*)value;
         optobj->flags |= LCB_VOPT_F_OPTVAL_CONSTANT;
     } else {
-        optobj->optval = strndup((const char*)value, nvalue);
+        optobj->optval = my_strndup((const char*)value, nvalue);
         optobj->flags &= (~LCB_VOPT_F_OPTVAL_CONSTANT);
     }
 }
@@ -400,7 +398,7 @@ lcb_vopt_assign(struct lcb_vopt_st *optobj,
             *error_string = "Can't use passthrough with option constants";
             return LCB_EINVAL;
         }
-        optobj->optname = strndup((const char*)option, noption);
+        optobj->optname = my_strndup((const char*)option, noption);
         optobj->noptname = noption;
         if (flags & LCB_VOPT_F_OPTVAL_NUMERIC) {
             return num_param_handler(NULL, optobj, value, nvalue, flags,
@@ -432,7 +430,7 @@ lcb_vopt_assign(struct lcb_vopt_st *optobj,
             optobj->optname = (const char*)option;
 
         } else {
-            optobj->optname = strndup((const char*)option, noption);
+            optobj->optname = my_strndup((const char*)option, noption);
         }
     }
 
