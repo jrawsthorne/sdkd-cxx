@@ -20,3 +20,5 @@ pylib/pkgcache
 *.manifest
 *.swp
 *.dll
+*/CMakeFiles/*
+cmake_install.cmake
