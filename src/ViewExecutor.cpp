@@ -114,7 +114,7 @@ ViewExecutor::genQueryString(const Request& req, string& out, Error& eo)
         view_options.push_back(vopt);
     }
 
-    for (int ii = 0; ii < view_options.size(); ii++) {
+    for (unsigned int ii = 0; ii < view_options.size(); ii++) {
         view_options_pointers.push_back(&view_options[ii]);
     }
 

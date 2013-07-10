@@ -218,9 +218,9 @@ Program::Program(int argc, char **argv) :
         portFile(NULL),
         useColor(0),
         isPersistent(0),
-        portNumber(0),
         initialTTL(0),
         printVersion(0),
+        portNumber(0),
         ioPluginName(NULL),
         ioPluginSymbol(NULL),
         infoFp(NULL)

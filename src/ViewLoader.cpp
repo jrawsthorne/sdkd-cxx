@@ -41,7 +41,7 @@ void ViewLoader::flushValues(ResultSet& rs)
         scmds.push_back(cmd);
     }
 
-    for (int ii = 0; ii < scmds.size(); ii++) {
+    for (unsigned int ii = 0; ii < scmds.size(); ii++) {
         scmds_p.push_back(&scmds[ii]);
     }
 
