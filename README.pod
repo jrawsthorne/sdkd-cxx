@@ -3,28 +3,111 @@
 This is the libcouchbase-based sdkd implementation in C++, it utilizes
 C<libcouchbase> to perform SDK operations.
 
-It requires libcouchbase
-headers and JsonCPP. On debian systems you may install it via apt:
+=head2 Prerequisites
 
-    sudo apt-get install libjsoncpp0 libjsoncpp-dev
+=over
 
-Then
+=item CMake
 
-    make -C cplusplus CXX=g++
+=item libcouchbase
 
-To run the C++/libcouchbase C<sdkd>
+=item C and C++ compilers
 
-    ./cbsdk_client -C conf/lcb.cfg < ... options ... >
+=item Python (2.x)
+
+=item Linux, OS X, or Windows with VS9 or higher
+
+=back
+
+=head2 Build Steps
+
+This documents how to build the SDKD for libcouchbase.
+
+The SDKD has several submodules you need to initialize.
+This assumes libcouchbase is already built and installed somewhere. Note that
+it does not need to be (and probably B<should> not be) installed to the default
+linker path.
+
+=over
+
+=item 1
+
+First, clone the submodules for this repository
+
+    $ git submodule init
+    $ git submodule update
+
+=item 2
+
+Afterwards, you will need to generate the 'amalgamated' I<json-cpp> files
+
+    $ cd src/contrib/json-cpp
+    $ python amalgamate.py
+
+=item 3
+
+You're all set. You might want to define some I<CMake> variables.
+You'll also probably want a separate build directory. From the
+source root, do:
+
+    $ mkdir build
+    $ cd build
+    $ cmake -DLCB_ROOT=/sources/libcouchbase/inst -DCMAKE_BUILD_TYPE=DEBUG ../
+    $ make
+    $ make install
+
+Where the C<LCB_ROOT> variable defines the installation prefix of I<libcouchbase>
+which is normally the C<--prefix> argument passed to libcouchbase's C<configure>
+script.
+
+=item 4
+
+Once installed, it should be present as C<build/inst/bin/sdkd_lcb>
+
+=back
+
+=head2 Using
+
+This is a normal SDKD implementation; as such it listens on a port for commands
+from the C<cbsdkd> harness (i.e. C<brun>, C<stester>, and C<cbsdk_client>).
+
+The following options are influential
+
+=over
+
+=item C<-l> C<--listen> PORT
+
+Port to listen on
+
+=item C<-P> C<--persist>
+
+By default, the SDKD exits after each harness session. This option makes the
+SDKD persist between sessions and function somewhat like a standalone daemon.
+
+=item C<--ttl> SECONDS
+
+Set the 'TTL' timer for the SDKD. This will set the absolute runtime for which
+the SDKD can run before it C<abort(3)>s. This may also be adjusted by the
+harness itself. This is helpful for automated runs and ensures the SDKD does
+not hang indefinitely.
+
+=item C<--conncache> PATH
+
+Use the 'configuration cache' feature of libcouchbase. This requires a valid
+path - the leading components (not including the actual filename) must exist.
 
 
-For OS X systems, the build process is slightly more complex.. here is
-a log of my session:
+=item C<--no-persist>
 
-    mbp:src mnunberg$ git clone https://github.com/mrtazz/json-cpp.git
-    mbp:src mnunberg$ cd json-cpp/
-    mbp:json-cpp mnunberg$ make -f makefiles/gcc/Makefile staticlibrary
-    
-    # Now that we've built jsoncpp, go in to the main directory
-    
-    mbp:json-cpp mnunberg$ cd ~/src/sdkd-cpp/
-    mbp:sdkd-cpp mnunberg$ make -C src/ JSONCPP_CPPFLAGS=-I$HOME/src/json-cpp/include JSONCPP_LFLAGS=~/src/json-cpp/lib/libjson-cpp.a
+Close and re-create an C<lcb_t> instance for each operation. This can be used
+to simulate a webserver model for clients like PHP where a simple script uses
+a new instance for a few operations
+
+
+=item C<--io-plugin-name> SO_PATH C<--io-plugin-symbol> SYMBOL
+
+Use these two options to load an alternate IO plugin
+
+=item C<-V> C<--version>
+
+Prints information about this SDKD (including libcouchbase version information)
