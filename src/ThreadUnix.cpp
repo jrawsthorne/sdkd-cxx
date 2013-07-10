@@ -65,77 +65,39 @@ Mutex *Mutex::Create() {
     return new PosixMutex();
 }
 
-struct sigev_wrapper {
-    void *data;
-    Timer::TimerFunc callback;
-};
 
-extern "C" {
-static void sigev_wrapper_callback(union sigval siv)
-{
-    struct sigev_wrapper *sevw = (struct sigev_wrapper*)siv.sival_ptr;
-    sevw->callback(sevw->data);
-}
-
+static Timer::TimerFunc alarm_handler = NULL;
+static void *timer_arg = NULL;
+static void alarm_handler_wrap(int signo) {
+    (void)signo;
+    alarm_handler(timer_arg);
 }
 
 class PosixTimer : public Timer {
 public:
     PosixTimer(TimerFunc fn) {
         this->fn = fn;
-
-        struct sigevent sev;
-        int rv;
-
-        memset(&sev, 0, sizeof(sev));
-
-        sevw.callback = fn;
-        sevw.data = NULL;
-
-        sev.sigev_notify = SIGEV_THREAD;
-        sev.sigev_notify_function = sigev_wrapper_callback;
-        sev.sigev_value.sival_ptr = &sevw;
-
-        rv = timer_create(CLOCK_REALTIME, &sev, &tmid);
-        assert(rv == 0);
         is_active = false;
-
+        signal(SIGALRM, alarm_handler_wrap);
+        alarm_handler = fn;
     }
 
     void schedule(unsigned int seconds) {
-
-        /**
-         * Initialize the actual time..
-         */
-        log_noctx_info("Setting timer to %u seconds", seconds);
-
-        struct itimerspec its;
-        memset(&its, 0, sizeof(its));
-        int rv;
-
-        its.it_value.tv_sec = seconds;
-        rv = timer_settime(tmid, 0, &its, NULL);
-        assert(rv == 0);
         if (!seconds) {
             is_active = false;
         }
-
+        alarm(seconds);
     }
 
     bool isActive() {
         return is_active;
     }
 
-    virtual ~PosixTimer() {
-        timer_delete(tmid);
-    }
+    virtual ~PosixTimer() { alarm(0); }
 
 private:
     TimerFunc fn;
-    timer_t tmid;
     bool is_active;
-    struct sigev_wrapper sevw;
-
 };
 
 Timer *Timer::Create(TimerFunc fn) {
