@@ -21,6 +21,13 @@ Response::Response(const Request* req, Error const& err)
     }
 }
 
+Response::Response(const Request& req, const Error& err)
+: Message(req) {
+    if (err) {
+        this->err = err;
+    }
+}
+
 const string
 Response::encode() const {
     Json::Value root;

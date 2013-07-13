@@ -25,6 +25,7 @@ ENDIF(NOT LCB_LIBNAME)
 
 
 SET(COMMON_SOURCES
+    Control.cpp
     Daemon.cpp
     Message.cpp
     Request.cpp

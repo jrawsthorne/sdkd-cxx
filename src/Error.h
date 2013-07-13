@@ -70,6 +70,7 @@ public:
 
     Error() {
         this->code = SUCCESS;
+        this->errstr = "";
     }
 
     Error(Code code, string errstr = "") {

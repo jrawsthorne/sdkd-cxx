@@ -27,15 +27,52 @@ WorkerDispatch::WorkerDispatch(sdkd_socket_t newsock, MainDispatch *parent)
     rs = new ResultSet();
 }
 
+bool
+WorkerDispatch::initializeHandle(const Request &req)
+{
+    HandleOptions hOpts = HandleOptions(req.payload);
+    Error err = 0;
+
+    if (!hOpts.isValid()) {
+        err = Error(Error::SUBSYSf_SDKD, Error::SDKD_EINVAL,
+                    "Problem with handle input");
+        goto GT_ERR;
+    }
+
+    if (cur_handle != NULL) {
+        err = Error(Error::SUBSYSf_SDKD, Error::SDKD_EINVAL,
+                    "Handle already exists!");
+        goto GT_ERR;
+    }
+
+    cur_handle = new Handle(hOpts);
+    cur_hid = req.handle_id;
+    parent->registerWDHandle(cur_hid, this);
+    if (!cur_handle->connect(&err)) {
+        log_error("Couldn't establish initial LCB connection");
+    }
+
+    GT_ERR:
+    if (err == 0) {
+        writeResponse(Response(req));
+
+    } else {
+        writeResponse(Response(req, err));
+    }
+
+    return true;
+}
+
 // Return false when the main loop should terminate. True otherwise.
 bool
-WorkerDispatch::_process_request(const Request& req, ResultSet* rs)
+WorkerDispatch::processRequest(const Request& req)
 {
     Error errp;
     const Dataset *ds;
+    ResultSet rs;
+
     Dataset::Type dstype;
     std::string refid;
-    Handle& h = *cur_handle;
     bool needs_ds = true;
     auto_ptr<const Dataset> ds_scopedel;
     ds_scopedel.reset();
@@ -49,6 +86,19 @@ WorkerDispatch::_process_request(const Request& req, ResultSet* rs)
         log_info("CLOSEHANDLE called. Returning.");
         return false;
     }
+
+    if (req.command == Command::NEWHANDLE) {
+        return initializeHandle(req);
+    }
+
+    if (!cur_handle) {
+        writeResponse(Response(req, Error(Error::SUBSYSf_SDKD,
+                                          Error::SDKD_ENOHANDLE,
+                                          "No handle created yet")));
+        return true;
+    }
+
+    Handle& h = *cur_handle;
 
     if (req.command == Command::CB_VIEW_QUERY) {
         needs_ds = false;
@@ -112,7 +162,7 @@ WorkerDispatch::_process_request(const Request& req, ResultSet* rs)
     switch (req.command) {
     case Command::MC_DS_DELETE:
     case Command::MC_DS_TOUCH:
-        h.dsKeyop(req.command, *ds, *rs, opts);
+        h.dsKeyop(req.command, *ds, rs, opts);
         break;
 
     case Command::MC_DS_MUTATE_ADD:
@@ -120,24 +170,24 @@ WorkerDispatch::_process_request(const Request& req, ResultSet* rs)
     case Command::MC_DS_MUTATE_APPEND:
     case Command::MC_DS_MUTATE_PREPEND:
     case Command::MC_DS_MUTATE_SET:
-        h.dsMutate(req.command, *ds, *rs, opts);
+        h.dsMutate(req.command, *ds, rs, opts);
         break;
 
     case Command::MC_DS_GET:
-        h.dsGet(req.command, *ds, *rs, opts);
+        h.dsGet(req.command, *ds, rs, opts);
         break;
 
     case Command::CB_VIEW_LOAD:
     {
         ViewLoader vl = ViewLoader(cur_handle);
-        vl.populateViewData(req.command, *ds, *rs, opts, req);
+        vl.populateViewData(req.command, *ds, rs, opts, req);
         break;
     }
 
     case Command::CB_VIEW_QUERY:
     {
         ViewExecutor ve = ViewExecutor(cur_handle);
-        ve.executeView(req.command, *rs, opts, req);
+        ve.executeView(req.command, rs, opts, req);
         break;
     }
 
@@ -149,16 +199,60 @@ WorkerDispatch::_process_request(const Request& req, ResultSet* rs)
         return true;
     }
 
-    if (rs->getError()) {
-        writeResponse(Response(&req, rs->getError()));
+    if (rs.getError()) {
+        writeResponse(Response(&req, rs.getError()));
     } else {
         Response resp = Response(&req);
         Json::Value root;
-        rs->resultsJson(&root);
+        rs.resultsJson(&root);
         resp.setResponseData(root);
         writeResponse(resp);
     }
 
+    return true;
+}
+
+bool
+WorkerDispatch::selectLoop()
+{
+    fd_set rfd, wfd, efd;
+    setupFdSets(&rfd, &wfd, &efd);
+    int selv = select(sockfd + 1, &rfd, &wfd, &efd, NULL);
+    if (selv == SOCKET_ERROR) {
+        int errno_save = sdkd_socket_errno();
+        if (errno_save != EINTR) {
+            return false;
+        }
+        return true;
+    }
+
+    if (selv == 0) {
+        fprintf(stderr, "Select() returned 0, but FDs were passed\n");
+        return false;
+    }
+    if (FD_ISSET(sockfd, &efd)) {
+        fprintf(stderr, "Socket errored. \n");
+        return false;
+    }
+    if (FD_ISSET(sockfd, &wfd)) {
+        if (flushBuffer() == -1) {
+            return false;
+        }
+    }
+    if (FD_ISSET(sockfd, &rfd)) {
+        Request *reqp;
+        int rv;
+        rv = readRequest(&reqp);
+        if (rv == -1) {
+            return false;
+        }
+        if (rv == 0) {
+            return true;
+        }
+        bool ret = processRequest(*reqp);
+        delete reqp;
+        return ret;
+    }
     return true;
 }
 
@@ -172,62 +266,17 @@ WorkerDispatch::run() {
     Request req;
     Error errp;
     HandleOptions hopts;
-    int rv = sdkd_make_socket_nonblocking(sockfd, 0);
+    int rv = sdkd_make_socket_nonblocking(sockfd, 1);
     if (rv == -1) {
         perror("Couldn't make socket blocking\n");
     }
 
-    readRequest(&req, true);
-
-    if (!req.isValid()) {
-        log_error("Couldn't negotiate initial request");
-        goto GT_DONE;
+    while (selectLoop()) {
+        ;
     }
 
-    hopts = HandleOptions(req.payload);
-    if (!hopts.isValid()) {
-        writeResponse(Response(&req, Error(Error::SUBSYSf_SDKD,
-                                            Error::SDKD_EINVAL,
-                                            "Problem with handle input params")));
-        goto GT_DONE;
-    }
+    flushBufferBlock();
 
-    cur_handle = new Handle(hopts);
-
-    // We need to retain a pointer to our current handle (even if it lives
-    // on the stack) in order to be able to send it signals from other
-    // threads via cancelCurrentHandle().
-    cur_hid = req.handle_id;
-
-    parent->registerWDHandle(cur_hid, this);
-    if (!cur_handle->connect(&errp)) {
-        log_error("Couldn't establish initial control connection");
-        writeResponse(Response(&req, errp));
-        goto GT_DONE;
-    }
-
-    // Notify a success
-    log_info("Successful handle established");
-    writeResponse(Response(&req));
-
-    // Now start receiving responses, now that the handle has
-    // been established..
-
-
-    while (true) {
-        Request *dummy = readRequest(&req, true);
-        if (!dummy) {
-            log_error("Probably got an I/O Error");
-        }
-
-        if (_process_request(req, rs) == false) {
-            break;
-        }
-    }
-
-    log_info("Loop done..");
-
-    GT_DONE:
     if (cur_hid) {
         /* ... */
         parent->unregisterWDHandle(cur_hid);

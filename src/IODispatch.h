@@ -36,15 +36,40 @@ public:
     }
 
     IOStatus getRawMessage(std::string& msgbuf);
-    IOStatus putRawMessage(const std::string& msgbuf);
-
     void writeResponse(const Response& res);
-    Request* readRequest(Request* reqp = NULL, bool do_loop=false);
+    int readRequest(Request**);
 
 protected:
+    // Main communication socket.
+    // For the main dispatch, this is the control handle;
+    // For a worker, this is the single communication socket.
     sdkd_socket_t sockfd;
+
+    int flushBuffer();
+
+    // Flush the buffer, but block
+    int flushBufferBlock();
+    void setupFdSets(fd_set *rd, fd_set *wr, fd_set *exc)
+    {
+        FD_ZERO(rd);
+        FD_ZERO(wr);
+        FD_ZERO(exc);
+
+        FD_SET(sockfd, rd);
+        FD_SET(sockfd, exc);
+
+        if (outbuf.size()) {
+            FD_SET(sockfd, wr);
+        }
+    }
+
+    // Input/output buffers for the main socket
     std::string inbuf;
+    std::string outbuf;
     std::list<std::string> newlines;
+
+private:
+    int readSocket();
 };
 
 class IODispatch : protected IOProtoHandler {
@@ -54,6 +79,7 @@ public:
     virtual ~IODispatch();
 
     virtual void run() = 0;
+
 
 };
 
@@ -94,6 +120,8 @@ private:
     const Handle* _get_handle(cbsdk_hid_t);
 
     void dispatch_cancel(const Request&);
+    bool loopOnce();
+    bool dispatchCommand(Request*);
 };
 
 
@@ -122,7 +150,9 @@ private:
 
     ResultSet persistRs;
 
-    bool _process_request(const Request&, ResultSet*);
+    bool initializeHandle(const Request&);
+    bool processRequest(const Request&);
+    bool selectLoop();
 
     static void *pthr_run(WorkerDispatch *w);
     ResultSet *rs;

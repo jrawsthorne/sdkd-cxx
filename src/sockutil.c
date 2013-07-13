@@ -46,16 +46,17 @@ int sdkd_make_socket_nonblocking(int sockfd, int nonblocking)
 {
 #ifndef _WIN32
     int existing_flags = fcntl(sockfd, F_GETFL);
+
     if (existing_flags == -1) {
         perror("fcntl");
         return -1;
     }
 
     if (nonblocking) {
-        existing_flags &= ~O_NONBLOCK;
+        existing_flags |= O_NONBLOCK;
 
     } else {
-        existing_flags |= O_NONBLOCK;
+        existing_flags &= ~O_NONBLOCK;
     }
 
     return fcntl(sockfd, F_SETFL, existing_flags);
