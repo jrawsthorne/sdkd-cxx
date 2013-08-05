@@ -105,6 +105,11 @@ Program::parseCliOptions(int argc, char **argv)
                     "Symbol within the IO plugin which contains the initializer"
             },
 
+            { 0, "io-plugin-base", CLIOPTS_ARGT_STRING, &userOptions.ioPluginBase,
+                    "Base name for a built-in IO options structure. You "
+                    "may prefix the name with '@' to use a built-in plugin"
+            },
+
             { 0 }
     };
 

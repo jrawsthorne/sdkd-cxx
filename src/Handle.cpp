@@ -120,6 +120,11 @@ Handle::~Handle() {
     if (instance != NULL) {
         lcb_destroy(instance);
     }
+
+    if (io != NULL) {
+        lcb_destroy_io_ops(io);
+        io = NULL;
+    }
     instance = NULL;
 }
 
@@ -147,7 +152,8 @@ Handle::connect(Error *errp)
         }
     }
 
-    create_opts.v.v0.io = sdkd_create_iops();
+    io = Daemon::MainDaemon->createIO();
+    create_opts.v.v0.io = io;
 
     if (Daemon::MainDaemon->getOptions().conncachePath) {
         the_error = lcb_create_compat(LCB_CACHED_CONFIG, &cached_opts, &instance, NULL);

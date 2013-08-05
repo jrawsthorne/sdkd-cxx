@@ -194,6 +194,7 @@ private:
     std::vector<Error>pending_errors;
 
     lcb_t instance;
+    lcb_io_opt_t io;
 
     void collect_result(ResultSet& rs);
     void postsubmit(ResultSet& rs, unsigned int nsubmit = 1);
