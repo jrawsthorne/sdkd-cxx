@@ -49,6 +49,7 @@ SET(COMMON_SOURCES
     ${JSONCPP_ROOT}/dist/jsoncpp.cpp)
 
 IF(${WIN32})
+    SET(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${PROJECT_BINARY_DIR})
     LIST(APPEND COMMON_SOURCES
         win32-gettimeofday
         ThreadWin32.cpp)
@@ -79,6 +80,16 @@ ENDIF()
 
 ADD_EXECUTABLE(sdkd_lcb ${COMMON_SOURCES} Main.cpp)
 TARGET_LINK_LIBRARIES(sdkd_lcb ${LD_DEPS})
+IF(${WIN32})
+    # Copy the DLL
+    FOREACH(dllpath "${LCB_ROOT}/lib" "${LCB_ROOT}/bin")
+        IF(EXISTS "${dllpath}/libcouchbase.dll")
+            EXECUTE_PROCESS(COMMAND ${CMAKE_COMMAND} -E copy
+                "${dllpath}/libcouchbase.dll"
+                "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/libcouchbase.dll")
+        ENDIF()
+    ENDFOREACH()
+ENDIF()
 
 
 INSTALL(TARGETS sdkd_lcb RUNTIME DESTINATION bin)
