@@ -15,11 +15,11 @@ Daemon::initIOPS()
     hPlugin = LoadLibrary(s_ioDLL.c_str());
 
     if (!hPlugin) {
-        fprintf(stderr, "Couldn't load %s. %d\n", name, GetLastError());
+        fprintf(stderr, "Couldn't load %s. %d\n", s_ioDLL.c_str(), GetLastError());
         abort();
     }
 
-    ioCreateOptions.version = 2;
+    ioCreationOptions.version = 2;
 
     plugin_creator_func plugin_creator =
             (plugin_creator_func) GetProcAddress(hPlugin, s_ioSymbol.c_str());
@@ -32,7 +32,7 @@ Daemon::initIOPS()
         abort();
     }
 
-    ioCreateOptions.create = plugin_creator;
+    ioCreationOptions.create = plugin_creator;
     return true;
 }
 #else
