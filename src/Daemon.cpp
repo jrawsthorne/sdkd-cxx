@@ -32,7 +32,7 @@ Daemon::initIOPS()
         abort();
     }
 
-    ioCreationOptions.create = plugin_creator;
+    ioCreationOptions.v.v2.create = plugin_creator;
     return true;
 }
 #else
