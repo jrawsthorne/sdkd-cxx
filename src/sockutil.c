@@ -79,7 +79,8 @@ sdkd_socket_t sdkd_accept_socket(int acceptfd, struct sockaddr_in *saddr)
     addrlen = sizeof(*saddr);
 
     if (-1 == ( ret = accept(acceptfd,
-                                (struct sockaddr*)&saddr, &addrlen))) {
+                                (struct sockaddr*)saddr, &addrlen))) {
+        printf("Accept() failed!\n");
         return -1;  // Nothing to do here..
     }
     return ret;
