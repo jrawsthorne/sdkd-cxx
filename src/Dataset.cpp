@@ -227,55 +227,13 @@ _fill_repeat(const std::string base,
              const std::string repeat,
              unsigned int idx)
 {
-    std::string filler, ret;
-    const char *fmt = "%s%lu";
-
-    unsigned long multiplier;
-    unsigned long nw;
-
-#ifndef _WIN32
-    char dummy;
-    unsigned long wanted = snprintf(&dummy, 0, fmt, repeat.c_str(), idx);
-    filler.resize(wanted+1);
-    nw = snprintf((char*)filler.c_str(), filler.size(), fmt, repeat.c_str(), idx);
-
-    // Because sprintf places an extra NUL at the end, we chop it off again.
-    filler.resize(wanted);
-    assert(nw == wanted);
-
-#else
-    int wanted = 32;
-    int spr_ret = 0;
-    filler.reserve(wanted+1);
-
-    do {
-        spr_ret = _snprintf((char*)filler.c_str(), wanted+1, fmt, repeat.c_str(), idx);
-        if (spr_ret < 0 || spr_ret == wanted) {
-            wanted *= 2;
-            filler.reserve(wanted);
-        } else {
-            assert(spr_ret < wanted);
-            break;
-        }
-    } while (true);
-
-    filler.resize(spr_ret);
-    nw = filler.size();
-#endif
-
-
-    multiplier = 1;
-    while ( (nw * multiplier) + base.length() < limit) {
-        multiplier++;
+    std::stringstream ss;
+    ss << base;
+    for (unsigned int ii = 0; ii < limit; ii++) {
+        ss << repeat << std::dec << idx;
     }
 
-    ret = base;
-    ret.reserve(ret.size() + (nw * multiplier));
-    for (unsigned int i = 0; i <= multiplier; i++) {
-        ret += filler;
-    }
-
-    return ret;
+    return ss.str();
 }
 
 void
