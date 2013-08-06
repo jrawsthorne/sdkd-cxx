@@ -46,8 +46,15 @@
 /*Logging subsystem*/
 
 #ifdef _WIN32
-#define funlockfile _unlock_file
-#define flockfile _lock_file
+
+#ifdef _MSC_VER
+  #define funlockfile _unlock_file
+  #define flockfile _lock_file
+#else
+  #define funlockfile(f)
+  #define flockfile(f)
+#endif
+
 #define simple_snprintf _snprintf
 #else
 #define simple_snprintf snprintf
