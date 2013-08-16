@@ -42,7 +42,7 @@ sdkd_socket_t sdkd_start_listening(struct sockaddr_in *addr)
     return acceptfd;
 }
 
-int sdkd_make_socket_nonblocking(int sockfd, int nonblocking)
+int sdkd_make_socket_nonblocking(sdkd_socket_t sockfd, int nonblocking)
 {
 #ifndef _WIN32
     int existing_flags = fcntl(sockfd, F_GETFL);
@@ -67,7 +67,7 @@ int sdkd_make_socket_nonblocking(int sockfd, int nonblocking)
 #endif
 }
 
-sdkd_socket_t sdkd_accept_socket(int acceptfd, struct sockaddr_in *saddr)
+sdkd_socket_t sdkd_accept_socket(sdkd_socket_t acceptfd, struct sockaddr_in *saddr)
 {
     sdkd_socket_t ret;
 #ifdef _WIN32

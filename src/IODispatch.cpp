@@ -109,7 +109,6 @@ IOProtoHandler::getRawMessage(std::string& msgbuf)
         }
 
         if (rv == 0) {
-            abort();
             closesocket(sockfd);
             log_warn("Remote closed the connection.. (without sending a CLOSE)");
             sockfd = -1;
@@ -169,7 +168,7 @@ IOProtoHandler::readRequest(Request **reqp)
 int
 IOProtoHandler::flushBuffer()
 {
-    int remaining = outbuf.size();
+    size_t remaining = outbuf.size();
     const char *sndbuf = outbuf.data();
     int fbret = 0;
 
@@ -219,7 +218,7 @@ IOProtoHandler::flushBufferBlock() {
         fd_set wfd;
         FD_ZERO(&wfd);
         FD_SET(sockfd, &wfd);
-        int selrv = select(sockfd + 1, NULL, &wfd, NULL, NULL);
+        int selrv = select((int)sockfd + 1, NULL, &wfd, NULL, NULL);
 
         if (selrv == SOCKET_ERROR) {
             int errno_save = sdkd_socket_errno();

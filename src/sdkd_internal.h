@@ -62,8 +62,9 @@ extern "C" {
 void sdkd_set_ttl(unsigned seconds);
 void sdkd_init_timer(void);
 sdkd_socket_t sdkd_start_listening(struct sockaddr_in *addr);
-int sdkd_make_socket_nonblocking(int sockfd, int nonblocking);
-sdkd_socket_t sdkd_accept_socket(int acceptfd, struct sockaddr_in *saddr);
+int sdkd_make_socket_nonblocking(sdkd_socket_t sockfd, int nonblocking);
+sdkd_socket_t sdkd_accept_socket(sdkd_socket_t acceptfd,
+                                 struct sockaddr_in *saddr);
 int sdkd_socket_errno(void);
 
 lcb_io_opt_t sdkd_create_iops(void);

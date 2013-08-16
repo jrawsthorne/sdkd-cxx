@@ -157,9 +157,9 @@ MainDispatch::loopOnce()
 
     _collect_workers();
 
-    int fd_max = max(acceptfd, sockfd) + 1;
+    sdkd_socket_t fd_max = max(acceptfd, sockfd) + 1;
 
-    int selv = select(fd_max, &rfds, &wfds, &excfds, NULL);
+    int selv = select((int)fd_max, &rfds, &wfds, &excfds, NULL);
 
     _collect_workers();
 

@@ -217,7 +217,7 @@ WorkerDispatch::selectLoop()
 {
     fd_set rfd, wfd, efd;
     setupFdSets(&rfd, &wfd, &efd);
-    int selv = select(sockfd + 1, &rfd, &wfd, &efd, NULL);
+    int selv = select((int)sockfd + 1, &rfd, &wfd, &efd, NULL);
     if (selv == SOCKET_ERROR) {
         int errno_save = sdkd_socket_errno();
         if (errno_save != EINTR) {

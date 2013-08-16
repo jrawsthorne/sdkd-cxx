@@ -216,7 +216,7 @@ initial_pop_callback(jsonsl_t jsn,
 {
     lcb_vrow_ctx_t *ctx = (lcb_vrow_ctx_t*)jsn->data;
     char *key;
-    int len;
+    lcb_size_t len;
 
     if (ctx->have_error) {
         return;

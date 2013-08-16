@@ -3,7 +3,7 @@
 namespace CBSdkd {
 using namespace std;
 
-#define VIEWLOAD_BATCH_COUNT 200
+#define VIEWLOAD_BATCH_COUNT 1000
 
 extern "C"
 {
@@ -95,7 +95,9 @@ bool ViewLoader::populateViewData(Command cmd,
         }
     }
 
-    flushValues(out);
+    if (!values.empty()) {
+        flushValues(out);
+    }
 
     handle->externalLeave();
 
