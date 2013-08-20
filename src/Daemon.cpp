@@ -91,10 +91,8 @@ Daemon::processIoOptions()
 #if LCB_VERSION >= 0x020100 || defined(SDKD_LCB_HEAD)
             } else if (iot_builtin.find("iocp") != string::npos) {
                 iotype = LCB_IO_OPS_WINIOCP;
-            } else if (iot_builtin.find("libuvdl") != string::npos) {
-                iotype = LCB_IO_OPS_LIBUVDL;
-            } else if (iot_builtin.find("libuvld") != string::npos) {
-                iotype = LCB_IO_OPS_LIBUVLD;
+            } else if (iot_builtin.find("libuv") != string::npos) {
+                iotype = LCB_IO_OPS_LIBUV;
 #endif
             } else if (iot_builtin.find("default") != string::npos) {
                 iotype = LCB_IO_OPS_DEFAULT;
