@@ -97,8 +97,19 @@ ResultSet::setRescode(Error err,
         win_begin = cur_tframe;
         timestats.push_back(TimeWindow());
     } else if (cur_wintime < cur_tframe) {
-        timestats.push_back(TimeWindow());
-        cur_wintime = cur_tframe;
+
+        // In case of large outages, we might have missed several windows
+        do {
+            TimeWindow tmTmp;
+            tmTmp.time_min = 0;
+            timestats.push_back(tmTmp);
+
+            // Add one window..
+            cur_wintime += options.timeres;
+        } while (cur_wintime < cur_tframe);
+
+        // Reset the stats for the given window
+        timestats.back().time_min = -1;
     }
 
     assert (timestats.size() > 0);
