@@ -173,7 +173,8 @@ ResultSet::resultsJson(Json::Value *in) const
 
             winstat[CBSDKD_MSGFLD_TMS_MIN] = iter->time_min;
             winstat[CBSDKD_MSGFLD_TMS_MAX] = iter->time_max;
-            winstat[CBSDKD_MSGFLD_TMS_AVG] = (iter->time_total / iter->count);
+            winstat[CBSDKD_MSGFLD_TMS_AVG] =
+                    iter->count ? (iter->time_total / iter->count) : 0;
 
             Json::Value errstats = Json::Value(Json::objectValue);
             for (std::map<int,int>::const_iterator eiter = iter->ec.begin();
