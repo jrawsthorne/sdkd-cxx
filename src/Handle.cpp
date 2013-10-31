@@ -69,7 +69,8 @@ static void cb_config(lcb_t instance, lcb_configuration_t config)
 {
     (void)instance;
     (void)config;
-    log_noctx_trace("Instance %p: CONFIG UPDATE [%d]\n", instance, config);
+    // Too verbose
+    //log_noctx_trace("Instance %p: CONFIG UPDATE [%d]\n", instance, config);
 }
 
 static void cb_remove(lcb_t instance, void *rs,
