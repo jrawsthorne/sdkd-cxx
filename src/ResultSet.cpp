@@ -170,7 +170,7 @@ ResultSet::resultsJson(Json::Value *in) const
             Json::Value winstat = Json::Value(Json::objectValue);
             winstat[CBSDKD_MSGFLD_TMS_COUNT] = iter->count;
             if (iter->time_min < 1000000) {
-                log_warn("Warning. Commands may have taken too long..");
+                log_noctx_warn("Warning. Commands may have taken too long..");
             }
 
             winstat[CBSDKD_MSGFLD_TMS_MIN] = iter->time_min;
