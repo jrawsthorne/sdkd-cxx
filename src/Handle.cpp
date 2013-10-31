@@ -52,6 +52,7 @@ void Handle::VersionInfoJson(Json::Value &res) {
     res["RUNTIME"] = rtComponents;
     res["HEADERS"] = hdrComponents;
     res["CONFIG"] = config;
+    res["TIME"] = (Json::UInt64)time(NULL);
 }
 
 
