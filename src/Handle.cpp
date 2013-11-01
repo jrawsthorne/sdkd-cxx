@@ -62,7 +62,7 @@ static void cb_err(lcb_t instance, lcb_error_t err, const char *desc)
     Handle *handle = (Handle*)lcb_get_cookie(instance);
     int myerr = Handle::mapError(err);
     handle->appendError(myerr, desc ? desc : "");
-    log_noctx_error("Got error %d: %s\n", err, desc ? desc : "");
+    log_noctx_error("Got error %d: %s", err, desc ? desc : "");
 }
 
 static void cb_config(lcb_t instance, lcb_configuration_t config)
@@ -70,7 +70,7 @@ static void cb_config(lcb_t instance, lcb_configuration_t config)
     (void)instance;
     (void)config;
     // Too verbose
-    //log_noctx_trace("Instance %p: CONFIG UPDATE [%d]\n", instance, config);
+    //log_noctx_trace("Instance %p: CONFIG UPDATE [%d]", instance, config);
 }
 
 static void cb_remove(lcb_t instance, void *rs,
