@@ -112,7 +112,7 @@ public:
                     bool expect_value, const void *value, size_t n_value) {
         Error eo = Error();
         if (err != LCB_SUCCESS) {
-            eo = mapError(err, Error::SUBSYSf_CLIENT|Error::ERROR_GENERIC);
+            eo = mapError(err);
         }
         setRescode(eo, key, nkey, expect_value, value, n_value);
     }
@@ -182,7 +182,7 @@ public:
     unsigned int remaining;
 
     static int
-    mapError(lcb_error_t err, int defl = Error::SUCCESS) {
+    mapError(lcb_error_t err) {
         if (err == LCB_SUCCESS) {
             return 0;
         }
@@ -190,14 +190,9 @@ public:
             return Errmap[err];
         }
 
-        if (defl != LCB_SUCCESS) {
-            int ret = Error::SUBSYSf_SDK;
-            ret |= err << 8;
-        } else {
-            return LCB_SUCCESS;
-        }
-
-        return defl;
+        int ret = Error::SUBSYSf_SDK;
+        ret |= err << 8;
+        return ret;
     }
 
     static std::map<lcb_error_t,int> Errmap;

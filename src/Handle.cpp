@@ -60,8 +60,7 @@ void Handle::VersionInfoJson(Json::Value &res) {
 static void cb_err(lcb_t instance, lcb_error_t err, const char *desc)
 {
     Handle *handle = (Handle*)lcb_get_cookie(instance);
-    int myerr = Handle::mapError(err,
-                                 Error::SUBSYSf_CLIENT|Error::SUBSYSf_NETWORK);
+    int myerr = Handle::mapError(err);
     handle->appendError(myerr, desc ? desc : "");
     log_noctx_error("Got error %d: %s\n", err, desc ? desc : "");
 }
@@ -187,8 +186,7 @@ Handle::connect(Error *errp)
 
     the_error = lcb_connect(instance);
     if (the_error != LCB_SUCCESS) {
-        errp->setCode(mapError(the_error,
-                               Error::SUBSYSf_NETWORK|Error::ERROR_GENERIC));
+        errp->setCode(mapError(the_error));
         errp->errstr = lcb_strerror(instance, the_error);
 
         log_error("lcb_connect failed: %s", errp->prettyPrint().c_str());

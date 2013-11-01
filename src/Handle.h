@@ -173,8 +173,8 @@ public:
     void cancelCurrent();
 
     static int
-    mapError(lcb_error_t err, int defl = Error::SUCCESS) {
-        return ResultSet::mapError(err, defl);
+    mapError(lcb_error_t err) {
+        return ResultSet::mapError(err);
     }
 
     static void VersionInfoJson(Json::Value& res);
