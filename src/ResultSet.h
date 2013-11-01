@@ -12,8 +12,7 @@ X(LCB_CONNECT_ERROR,    Error::SUBSYSf_NETWORK|Error::ERROR_GENERIC) \
 X(LCB_NETWORK_ERROR,    Error::SUBSYSf_NETWORK|Error::ERROR_GENERIC) \
 X(LCB_ENOMEM,           Error::SUBSYSf_MEMD|Error::ERROR_GENERIC) \
 X(LCB_KEY_ENOENT,       Error::SUBSYSf_MEMD|Error::MEMD_ENOENT) \
-X(LCB_ETIMEDOUT,        Error::SUBSYSf_CLIENT|Error::CLIENT_ETMO) \
-X(LCB_ETMPFAIL,         Error::SUBSYSf_CLIENT|Error::ERROR_GENERIC);
+X(LCB_ETIMEDOUT,        Error::SUBSYSf_CLIENT|Error::CLIENT_ETMO)
 
 
 
@@ -190,6 +189,14 @@ public:
         if (Errmap.find(err) != Errmap.end()) {
             return Errmap[err];
         }
+
+        if (defl != LCB_SUCCESS) {
+            int ret = Error::SUBSYSf_SDK;
+            ret |= err << 8;
+        } else {
+            return LCB_SUCCESS;
+        }
+
         return defl;
     }
 

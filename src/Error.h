@@ -28,6 +28,7 @@ public:
         SUBSYSf_SDKD         = 0x20,
         SUBSYSf_KVOPS        = 0x40,
         SUBSYSf_VIEWS        = 0x41,
+        SUBSYSf_SDK          = 0x80,
 
         KVOPS_EMATCH         = 0x200,
 
