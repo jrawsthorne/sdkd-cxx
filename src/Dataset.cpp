@@ -227,13 +227,17 @@ _fill_repeat(const std::string base,
              const std::string repeat,
              unsigned int idx)
 {
-    std::stringstream ss;
-    ss << base;
-    for (unsigned int ii = 0; ii < limit; ii++) {
-        ss << repeat << std::dec << idx;
+    char idxbuf[32] = { 0 };
+    sprintf(idxbuf, "%u", idx);
+    const std::string repeat_ext = repeat + idxbuf;
+    std::string result = base + repeat_ext;
+
+    result.reserve(limit+repeat_ext.length());
+    while (result.size() < limit-1) {
+        result += repeat_ext;
     }
 
-    return ss.str();
+    return result;
 }
 
 void
