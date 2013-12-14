@@ -118,7 +118,7 @@ ResultSet::setRescode(Error err,
     win.time_total += duration;
     win.time_min = min(win.time_min, (unsigned int)duration);
     win.time_max = max(win.time_max, (unsigned int)duration);
-    assert(win.time_min < 10000000);
+//    assert(win.time_min < 10000000);
     win.ec[myerr]++;
 }
 
