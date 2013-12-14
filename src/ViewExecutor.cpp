@@ -176,10 +176,16 @@ bool
 ViewExecutor::handleHttpChunk(lcb_error_t err, const lcb_http_resp_t *resp)
 {
     if (!responseTick) {
-        if (resp->v.v0.status < 200 || resp->v.v0.status > 299) {
-            log_info("Got http code %d", resp->v.v0.status);
-            rs->setRescode(Error(Error::SUBSYSf_VIEWS,
-                                 Error::VIEWS_HTTP_ERROR));
+        if (resp->v.v0.status > 0 && (resp->v.v0.status < 200 || resp->v.v0.status > 299)) {
+            log_error("Got http code %d", resp->v.v0.status);
+            if (resp->v.v0.status) {
+                rs->setRescode(Error(Error::SUBSYSf_VIEWS, Error::VIEWS_HTTP_ERROR));
+            }
+            responseTick = true;
+            return false;
+
+        } else if (err != LCB_SUCCESS) {
+            rs->setRescode(ResultSet::mapError(err));
             responseTick = true;
             return false;
 
