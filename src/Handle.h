@@ -50,6 +50,13 @@ public:
                 return; // invalidate
             }
 
+            if (json[CBSDKD_MSGFLD_HANDLE_PORT].asInt()) {
+                hostname += ":";
+                stringstream ss;
+                ss << json[CBSDKD_MSGFLD_HANDLE_PORT].asInt();
+                hostname += ss.str();
+            }
+
             if (host_extra.size()) {
                 if (hostname.size()) {
                     hostname += ";";
@@ -65,12 +72,6 @@ public:
             timeout = 0;
         }
 
-        if (json[CBSDKD_MSGFLD_HANDLE_PORT].asInt()) {
-            hostname += ":";
-            stringstream ss;
-            ss << json[CBSDKD_MSGFLD_HANDLE_PORT].asInt();
-            hostname += ss.str();
-        }
     }
 
     bool isValid() {
