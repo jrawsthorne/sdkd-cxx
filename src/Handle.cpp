@@ -122,6 +122,7 @@ Handle::Handle(const HandleOptions& opts) :
         is_connected(false),
         instance(NULL)
 {
+    create_opts.version = 0;
 }
 
 Handle::~Handle() {
