@@ -35,6 +35,12 @@ Daemon::initIOPS()
     ioCreationOptions.v.v2.create = plugin_creator;
     return true;
 }
+
+bool
+Daemon::verifyIoPlugin() {
+    return true;
+}
+
 #else
 
 bool
@@ -44,6 +50,26 @@ Daemon::initIOPS()
     ioCreationOptions.v.v1.sofile = s_ioDLL.c_str();
     ioCreationOptions.v.v1.symbol = s_ioSymbol.c_str();
     ioCreationOptions.v.v1.cookie = NULL;
+    return true;
+}
+
+bool
+Daemon::verifyIoPlugin()
+{
+    lcb_error_t err;
+    lcb_io_opt_t io;
+    if (!hasCreateOptions) {
+        return true;
+    }
+
+    err = lcb_create_io_ops(&io, &ioCreationOptions);
+    if (err != LCB_SUCCESS) {
+        fprintf(stderr, "Creation of IO plugin failed: %s\n",
+                lcb_strerror(NULL, err));
+        return false;
+    }
+
+    lcb_destroy_io_ops(io);
     return true;
 }
 #endif
@@ -158,6 +184,10 @@ Daemon::Daemon(const DaemonOptions& userOptions)
 
     initDebugSettings();
     processIoOptions();
+    if (!verifyIoPlugin()) {
+        fprintf(stderr, "Couldn't init I/O options. Abort\n");
+        abort();
+    }
 
 
     SDKD_INIT_VIEWS();

@@ -56,6 +56,7 @@ private:
     void initDebugSettings();
     bool initIOPS();
     void processIoOptions();
+    bool verifyIoPlugin();
 
     bool hasCreateOptions;
     lcb_create_io_ops_st ioCreationOptions;
