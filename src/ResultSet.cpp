@@ -12,7 +12,9 @@ ResultOptions::ResultOptions(const Json::Value& opts)
     delay_min(opts[CBSDKD_MSGFLD_DSREQ_DELAY_MIN].asUInt()),
     delay_max(opts[CBSDKD_MSGLFD_DSREQ_DELAY_MAX].asUInt()),
     delay(opts[CBSDKD_MSGFLD_DSREQ_DELAY].asUInt()),
-    timeres(opts[CBSDKD_MSGFLD_DSREQ_TIMERES].asUInt())
+    timeres(opts[CBSDKD_MSGFLD_DSREQ_TIMERES].asUInt()),
+    persist(opts[CBSDKD_MSGFLD_DSREQ_PERSIST].asUInt()),
+    replicate(opts[CBSDKD_MSGFLD_DSREQ_REPLICATE].asUInt())
 {
     _determine_delay();
 }
@@ -26,7 +28,9 @@ ResultOptions::ResultOptions(bool full, unsigned int expiry,
     delay_min(0),
     delay_max(0),
     delay(delay),
-    timeres(0)
+    timeres(0),
+    persist(0),
+    replicate(0)
 {
 
     _determine_delay();

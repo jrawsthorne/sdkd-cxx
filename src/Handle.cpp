@@ -9,6 +9,7 @@
 
 namespace CBSdkd {
 
+
 extern "C" {
 
 void Handle::VersionInfoJson(Json::Value &res) {
@@ -103,6 +104,25 @@ static void cb_get(lcb_t instance, void *rs,
             resp->v.v0.bytes, resp->v.v0.nbytes);
 }
 
+static void cb_endure(lcb_t instance, void *rs,
+                   lcb_error_t err, const lcb_durability_resp_t *resp)
+{
+    reinterpret_cast<ResultSet*>(rs)->setRescode(err,
+            resp->v.v0.key, resp->v.v0.nkey);
+}
+
+static void cb_observe(lcb_t instance, void *rs,
+                   lcb_error_t err, const lcb_observe_resp_t *resp)
+{
+    if (resp->v.v0.key) {
+        reinterpret_cast<ResultSet*>(rs)->observekey.assign((char *)resp->v.v0.key, resp->v.v0.nkey);
+    } else {
+        reinterpret_cast<ResultSet*>(rs)->setRescode(err,
+                reinterpret_cast<ResultSet*>(rs)->observekey.data(),
+                reinterpret_cast<ResultSet*>(rs)->observekey.size());
+    }
+}
+
 static void wire_callbacks(lcb_t instance)
 {
 #define _setcb(t,cb) \
@@ -111,6 +131,8 @@ static void wire_callbacks(lcb_t instance)
     _setcb(get, cb_get);
     _setcb(remove, cb_remove);
     _setcb(touch, cb_touch);
+    _setcb(durability, cb_endure);
+    _setcb(observe, cb_observe);
 #undef _setcb
 }
 
@@ -376,6 +398,93 @@ Handle::dsGetReplica(Command cmd, Dataset const &ds, ResultSet& out,
 
         out.markBegin();
         lcb_error_t err = lcb_get_replica(instance, &out, 1, cmds);
+
+        if (err == LCB_SUCCESS) {
+            postsubmit(out);
+        } else {
+            out.setRescode(err, k, true);
+        }
+    }
+
+    delete iter;
+    collect_result(out);
+    return true;
+}
+
+bool
+Handle::dsEndure(Command cmd, Dataset const &ds, ResultSet& out,
+        const ResultOptions& options)
+{
+    out.options = options;
+    out.clear();
+    do_cancel = false;
+
+    DatasetIterator* iter = ds.getIter();
+
+    for (iter->start();
+            iter->done() == false && do_cancel == false;
+            iter->advance()) {
+
+        std::string k = iter->key();
+
+        lcb_durability_opts_t opts = { 0 };
+
+        opts.v.v0.persist_to = options.persist;
+        opts.v.v0.replicate_to = options.replicate;
+        opts.v.v0.cap_max = 1;
+
+        lcb_durability_cmd_t cmd = { 0 };
+
+        cmd.v.v0.key = k.data();
+        cmd.v.v0.nkey = k.size();
+
+        const lcb_durability_cmd_t *cmds[] = { &cmd };
+
+        out.markBegin();
+
+        lcb_error_t err;
+        err = lcb_durability_poll(instance, &out,
+                                    &opts, 1, cmds);
+
+        if (err == LCB_SUCCESS) {
+            postsubmit(out);
+        } else {
+            out.setRescode(err, k, true);
+        }
+    }
+
+    delete iter;
+    collect_result(out);
+    return true;
+}
+
+bool
+Handle::dsObserve(Command cmd, Dataset const &ds, ResultSet& out,
+              const ResultOptions& options)
+{
+    out.options = options;
+    out.clear();
+    do_cancel = false;
+
+    DatasetIterator* iter = ds.getIter();
+
+    for (iter->start();
+            iter->done() == false && do_cancel == false;
+            iter->advance()) {
+
+        std::string k = iter->key();
+
+        lcb_observe_cmd_t cmd;
+        memset(&cmd, 0, sizeof(cmd));
+
+        cmd.v.v0.key = k.data();
+        cmd.v.v0.nkey = k.size();
+
+        const lcb_observe_cmd_t *cmds[] = { &cmd };
+
+        out.markBegin();
+
+        lcb_error_t err = lcb_observe(instance, &out, 1, cmds);
 
         if (err == LCB_SUCCESS) {
             postsubmit(out);

@@ -41,6 +41,8 @@
 #define CBSDKD_MSGFLD_DSREQ_ITERWAIT            "IterWait"
 #define CBSDKD_MSGFLD_DSREQ_CONTINUOUS          "Continuous"
 #define CBSDKD_MSGFLD_DSREQ_TIMERES             "TimeRes"
+#define CBSDKD_MSGFLD_DSREQ_PERSIST             "PersistTo"
+#define CBSDKD_MSGFLD_DSREQ_REPLICATE           "ReplicateTo"
 
 /**
  * DS Response fields

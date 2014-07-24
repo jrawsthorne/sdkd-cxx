@@ -22,6 +22,8 @@
     XX(MC_DS_TOUCH) \
     XX(MC_DS_GET) \
     XX(MC_DS_GETREPLICA) \
+    XX(MC_DS_ENDURE) \
+    XX(MC_DS_OBSERVE) \
     XX(CB_VIEW_LOAD) \
     XX(CB_VIEW_QUERY) \
     XX(NEWHANDLE) \
