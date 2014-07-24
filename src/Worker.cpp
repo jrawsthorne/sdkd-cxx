@@ -177,6 +177,10 @@ WorkerDispatch::processRequest(const Request& req)
         h.dsGet(req.command, *ds, rs, opts);
         break;
 
+    case Command::MC_DS_GETREPLICA:
+        h.dsGetReplica(req.command, *ds, rs, opts);
+        break;
+
     case Command::CB_VIEW_LOAD:
     {
         ViewLoader vl = ViewLoader(cur_handle);

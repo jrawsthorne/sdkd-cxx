@@ -21,6 +21,7 @@
     XX(MC_DS_DELETE) \
     XX(MC_DS_TOUCH) \
     XX(MC_DS_GET) \
+    XX(MC_DS_GETREPLICA) \
     XX(CB_VIEW_LOAD) \
     XX(CB_VIEW_QUERY) \
     XX(NEWHANDLE) \
