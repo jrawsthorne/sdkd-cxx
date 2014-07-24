@@ -349,6 +349,47 @@ Handle::dsMutate(Command cmd, const Dataset& ds, ResultSet& out,
 }
 
 bool
+Handle::dsGetReplica(Command cmd, Dataset const &ds, ResultSet& out,
+              const ResultOptions& options)
+{
+    out.options = options;
+    out.clear();
+    do_cancel = false;
+
+    DatasetIterator* iter = ds.getIter();
+
+    for (iter->start();
+            iter->done() == false && do_cancel == false;
+            iter->advance()) {
+
+        std::string k = iter->key();
+        log_trace("GET REPLICA : %s", k.c_str());
+
+        lcb_get_replica_cmd_t cmd;
+        memset(&cmd, 0, sizeof(cmd));
+
+        cmd.v.v1.key = k.data();
+        cmd.v.v1.nkey = k.size();
+        cmd.v.v1.strategy = LCB_REPLICA_ALL;
+
+        const lcb_get_replica_cmd_t *cmds[] = { &cmd };
+
+        out.markBegin();
+        lcb_error_t err = lcb_get_replica(instance, &out, 1, cmds);
+
+        if (err == LCB_SUCCESS) {
+            postsubmit(out);
+        } else {
+            out.setRescode(err, k, true);
+        }
+    }
+
+    delete iter;
+    collect_result(out);
+    return true;
+}
+
+bool
 Handle::dsKeyop(Command cmd, const Dataset& ds, ResultSet& out,
                 const ResultOptions& options)
 {
