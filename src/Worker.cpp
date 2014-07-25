@@ -181,6 +181,14 @@ WorkerDispatch::processRequest(const Request& req)
         h.dsGetReplica(req.command, *ds, rs, opts);
         break;
 
+    case Command::MC_DS_ENDURE:
+        h.dsEndure(req.command, *ds, rs, opts);
+        break;
+
+    case Command::MC_DS_OBSERVE:
+        h.dsObserve(req.command, *ds, rs, opts);
+        break;
+
     case Command::CB_VIEW_LOAD:
     {
         ViewLoader vl = ViewLoader(cur_handle);

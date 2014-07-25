@@ -31,6 +31,8 @@ public:
     unsigned int delay;
 
     unsigned int timeres;
+    unsigned int persist;
+    unsigned int replicate;
 
     ResultOptions(const Json::Value&);
     ResultOptions(bool full = false,
@@ -197,6 +199,8 @@ public:
 
     static std::map<lcb_error_t,int> Errmap;
 
+    //storing the key from observe callback
+    std::string observekey;
 
 private:
     friend class Handle;
