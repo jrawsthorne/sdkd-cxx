@@ -130,6 +130,13 @@ ViewExecutor::genQueryString(const Request& req, string& out, Error& eo)
         out.assign(vqstr);
         log_info("Generated query string %s", vqstr);
         free(vqstr);
+    } else {
+        char *vqstr;
+        vqstr = lcb_vqstr_make_uri(dname.c_str(), dname.length(),
+                                   vname.c_str(), vname.length(),
+                                   NULL, 0);
+        out.assign(vqstr);
+        free(vqstr);
     }
 
 
