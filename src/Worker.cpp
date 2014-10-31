@@ -185,8 +185,16 @@ WorkerDispatch::processRequest(const Request& req)
         h.dsEndure(req.command, *ds, rs, opts);
         break;
 
+    case Command::MC_DS_ENDUREWITHSEQNO:
+        h.dsEndureWithSeqNo(req.command, *ds, rs, opts);
+        break;
+
     case Command::MC_DS_OBSERVE:
         h.dsObserve(req.command, *ds, rs, opts);
+        break;
+
+    case Command::MC_DS_STATS:
+        h.dsVerifyStats(req.command, *ds, rs, opts);
         break;
 
     case Command::CB_VIEW_LOAD:
@@ -202,6 +210,7 @@ WorkerDispatch::processRequest(const Request& req)
         ve.executeView(req.command, rs, opts, req);
         break;
     }
+
 
     default:
         log_warn("Command '%s' not implemented",

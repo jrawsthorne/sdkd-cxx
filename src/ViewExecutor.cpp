@@ -36,24 +36,13 @@ ViewExecutor::~ViewExecutor()
 
 
 bool
-ViewExecutor::genQueryString(const Request& req, string& out, Error& eo)
+ViewExecutor::genOptionsString(const Request& req, string& out, Error& eo)
 {
     vector<lcb_vopt_t> view_options;
     vector<lcb_vopt_t*> view_options_pointers;
 
     Json::Value vqopts = req.payload[CBSDKD_MSGFLD_V_QOPTS];
-    string dname = req.payload[CBSDKD_MSGFLD_V_DESNAME].asString();
-    string vname = req.payload[CBSDKD_MSGFLD_V_MRNAME].asString();
     bool ret = true;
-
-
-
-    if (dname.size() == 0 || vname.size() == 0) {
-        eo = Error(Error::createInvalid("Missing view or design name"));
-        return false;
-    }
-
-
 
     for (Json::ValueIterator iter = vqopts.begin();
             iter != vqopts.end();
@@ -121,20 +110,8 @@ ViewExecutor::genQueryString(const Request& req, string& out, Error& eo)
 
     if (view_options_pointers.size()) {
         char *vqstr;
-        const lcb_vopt_t * const * tmp_pp =
-                (const lcb_vopt_t* const *) &view_options_pointers[0];
-
-        vqstr = lcb_vqstr_make_uri(dname.c_str(), dname.length(),
-                                   vname.c_str(), vname.length(),
-                                   tmp_pp, view_options_pointers.size());
-        out.assign(vqstr);
-        log_info("Generated query string %s", vqstr);
-        free(vqstr);
-    } else {
-        char *vqstr;
-        vqstr = lcb_vqstr_make_uri(dname.c_str(), dname.length(),
-                                   vname.c_str(), vname.length(),
-                                   NULL, 0);
+        const lcb_vopt_t * const * tmp_pp = (const lcb_vopt_t* const *)&view_options_pointers[0];
+        vqstr = lcb_vqstr_make_optstr(tmp_pp, view_options_pointers.size());
         out.assign(vqstr);
         free(vqstr);
     }
@@ -149,143 +126,38 @@ ViewExecutor::genQueryString(const Request& req, string& out, Error& eo)
     }
 
     return ret;
-
 }
+
+
 
 extern "C" {
-static void
-row_callback(lcb_vrow_ctx_t *ctx,
-             const void *cookie,
-             const lcb_vrow_datum_t *res)
-{
-    /**
-     * In here we ensure the row data is consistent
-     */
-    reinterpret_cast<ViewExecutor*>((void*)cookie)->handleRowResult(res);
-}
-
-static void
-data_callback(lcb_http_request_t request,
-              lcb_t instance,
-              const void *cookie,
-              lcb_error_t err,
-              const lcb_http_resp_t *resp)
-{
-    ViewExecutor *vo = reinterpret_cast<ViewExecutor*>((void*)cookie);
-    if (!vo->handleHttpChunk(err, resp)) {
-        lcb_cancel_http_request(instance, request);
-    }
-}
-
-}
-
-bool
-ViewExecutor::handleHttpChunk(lcb_error_t err, const lcb_http_resp_t *resp)
-{
-    if (!responseTick) {
-        if (resp->v.v0.status > 0 && (resp->v.v0.status < 200 || resp->v.v0.status > 299)) {
-            log_error("Got http code %d", resp->v.v0.status);
-            if (resp->v.v0.status) {
-                rs->setRescode(Error(Error::SUBSYSf_VIEWS, Error::VIEWS_HTTP_ERROR));
-            }
-            responseTick = true;
-            return false;
-
-        } else if (err != LCB_SUCCESS) {
-            rs->setRescode(ResultSet::mapError(err));
-            responseTick = true;
-            return false;
-
-        } else {
-            rs->setRescode(0);
-        }
-    }
-
-    responseTick = true;
-
-    if (err != LCB_SUCCESS) {
-        log_warn("LCB Returned code %d (%s) for http",
-                 err,
-                 lcb_strerror(handle->getLcb(), err));
-
-        rs->setRescode(err, "", 0);
-        return false;
-    }
-
-    // callout to vrow
-    if (resp->v.v0.nbytes) {
-        lcb_vrow_feed(rctx,
-                      (const char*)resp->v.v0.bytes,
-                      resp->v.v0.nbytes);
-    }
-    return true;
-}
-
-void
-ViewExecutor::handleRowResult(const lcb_vrow_datum_t *dt)
-{
-    if (dt->type == LCB_VROW_COMPLETE) {
-        return;
-
-    } else if (dt->type == LCB_VROW_ERROR) {
-        rs->setRescode(Error(Error::SUBSYSf_VIEWS, Error::VIEWS_MALFORMED));
+static void rowCallback(lcb_t instance, int, const lcb_RESPVIEWQUERY *response) {
+    if (response->rflags & LCB_RESP_F_FINAL) {
         return;
     }
-
-    persistRow.clear();
-    persistKey.clear();
-
-    jreader.parse(dt->data, dt->data + dt->ndata, persistRow, false);
-    string id;
-
-    if (!persistRow) {
-        rs->setRescode(Error(Error::SUBSYSf_VIEWS, Error::VIEWS_MALFORMED));
-        return;
-    }
-
-    persistKey = persistRow["key"];
-    id = persistRow["id"].asString();
-
-    if ( (!persistKey) || (!id.size()) ) {
-        rs->setRescode(Error(Error::SUBSYSf_VIEWS, Error::VIEWS_MISMATCH));
-        return;
-    }
-
-    string kvident = persistKey[VR_IX_IDENT].asString();
-    if (kvident == id) {
-        rs->setRescode(0);
-
+    if (response->rc == LCB_SUCCESS) {
+        reinterpret_cast<ResultSet*>(response->cookie)->setRescode(0);
     } else {
-        rs->setRescode(Error(Error::SUBSYSf_VIEWS, Error::VIEWS_MISMATCH));
-    }
+        reinterpret_cast<ResultSet*>(response->cookie)->setRescode(Error(Error::SUBSYSf_VIEWS,Error::VIEWS_MISMATCH));
+   }
 }
 
+}
 void
-ViewExecutor::runSingleView(const lcb_http_cmd_t *htcmd)
+ViewExecutor::runSingleView(lcb_CMDVIEWQUERY *cmd, ResultSet& out)
 {
-    lcb_http_request_t htreq;
     lcb_error_t lcb_err;
 
-    responseTick = false;
-
-    lcb_err = lcb_make_http_request(handle->getLcb(),
-                                    this,
-                                    LCB_HTTP_TYPE_VIEW,
-                                    htcmd,
-                                    &htreq);
+    lcb_err = lcb_view_query(handle->getLcb(),
+            &out, cmd);
 
     if (lcb_err != LCB_SUCCESS) {
         goto GT_ERR;
     }
 
-    lcb_err = lcb_wait(handle->getLcb());
+    lcb_wait3(handle->getLcb(), LCB_WAIT_NOCHECK);
 
-    if (!responseTick) {
-        fprintf(stderr, "Wait returned prematurely. Abort\n");
-        abort();
-    }
-
-    GT_ERR:
+GT_ERR:
     if (lcb_err != LCB_SUCCESS) {
         // mark the actual error
         rs->setRescode(lcb_err, "", 0);
@@ -300,48 +172,47 @@ ViewExecutor::executeView(Command cmd,
                           const ResultOptions& options,
                           const Request& req)
 {
-    string qstr;
+    string optstr;
     Error sdkd_err = 0;
-
-    lcb_http_cmd_t htcmd = lcb_http_cmd_st();
 
     out.options = options;
     out.clear();
     this->rs = &out;
 
-
     Json::Value ctlopts = req.payload[CBSDKD_MSGFLD_DSREQ_OPTS];
     int num_iterations = ctlopts[CBSDKD_MSGFLD_V_QITERCOUNT].asInt();
     int iterdelay = ctlopts[CBSDKD_MSGFLD_V_QDELAY].asInt();
 
-    if (!genQueryString(req, qstr, sdkd_err)) {
+    string dname = req.payload[CBSDKD_MSGFLD_V_DESNAME].asString();
+    string vname = req.payload[CBSDKD_MSGFLD_V_MRNAME].asString();
+
+    if (dname.size() == 0 || vname.size() == 0) {
+        log_error("Design/ view names cannot be empty");
+        return false;
+    }
+
+    if (!genOptionsString(req, optstr, sdkd_err)) {
         log_error("Couldn't generate query string..");
         rs->setError(sdkd_err);
         return false;
     }
 
-    htcmd.v.v0.chunked = 1;
-    htcmd.v.v0.content_type = "application/json";
-    htcmd.v.v0.path = qstr.c_str();
-    htcmd.v.v0.npath = qstr.length();
-    htcmd.v.v0.method = LCB_HTTP_METHOD_GET;
+    lcb_CMDVIEWQUERY vq = { 0 };
+    vq.ddoc = dname.c_str();
+    vq.nddoc =  dname.size();
+    vq.view = vname.c_str();
+    vq.nview = vname.size();
+    vq.optstr = optstr.c_str();
+    vq.noptstr = optstr.size();
+    vq.callback = rowCallback;
 
-    lcb_http_data_callback old_data_cb =
-            lcb_set_http_data_callback(handle->getLcb(),
-                                       data_callback);
-    lcb_http_complete_callback old_complete_cb =
-            lcb_set_http_complete_callback(handle->getLcb(),
-                                           data_callback);
-
-    rctx->callback = row_callback;
-    rctx->user_cookie = this;
 
     handle->externalEnter();
 
     while (!handle->isCancelled()) {
 
         rs->markBegin();
-        runSingleView(&htcmd);
+        runSingleView(&vq, out);
 
         if (num_iterations >= 0) {
             num_iterations--;
@@ -354,14 +225,9 @@ ViewExecutor::executeView(Command cmd,
             sdkd_millisleep(iterdelay);
         }
 
-        lcb_vrow_reset(rctx);
     }
 
     handle->externalLeave();
-
-    lcb_set_http_data_callback(handle->getLcb(), old_data_cb);
-    lcb_set_http_complete_callback(handle->getLcb(), old_complete_cb);
-
     return true;
 }
 }

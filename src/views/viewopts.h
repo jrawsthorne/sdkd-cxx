@@ -189,10 +189,6 @@ lcb_vqstr_write(const lcb_vopt_t * const * options, size_t noptions,
 /**
  * Creates a proper URI query string for a view with its parameters.
  *
- * @param design the name of the design document
- * @param ndesign length of design name (-1 for nul-terminated)
- * @param view the name of the view to query
- * @param nview the length of the view name (-1 for nul-terminated)
  * @param options the view options for this query
  * @param noptions how many options
  *
@@ -201,9 +197,7 @@ lcb_vqstr_write(const lcb_vopt_t * const * options, size_t noptions,
  * the length.
  */
 char *
-lcb_vqstr_make_uri(const char *design, size_t ndesign,
-                   const char *view, size_t nview,
-                   const lcb_vopt_t * const * options,
+lcb_vqstr_make_optstr(const lcb_vopt_t * const * options,
                    size_t noptions);
 
 #ifdef __cplusplus
