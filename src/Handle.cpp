@@ -36,6 +36,7 @@ void Handle::VersionInfoJson(Json::Value &res) {
 #define STRINGIFY_(X) #X
 #define STRINGIFY(X) STRINGIFY_(X)
     hdrComponents["CHANGESET"] = STRINGIFY(LCB_VERSION_CHANGESET);
+    fprintf(stderr, " SDK version changeset %s", hdrComponents["CHANGESET"].asString().c_str());
 #undef STRINGIFY
 #undef STRINGIFY_
 
