@@ -33,7 +33,8 @@
     XX(GOODBYE) \
     XX(CANCEL) \
     XX(INFO) \
-    XX(TTL)
+    XX(TTL) \
+    XX(GETUSAGE)
 
 namespace CBSdkd {
 

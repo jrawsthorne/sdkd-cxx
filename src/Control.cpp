@@ -99,8 +99,15 @@ MainDispatch::dispatchCommand(Request *reqp)
         create_new_ds(reqp);
 
     } else if (reqp->command == Command::GOODBYE) {
+        if (isCollectingStats == true) {
+            coll->StopCollector();
+            Response res = Response(reqp);
+            Json::Value statsres;
+            coll->GetResponseJson(statsres);
+            res.setResponseData(statsres);
+            writeResponse(res);
+        }
         return false;
-
     } else if (reqp->command == Command::CANCEL) {
         WorkerDispatch *w = h2wmap[reqp->handle_id];
         if (!w) {
@@ -134,8 +141,12 @@ MainDispatch::dispatchCommand(Request *reqp)
             sdkd_set_ttl(seconds);
             writeResponse(Response(reqp, Error(0)));
         }
+    } else if (reqp->command == Command::GETUSAGE) {
+        coll = new UsageCollector();
+        coll->Start();
+        isCollectingStats = true;
     } else {
-        // We don't currently support other types of control messages
+    // We don't currently support other types of control messages
         writeResponse(Response(reqp,
                                Error(Error::SUBSYSf_SDKD,
                                      Error::SDKD_ENOIMPL)));

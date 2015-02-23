@@ -11,12 +11,14 @@
 #include <fcntl.h>
 #include <signal.h>
 #include <sys/time.h>
+#include <sys/resource.h>
 
 #define closesocket close
 #define sdkd_millisleep(ms) usleep(ms * 1000)
 #define sdkd_strdup strdup
 #define SDKD_SOCK_EWOULDBLOCK EWOULDBLOCK
 #define SDKD_SOCK_EINTR EINTR
+#define PID_FILE "/var/run/sdkd-cpp.pid"
 typedef int sdkd_socket_t;
 
 #ifndef INVALID_SOCKET
@@ -104,6 +106,7 @@ int gettimeofday(struct timeval *tv, void *tz);
 #include "ResultSet.h"
 #include "Handle.h"
 #include "IODispatch.h"
+#include "UsageCollector.h"
 
 #include "views/viewopts.h"
 #include "views/viewrow.h"
