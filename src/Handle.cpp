@@ -75,65 +75,111 @@ static void cb_config(lcb_t instance, lcb_configuration_t config)
     //log_noctx_trace("Instance %p: CONFIG UPDATE [%d]", instance, config);
 }
 
-static void cb_remove(lcb_t instance, void *rs,
-                     lcb_error_t err, const lcb_remove_resp_t *resp)
+static void cb_remove(lcb_t instance, int, const lcb_RESPBASE *resp)
 {
-    reinterpret_cast<ResultSet*>(rs)->setRescode(err,
-            resp->v.v0.key, resp->v.v0.nkey);
+    reinterpret_cast<ResultSet*>(resp->cookie)->setRescode(resp->rc,
+            resp->key, resp->nkey);
 }
 
-static void cb_touch(lcb_t instance, void *rs,
-                     lcb_error_t err, const lcb_touch_resp_t *resp)
+static void cb_touch(lcb_t instance, int, const lcb_RESPBASE *resp)
 {
-    reinterpret_cast<ResultSet*>(rs)->setRescode(err,
-            resp->v.v0.key, resp->v.v0.nkey);
+    reinterpret_cast<ResultSet*>(resp->cookie)->setRescode(resp->rc,
+            resp->key, resp->nkey);
 }
 
-static void cb_storage(lcb_t instance, void *rs,
-                       lcb_storage_t oper, lcb_error_t err,
-                       const lcb_store_resp_t *resp)
+static void cb_storage(lcb_t instance, int, const lcb_RESPBASE *resp)
 {
-    reinterpret_cast<ResultSet*>(rs)->setRescode(err,
-            resp->v.v0.key, resp->v.v0.nkey);
+    reinterpret_cast<ResultSet*>(resp->cookie)->setRescode(resp->rc,
+            resp->key, resp->nkey);
 }
 
-static void cb_get(lcb_t instance, void *rs,
-                   lcb_error_t err, const lcb_get_resp_t *resp)
+static void cb_get(lcb_t instance, int, const lcb_RESPBASE *resp)
 {
-    reinterpret_cast<ResultSet*>(rs)->setRescode(err,
-            resp->v.v0.key, resp->v.v0.nkey, true,
-            resp->v.v0.bytes, resp->v.v0.nbytes);
+    lcb_RESPGET* gresp = (lcb_RESPGET *)resp;
+    reinterpret_cast<ResultSet*>(gresp->cookie)->setRescode(gresp->rc,
+            gresp->key, gresp->nkey, true,
+            gresp->value, gresp->nvalue);
 }
 
-static void cb_endure(lcb_t instance, void *rs,
-                   lcb_error_t err, const lcb_durability_resp_t *resp)
+static void cb_endure(lcb_t instance, int, const lcb_RESPBASE *resp)
 {
-    reinterpret_cast<ResultSet*>(rs)->setRescode(err,
-            resp->v.v0.key, resp->v.v0.nkey);
+    reinterpret_cast<ResultSet*>(resp->cookie)->setRescode(resp->rc,
+            resp->key, resp->nkey);
 }
 
-static void cb_observe(lcb_t instance, void *rs,
-                   lcb_error_t err, const lcb_observe_resp_t *resp)
+static void cb_observe(lcb_t instance, int, const lcb_RESPBASE *resp)
 {
-    if (resp->v.v0.key) {
-        reinterpret_cast<ResultSet*>(rs)->observekey.assign((char *)resp->v.v0.key, resp->v.v0.nkey);
+    lcb_RESPOBSERVE *obresp = (lcb_RESPOBSERVE *)resp;
+    ResultSet *out = reinterpret_cast<ResultSet*>(resp->cookie);
+
+    if (obresp->rc == LCB_SUCCESS) {
+        if (obresp->rflags & LCB_RESP_F_FINAL) {
+            if (out->options.persist != out->obs_persist_count) {
+                fprintf(stderr, "Item persistence not matched Received %d Expected %d",
+                        out->obs_persist_count, out->options.persist);
+            }
+            if (out->options.replicate != out->obs_replica_count) {
+                fprintf(stderr, "Item replication not matched Received %d Expected %d",
+                        out->obs_replica_count, out->options.replicate);
+            }
+            out->setRescode(obresp->rc, obresp->key, obresp->nkey);
+        }
+        if (obresp->status == 1) {
+            out->obs_persist_count++;
+            out->obs_replica_count++;
+        }
+        if (obresp->status == 0)  {
+            out->obs_replica_count++;
+        }
     } else {
-        reinterpret_cast<ResultSet*>(rs)->setRescode(err,
-                reinterpret_cast<ResultSet*>(rs)->observekey.data(),
-                reinterpret_cast<ResultSet*>(rs)->observekey.size());
+        out->setRescode(obresp->rc, obresp->key, obresp->nkey);
+    }
+}
+
+static void cb_stats(lcb_t instance, int, const lcb_RESPBASE *resp)
+{
+    lcb_RESPSTATS *sresp = (lcb_RESPSTATS *)resp;
+    ResultSet *out = reinterpret_cast<ResultSet*>(sresp->cookie);
+
+    if (sresp->rc == LCB_SUCCESS) {
+        if (strncmp((const char *)sresp->key, "key_exptime", sresp->nkey) && sresp->nvalue > 0) {
+            char buf[sresp->nvalue];
+            memcpy(buf, sresp->value, sresp->nvalue);
+            unsigned int exp_expiry = out->options.expiry;
+            unsigned int expiry = *(unsigned int *)buf;
+            if(exp_expiry  != expiry) {
+                fprintf(stderr, "TTL not matched Received %d Expected %d\n", expiry, exp_expiry);
+            }
+        }
+        if (strncmp((const char *)sresp->key, "key_flags", sresp->nkey) && sresp->nvalue > 0) {
+            char buf[sresp->nvalue];
+            memcpy(buf, sresp->value, sresp->nvalue);
+            unsigned int exp_flags = out->options.flags;
+            unsigned int flags = *(unsigned int *)buf;
+
+            if(exp_flags != flags) {
+                fprintf(stderr, "Flags not matched Received %d Expected %d\n", flags, exp_flags);
+            }
+        }
+        if (sresp->rflags & LCB_RESP_F_FINAL) {
+            out->setRescode(sresp->rc, sresp->key, sresp->nkey);
+        }
+    } else {
+        out->setRescode(sresp->rc, sresp->key, sresp->nkey);
     }
 }
 
 static void wire_callbacks(lcb_t instance)
 {
 #define _setcb(t,cb) \
-    lcb_set_##t##_callback(instance,(lcb_##t##_callback)cb)
-    _setcb(store, cb_storage);
-    _setcb(get, cb_get);
-    _setcb(remove, cb_remove);
-    _setcb(touch, cb_touch);
-    _setcb(durability, cb_endure);
-    _setcb(observe, cb_observe);
+    lcb_install_callback3(instance, t, cb)
+    _setcb(LCB_CALLBACK_STORE, cb_storage);
+    _setcb(LCB_CALLBACK_GET, cb_get);
+    _setcb(LCB_CALLBACK_REMOVE, cb_remove);
+    _setcb(LCB_CALLBACK_TOUCH, cb_touch);
+    _setcb(LCB_CALLBACK_ENDURE, cb_endure);
+    _setcb(LCB_CALLBACK_OBSERVE, cb_observe);
+    _setcb(LCB_CALLBACK_STATS, cb_stats);
 #undef _setcb
 }
 
@@ -200,7 +246,8 @@ Handle::connect(Error *errp)
     }
 
     if (options.timeout) {
-        lcb_set_timeout(instance, options.timeout * 1000000);
+        lcb_U32 timeout = options.timeout * 1000000;
+        lcb_cntl(instance, LCB_CNTL_SET, LCB_CNTL_OP_TIMEOUT, &timeout);
     }
 
     lcb_set_error_callback(instance, cb_err);
@@ -216,8 +263,19 @@ Handle::connect(Error *errp)
         log_error("lcb_connect failed: %s", errp->prettyPrint().c_str());
         return false;
     }
-
     lcb_wait(instance);
+
+    the_error = lcb_get_bootstrap_status(instance);
+    if (the_error != LCB_SUCCESS) {
+        errp->setCode(mapError(the_error));
+        errp->errstr = lcb_strerror(instance, the_error);
+
+        log_error("lcb_bootstrap status failed: %s 0x%X", errp->prettyPrint().c_str(), the_error);
+        return false;
+    }
+
+    lcb_wait3(instance, LCB_WAIT_NOCHECK);
+
     if (pending_errors.size()) {
         *errp = pending_errors.back();
         pending_errors.clear();
@@ -236,7 +294,7 @@ Handle::collect_result(ResultSet& rs)
     if (!rs.remaining) {
         return;
     }
-    lcb_wait(instance);
+    lcb_wait3(instance, LCB_WAIT_DEFAULT);
 }
 
 void
@@ -287,16 +345,14 @@ Handle::dsGet(Command cmd, Dataset const &ds, ResultSet& out,
         std::string k = iter->key();
         log_trace("GET: %s", k.c_str());
 
-        lcb_get_cmd_t gcmd;
-        const lcb_get_cmd_t *cmdp = &gcmd;
-
-        gcmd.v.v0.key = k.data();
-        gcmd.v.v0.nkey = k.size();
-        gcmd.v.v0.exptime = exp;
+        lcb_sched_enter(instance);
+        lcb_CMDGET cmd = { 0 };
+        LCB_CMD_SET_KEY(&cmd, k.data(), k.size());
+        cmd.exptime = exp;
 
         out.markBegin();
-
-        lcb_error_t err = lcb_get(instance, &out, 1, &cmdp);
+        lcb_error_t err = lcb_get3(instance, &out, &cmd);
+        lcb_sched_leave(instance);
 
         if (err == LCB_SUCCESS) {
             postsubmit(out);
@@ -345,20 +401,19 @@ Handle::dsMutate(Command cmd, const Dataset& ds, ResultSet& out,
 
         std::string k = iter->key(), v = iter->value();
 
-        lcb_store_cmd_t scmd;
-        const lcb_store_cmd_t *cmdp = &scmd;
+        lcb_sched_enter(instance);
+        lcb_CMDSTORE cmd = { 0 };
+        cmd.operation = storop;
 
-        scmd.v.v0.key = k.data();
-        scmd.v.v0.nkey = k.size();
+        LCB_CMD_SET_KEY(&cmd, k.data(), k.size());
+        LCB_CMD_SET_VALUE(&cmd, v.data(), v.size());
+        cmd.exptime = exp;
+        cmd.flags = out.options.flags;
 
-        scmd.v.v0.bytes = v.data();
-        scmd.v.v0.nbytes = v.size();
-
-        scmd.v.v0.exptime = exp;
-        scmd.v.v0.operation = storop;
 
         out.markBegin();
-        lcb_error_t err = lcb_store(instance, &out, 1, &cmdp);
+        lcb_error_t err = lcb_store3(instance, &out, &cmd);
+        lcb_sched_leave(instance);
 
         if (err == LCB_SUCCESS) {
             postsubmit(out);
@@ -388,17 +443,13 @@ Handle::dsGetReplica(Command cmd, Dataset const &ds, ResultSet& out,
         std::string k = iter->key();
         log_trace("GET REPLICA : %s", k.c_str());
 
-        lcb_get_replica_cmd_t cmd;
-        memset(&cmd, 0, sizeof(cmd));
-
-        cmd.v.v1.key = k.data();
-        cmd.v.v1.nkey = k.size();
-        cmd.v.v1.strategy = LCB_REPLICA_ALL;
-
-        const lcb_get_replica_cmd_t *cmds[] = { &cmd };
+        lcb_sched_enter(instance);
+        lcb_CMDGETREPLICA cmd = { 0 };
+        LCB_CMD_SET_KEY(&cmd, k.data(), k.size());
 
         out.markBegin();
-        lcb_error_t err = lcb_get_replica(instance, &out, 1, cmds);
+        lcb_error_t err = lcb_rget3(instance, &out, &cmd);
+        lcb_sched_leave(instance);
 
         if (err == LCB_SUCCESS) {
             postsubmit(out);
@@ -422,30 +473,28 @@ Handle::dsEndure(Command cmd, Dataset const &ds, ResultSet& out,
 
     DatasetIterator* iter = ds.getIter();
 
+    //Use the same context for all endure commands
+    lcb_durability_opts_t dopts = { 0 };
+    dopts.v.v0.persist_to = options.persist;
+    dopts.v.v0.replicate_to = options.replicate;
+    dopts.v.v0.cap_max = 1;
+
     for (iter->start();
             iter->done() == false && do_cancel == false;
             iter->advance()) {
 
-        std::string k = iter->key();
+        std::string k = iter->key(), v = iter->value();
 
-        lcb_durability_opts_t opts = { 0 };
-
-        opts.v.v0.persist_to = options.persist;
-        opts.v.v0.replicate_to = options.replicate;
-        opts.v.v0.cap_max = 1;
-
-        lcb_durability_cmd_t cmd = { 0 };
-
-        cmd.v.v0.key = k.data();
-        cmd.v.v0.nkey = k.size();
-
-        const lcb_durability_cmd_t *cmds[] = { &cmd };
+        lcb_CMDENDURE cmd = { 0 };
+        LCB_CMD_SET_KEY(&cmd, k.data(), k.size());
 
         out.markBegin();
 
-        lcb_error_t err;
-        err = lcb_durability_poll(instance, &out,
-                                    &opts, 1, cmds);
+        lcb_MULTICMD_CTX *mctx = lcb_endure3_ctxnew(instance, &dopts, NULL);
+        lcb_sched_enter(instance);
+        mctx->addcmd(mctx, (lcb_CMDBASE*)&cmd);
+        lcb_error_t err =  mctx->done(mctx, &out);
+        lcb_sched_leave(instance);
 
         if (err == LCB_SUCCESS) {
             postsubmit(out);
@@ -475,17 +524,62 @@ Handle::dsObserve(Command cmd, Dataset const &ds, ResultSet& out,
 
         std::string k = iter->key();
 
-        lcb_observe_cmd_t cmd;
-        memset(&cmd, 0, sizeof(cmd));
-
-        cmd.v.v0.key = k.data();
-        cmd.v.v0.nkey = k.size();
-
-        const lcb_observe_cmd_t *cmds[] = { &cmd };
+        lcb_CMDOBSERVE cmd = {0};
+        LCB_CMD_SET_KEY(&cmd, k.data(), k.size());
 
         out.markBegin();
 
-        lcb_error_t err = lcb_observe(instance, &out, 1, cmds);
+        lcb_MULTICMD_CTX *mctx = lcb_observe3_ctxnew(instance);
+        lcb_sched_enter(instance);
+        mctx->addcmd(mctx, (lcb_CMDBASE*)&cmd);
+        lcb_error_t err =  mctx->done(mctx, &out);
+        lcb_sched_leave(instance);
+
+        if (err == LCB_SUCCESS) {
+            postsubmit(out);
+        } else {
+            out.setRescode(err, k, true);
+        }
+    }
+
+    delete iter;
+    collect_result(out);
+    return true;
+}
+
+bool
+Handle::dsEndureWithSeqNo(Command cmd, Dataset const &ds, ResultSet& out,
+              const ResultOptions& options)
+{
+    out.options = options;
+    out.clear();
+    do_cancel = false;
+
+    DatasetIterator* iter = ds.getIter();
+
+    //Use the same context for all endure commands
+    lcb_durability_opts_t dopts = { 0 };
+    dopts.v.v0.persist_to = options.persist;
+    dopts.v.v0.replicate_to = options.replicate;
+    dopts.v.v0.cap_max = 1;
+    dopts.v.v0.pollopts = LCB_DURABILITY_METH_SEQNO;
+
+    for (iter->start();
+            iter->done() == false && do_cancel == false;
+            iter->advance()) {
+
+        std::string k = iter->key(), v = iter->value();
+
+        lcb_CMDENDURE cmd = { 0 };
+        LCB_CMD_SET_KEY(&cmd, k.data(), k.size());
+
+        out.markBegin();
+
+        lcb_MULTICMD_CTX *mctx = lcb_endure3_ctxnew(instance, &dopts, NULL);
+        lcb_sched_enter(instance);
+        mctx->addcmd(mctx, (lcb_CMDBASE*)&cmd);
+        lcb_error_t err =  mctx->done(mctx, &out);
+        lcb_sched_leave(instance);
 
         if (err == LCB_SUCCESS) {
             postsubmit(out);
@@ -505,7 +599,6 @@ Handle::dsKeyop(Command cmd, const Dataset& ds, ResultSet& out,
 {
     out.options = options;
     out.clear();
-    lcb_time_t exp = out.options.expiry;
     DatasetIterator *iter = ds.getIter();
     do_cancel = false;
 
@@ -519,15 +612,17 @@ Handle::dsKeyop(Command cmd, const Dataset& ds, ResultSet& out,
         out.markBegin();
 
         if (cmd == Command::MC_DS_DELETE) {
-            lcb_remove_cmd_t rmcmd = lcb_remove_cmd_st(k.data(), k.size());
-            const lcb_remove_cmd_t *cmdp = &rmcmd;
-            err = lcb_remove(instance, &out, 1, &cmdp);
-
+            lcb_sched_enter(instance);
+            lcb_CMDREMOVE cmd = { 0 };
+            LCB_CMD_SET_KEY(&cmd, k.data(), k.size());
+            err = lcb_remove3(instance, &out, &cmd);
+            lcb_sched_leave(instance);
         } else {
-            lcb_touch_cmd_t tcmd = lcb_touch_cmd_t(k.data(), k.size(), exp);
-            const lcb_touch_cmd_t *cmdp = &tcmd;
-            err = lcb_touch(instance, &out, 1, &cmdp);
-
+            lcb_sched_enter(instance);
+            lcb_CMDTOUCH cmd = { 0 };
+            LCB_CMD_SET_KEY(&cmd, k.data(), k.size());
+            err = lcb_touch3(instance, &out, &cmd);
+            lcb_sched_leave(instance);
         }
 
         if (err == LCB_SUCCESS) {
@@ -539,6 +634,46 @@ Handle::dsKeyop(Command cmd, const Dataset& ds, ResultSet& out,
     delete iter;
     collect_result(out);
     return true;
+}
+
+
+bool
+Handle::dsVerifyStats(Command cmd, const Dataset& ds, ResultSet& out,
+        const ResultOptions& options) {
+
+    out.options = options;
+    out.clear();
+    DatasetIterator *iter = ds.getIter();
+    do_cancel = false;
+
+    for (iter->start();
+            iter->done() == false && do_cancel == false;
+            iter->advance()) {
+
+        std::string k = iter->key();
+
+        lcb_sched_enter(instance);
+        lcb_CMDSTATS cmd = { 0 };
+        memset(&cmd, 0, sizeof(cmd));
+
+        LCB_KREQ_SIMPLE(&cmd.key, k.data(), k.size());
+        cmd.cmdflags = LCB_CMDSTATS_F_KV;
+
+        out.markBegin();
+
+        lcb_error_t err =  lcb_stats3(instance, &out, &cmd);
+        lcb_sched_leave(instance);
+
+        if (err == LCB_SUCCESS) {
+            postsubmit(out);
+        } else {
+            out.setRescode(err, k, true);
+        }
+    }
+    delete iter;
+    collect_result(out);
+    return true;
+
 }
 
 void

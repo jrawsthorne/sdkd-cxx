@@ -24,6 +24,7 @@ public:
     bool full;
     unsigned int multi;
     unsigned int expiry;
+    unsigned int flags;
     unsigned int iterwait;
 
     unsigned int delay_min;
@@ -198,9 +199,8 @@ public:
     }
 
     static std::map<lcb_error_t,int> Errmap;
-
-    //storing the key from observe callback
-    std::string observekey;
+    unsigned int obs_persist_count;
+    unsigned int obs_replica_count;
 
 private:
     friend class Handle;

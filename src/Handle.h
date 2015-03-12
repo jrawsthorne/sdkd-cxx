@@ -154,6 +154,12 @@ public:
     dsEndure(Command cmd,
              Dataset const&, ResultSet& out,
              ResultOptions const& options = ResultOptions());
+
+    bool
+    dsEndureWithSeqNo(Command cmd,
+             Dataset const&, ResultSet& out,
+             ResultOptions const& options = ResultOptions());
+
     bool
     dsObserve(Command cmd,
              Dataset const&, ResultSet& out,
@@ -161,6 +167,11 @@ public:
 
     bool
     dsGetReplica(Command cmd,
+             Dataset const&, ResultSet& out,
+             ResultOptions const& options = ResultOptions());
+
+    bool
+    dsVerifyStats(Command cmd,
              Dataset const&, ResultSet& out,
              ResultOptions const& options = ResultOptions());
 

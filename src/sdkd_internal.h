@@ -2,6 +2,8 @@
 #define SDKD_INTERNAL_H_
 
 #include <libcouchbase/couchbase.h>
+#include <libcouchbase/api3.h>
+#include <libcouchbase/views.h>
 
 #ifndef _WIN32
 #include <sys/socket.h>

@@ -518,38 +518,17 @@ lcb_vqstr_write(const lcb_vopt_t * const * options,
  * Convenience function to make a view URI.
  */
 char *
-lcb_vqstr_make_uri(const char *design, size_t ndesign,
-                   const char *view, size_t nview,
-                   const lcb_vopt_t * const * options,
+lcb_vqstr_make_optstr(const lcb_vopt_t * const * options,
                    size_t noptions)
 {
-    size_t needed_len, path_len;
+    size_t needed_len;
     char *buf;
 
-    if (ndesign == -1) {
-        ndesign = strlen(design);
-    }
-
-    if (nview == -1) {
-        nview = strlen(view);
-    }
-
-    path_len = sizeof("_design/")-1 + sizeof("/_view/")-1 + ndesign + nview;
     needed_len = lcb_vqstr_calc_len(options, noptions);
-    needed_len += path_len + 1;
 
     buf = malloc(needed_len);
-#ifdef _WIN32
-    _snprintf(
-#else
-    snprintf(
-#endif
-            buf, path_len+1,
-             "_design/%.*s/_view/%.*s",
-             (int)ndesign, design,
-             (int)nview, view);
 
-    lcb_vqstr_write(options, noptions, buf + path_len);
+    lcb_vqstr_write(options, noptions, buf);
     return buf;
 }
 
