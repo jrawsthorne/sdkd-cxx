@@ -36,7 +36,6 @@ void Handle::VersionInfoJson(Json::Value &res) {
 #define STRINGIFY_(X) #X
 #define STRINGIFY(X) STRINGIFY_(X)
     hdrComponents["CHANGESET"] = STRINGIFY(LCB_VERSION_CHANGESET);
-    fprintf(stderr, " SDK version changeset %s", hdrComponents["CHANGESET"]);
 #undef STRINGIFY
 #undef STRINGIFY_
 
@@ -142,23 +141,30 @@ static void cb_stats(lcb_t instance, int, const lcb_RESPBASE *resp)
     ResultSet *out = reinterpret_cast<ResultSet*>(sresp->cookie);
 
     if (sresp->rc == LCB_SUCCESS) {
-        if (strncmp((const char *)sresp->key, "key_exptime", sresp->nkey) && sresp->nvalue > 0) {
-            char buf[sresp->nvalue];
-            memcpy(buf, sresp->value, sresp->nvalue);
-            unsigned int exp_expiry = out->options.expiry;
-            unsigned int expiry = *(unsigned int *)buf;
-            if(exp_expiry  != expiry) {
-                fprintf(stderr, "TTL not matched Received %d Expected %d\n", expiry, exp_expiry);
-            }
-        }
-        if (strncmp((const char *)sresp->key, "key_flags", sresp->nkey) && sresp->nvalue > 0) {
-            char buf[sresp->nvalue];
-            memcpy(buf, sresp->value, sresp->nvalue);
-            unsigned int exp_flags = out->options.flags;
-            unsigned int flags = *(unsigned int *)buf;
+        if (sresp->key != NULL) {
+            if (strncmp((const char *)sresp->key, "key_exptime", sresp->nkey) == 0) {
+                char buf[sresp->nvalue];
+                memcpy(buf, sresp->value, sresp->nvalue);
+                buf[sresp->nvalue] = '\0';
 
-            if(exp_flags != flags) {
-                fprintf(stderr, "Flags not matched Received %d Expected %d\n", flags, exp_flags);
+                int exp_expiry = out->options.expiry;
+                int expiry = atoi(buf);
+                if(exp_expiry  != expiry) {
+                    fprintf(stderr, "TTL not matched Received %d Expected %d\n", expiry, exp_expiry);
+                    exit(1);
+                }
+            }
+            if (strncmp((const char *)sresp->key, "key_flags", sresp->nkey) == 0) {
+                char buf[sresp->nvalue];
+                memcpy(buf, sresp->value, sresp->nvalue);
+                buf[sresp->nvalue] = '\0';
+
+                int exp_flags = out->options.flags;
+                int flags = atoi(buf);
+                if(exp_flags != flags) {
+                    fprintf(stderr, "Flags not matched Received %d Expected %d\n", flags, exp_flags);
+                    exit(1);
+                }
             }
         }
         if (sresp->rflags & LCB_RESP_F_FINAL) {
