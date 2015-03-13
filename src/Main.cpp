@@ -142,6 +142,7 @@ Program::Program(int argc, char **argv) : printVersion(0)
 int
 main(int argc, char **argv)
 {
+
 #ifdef _WIN32
     // Initialize winsock
     WORD wVersionRequested;
@@ -150,6 +151,15 @@ main(int argc, char **argv)
     wVersionRequested = MAKEWORD(2, 2);
     rv = WSAStartup(wVersionRequested, &wsaData);
     assert(rv == 0);
+#else
+    FILE *fp;
+    fp = fopen(PID_FILE, "w");
+    if (!fp) {
+        fprintf(stderr, "Cannot open pid file %s for writing", PID_FILE);
+        exit(1);
+    }
+    fprintf(fp, "%d", (int)getpid());
+    close(fp);
 #endif
 
     Program program = Program(argc, argv);

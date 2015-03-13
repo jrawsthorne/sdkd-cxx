@@ -109,4 +109,7 @@
 #define CBSDKD_MSGFLD_V_QDELAY "ViewQueryDelay"
 #define CBSDKD_MSGFLD_V_QITERCOUNT "ViewQueryCount"
 
+/** get usage interval */
+#define CBSDKD_MSDGFLD_SAMPLING_INTERVAL "Interval"
+
 #endif /* CBSDKD_H_ */

@@ -44,6 +44,7 @@ SET(COMMON_SOURCES
     src/ResultSet.cpp
     src/IODispatch.cpp
     src/Worker.cpp
+    src/UsageCollector.cpp
 
     src/ViewExecutor.cpp
     src/ViewLoader.cpp
