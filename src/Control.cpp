@@ -7,6 +7,7 @@ MainDispatch::MainDispatch() : IODispatch(), acceptfd(-1)
     setLogPrefix("LCB SDKD Control");
     dsmutex = Mutex::Create();
     wmutex = Mutex::Create();
+    isCollectingStats = false;
 }
 
 MainDispatch::~MainDispatch()
