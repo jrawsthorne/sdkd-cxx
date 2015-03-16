@@ -159,7 +159,7 @@ main(int argc, char **argv)
         exit(1);
     }
     fprintf(fp, "%d", (int)getpid());
-    close(fp);
+    fclose(fp);
 #endif
 
     Program program = Program(argc, argv);
