@@ -197,7 +197,7 @@ Handle::Handle(const HandleOptions& opts) :
         is_connected(false),
         instance(NULL)
 {
-    create_opts.version = 0;
+    create_opts.version = 3;
 }
 
 Handle::~Handle() {
@@ -223,21 +223,32 @@ Handle::connect(Error *errp)
     // Gather parameters
     lcb_error_t the_error;
     instance = NULL;
+    std::string connstr;
 
-    if (!create_opts.v.v0.host) {
-        create_opts.v.v0.host = cstr_ornull(options.hostname);
-        create_opts.v.v0.user = cstr_ornull(options.username);
-        create_opts.v.v0.passwd = cstr_ornull(options.password);
-        create_opts.v.v0.bucket = cstr_ornull(options.bucket);
+    if (!create_opts.v.v3.connstr) {
+        if(options.useSSL) {
+            connstr += std::string("couchbases://") + options.hostname;
+            connstr += std::string("/") + options.bucket;
+            connstr += std::string("?certpath=");
+            connstr += std::string(options.certpath);
+            certpath = options.certpath;
+        } else {
+            connstr += std::string("couchbase://") + options.hostname;
+            connstr +=  std::string("/") + options.bucket;
+        }
+
+        create_opts.v.v3.connstr = cstr_ornull(connstr);
+        create_opts.v.v3.passwd = cstr_ornull(options.password);
+
         if (Daemon::MainDaemon->getOptions().conncachePath) {
             memset(&cached_opts, 0, sizeof(cached_opts));
             memcpy(&cached_opts.createopt, &create_opts, sizeof(create_opts));
             cached_opts.cachefile = Daemon::MainDaemon->getOptions().conncachePath;
         }
     }
-
+    
     io = Daemon::MainDaemon->createIO();
-    create_opts.v.v0.io = io;
+    create_opts.v.v3.io = io;
 
     if (Daemon::MainDaemon->getOptions().conncachePath) {
         the_error = lcb_create_compat(LCB_CACHED_CONFIG, &cached_opts, &instance, NULL);
@@ -252,8 +263,7 @@ Handle::connect(Error *errp)
     }
 
     if (options.timeout) {
-        lcb_U32 timeout = options.timeout * 1000000;
-        lcb_cntl(instance, LCB_CNTL_SET, LCB_CNTL_OP_TIMEOUT, &timeout);
+        lcb_set_timeout(instance, options.timeout * 1000000);
     }
 
     lcb_set_error_callback(instance, cb_err);
@@ -568,7 +578,8 @@ Handle::dsEndureWithSeqNo(Command cmd, Dataset const &ds, ResultSet& out,
     dopts.v.v0.persist_to = options.persist;
     dopts.v.v0.replicate_to = options.replicate;
     dopts.v.v0.cap_max = 1;
-    dopts.v.v0.pollopts = LCB_DURABILITY_METH_SEQNO;
+    //dopts.v.v0.pollopts = LCB_DURABILITY_METH_SEQNO;
+    
 
     for (iter->start();
             iter->done() == false && do_cancel == false;
@@ -686,6 +697,10 @@ void
 Handle::cancelCurrent()
 {
     do_cancel = true;
+    //delete certfile if exists
+    if (certpath.size()) {
+        remove(certpath.c_str());
+    }
 }
 
 

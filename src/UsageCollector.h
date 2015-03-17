@@ -24,7 +24,7 @@ namespace CBSdkd {
             }
 
             void StopCollector() {
-                if (thr->isAlive()){
+                if (thr && thr->isAlive()){
                     thr->abort();
                 }
             }

@@ -75,6 +75,9 @@
 #define CBSDKD_MSGFLD_HANDLE_OPTIONS            "Options"
 #define CBSDKD_MSGFLD_HANDLE_OPT_TMO            "Timeout"
 #define CBSDKD_MSGFLD_HANDLE_OPT_BACKUPS        "OtherNodes"
+#define CBSDKD_MSGFLD_HANDLE_OPT_CLUSTERCERT    "ClusterCertificate"
+#define CBSDKD_MSGFLD_HANDLE_OPT_SSL            "SSL"
+
 
 /**
  * TTL Parameters

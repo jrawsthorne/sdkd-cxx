@@ -12,6 +12,7 @@
 #error "include sdkd_internal.h first"
 #endif
 
+
 namespace CBSdkd {
 using std::map;
 
@@ -50,12 +51,12 @@ public:
                 return; // invalidate
             }
 
-            if (json[CBSDKD_MSGFLD_HANDLE_PORT].asInt()) {
+            /*if (json[CBSDKD_MSGFLD_HANDLE_PORT].asInt()) {
                 hostname += ":";
                 stringstream ss;
                 ss << json[CBSDKD_MSGFLD_HANDLE_PORT].asInt();
                 hostname += ss.str();
-            }
+            }*/
 
             if (host_extra.size()) {
                 if (hostname.size()) {
@@ -67,6 +68,33 @@ public:
             timeout = opts[CBSDKD_MSGFLD_HANDLE_OPT_TMO].asUInt();
             username = opts[CBSDKD_MSGFLD_HANDLE_USERNAME].asString();
             password = opts[CBSDKD_MSGFLD_HANDLE_PASSWORD].asString();
+            useSSL = opts[CBSDKD_MSGFLD_HANDLE_OPT_SSL].asBool();
+
+            if (useSSL == true) {
+                std::string clusterCert = opts[CBSDKD_MSGFLD_HANDLE_OPT_CLUSTERCERT].asString();
+
+                if (!clusterCert.size()) {
+                    fprintf(stderr, "SSL specified but no cert found");
+                    exit(1);
+                }
+
+#ifndef _WIN32
+                char pathtmp[] = "certXXXXXX";
+                char *path = mktemp(pathtmp);
+                if (!path) {
+                    fprintf(stderr, "Unable to create path to store cert");
+                    exit(1);
+                }
+                FILE *fp =  fopen(path, "w");
+                fprintf(fp, "%s", clusterCert.c_str());
+                fclose(fp);
+                certpath = path;
+#endif
+                if (!certpath.size()) {
+                    fprintf(stderr, "Unable to create cert path");
+                    exit(1);
+                }
+            }
 
         } else {
             timeout = 0;
@@ -82,10 +110,13 @@ public:
                 username,
                 password,
                 bucket;
+    bool useSSL;
+    std::string certpath;
 
     unsigned long timeout;
 
 private:
+
     // Gets extra hosts, if available. Returns false on error
     bool getExtraHosts(Json::Value opts, string& extras) {
         const Json::Value jothers = opts[CBSDKD_MSGFLD_HANDLE_OPT_BACKUPS];
@@ -224,6 +255,7 @@ private:
     lcb_t instance;
     lcb_io_opt_t io;
 
+    std::string certpath;
     void collect_result(ResultSet& rs);
     void postsubmit(ResultSet& rs, unsigned int nsubmit = 1);
 };
