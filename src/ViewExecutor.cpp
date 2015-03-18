@@ -132,6 +132,10 @@ ViewExecutor::genOptionsString(const Request& req, string& out, Error& eo)
 
 extern "C" {
 static void rowCallback(lcb_t instance, int, const lcb_RESPVIEWQUERY *response) {
+    if (response->rflags  & LCB_RESP_F_FINAL) {
+        reinterpret_cast<ResultSet*>(response->cookie)->setRescode(response->rc, true);
+        return;
+    }
     if (response->rc == LCB_SUCCESS) {
         reinterpret_cast<ResultSet*>(response->cookie)->setRescode(0);
     } else {
@@ -153,6 +157,10 @@ ViewExecutor::runSingleView(lcb_CMDVIEWQUERY *cmd, ResultSet& out)
     }
 
     lcb_wait3(handle->getLcb(), LCB_WAIT_NOCHECK);
+    if (!out.vresp_complete) {
+        fprintf(stderr, "Final view response not received..aborting");
+        abort();
+    }
 
 GT_ERR:
     if (lcb_err != LCB_SUCCESS) {

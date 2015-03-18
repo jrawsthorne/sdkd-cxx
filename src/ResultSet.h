@@ -96,7 +96,8 @@ public:
     ResultSet() :
         remaining(0),
         parent(NULL),
-        dsiter(NULL)
+        dsiter(NULL),
+        vresp_complete(false)
     {
         clear();
     }
@@ -132,6 +133,11 @@ public:
     void setRescode(lcb_error_t err, const std::string key,
                     bool expect_value) {
         setRescode(err, key.c_str(), key.length(), true, NULL, 0);
+    }
+
+    void setRescode(lcb_error_t err, bool isFinal) {
+        vresp_complete = isFinal;
+        setRescode(err, NULL, 0, false, NULL, 0);
     }
 
     std::map<int,int> stats;
@@ -201,6 +207,7 @@ public:
     static std::map<lcb_error_t,int> Errmap;
     unsigned int obs_persist_count;
     unsigned int obs_replica_count;
+    bool vresp_complete;
 
 private:
     friend class Handle;
