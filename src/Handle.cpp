@@ -232,9 +232,11 @@ Handle::connect(Error *errp)
             connstr += std::string("?certpath=");
             connstr += std::string(options.certpath);
             certpath = options.certpath;
+            connstr += std::string("&console_log_level=5");
         } else {
             connstr += std::string("couchbase://") + options.hostname;
             connstr +=  std::string("/") + options.bucket;
+            connstr += std::string("?console_log_level=5");
         }
 
         create_opts.v.v3.connstr = cstr_ornull(connstr);
