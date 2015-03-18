@@ -306,6 +306,7 @@ WorkerDispatch::run() {
 
     hmutex->lock();
     if (cur_handle) {
+        cur_handle->cancelCurrent();
         delete cur_handle;
         cur_handle = NULL;
     }
