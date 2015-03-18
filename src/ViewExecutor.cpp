@@ -132,9 +132,6 @@ ViewExecutor::genOptionsString(const Request& req, string& out, Error& eo)
 
 extern "C" {
 static void rowCallback(lcb_t instance, int, const lcb_RESPVIEWQUERY *response) {
-    if (response->rflags & LCB_RESP_F_FINAL) {
-        return;
-    }
     if (response->rc == LCB_SUCCESS) {
         reinterpret_cast<ResultSet*>(response->cookie)->setRescode(0);
     } else {
