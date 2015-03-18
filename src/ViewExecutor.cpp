@@ -215,6 +215,7 @@ ViewExecutor::executeView(Command cmd,
     handle->externalEnter();
 
     while (!handle->isCancelled()) {
+        out.vresp_complete = false;
 
         rs->markBegin();
         runSingleView(&vq, out);

@@ -95,9 +95,9 @@ class ResultSet {
 public:
     ResultSet() :
         remaining(0),
+        vresp_complete(false),
         parent(NULL),
-        dsiter(NULL),
-        vresp_complete(false)
+        dsiter(NULL)
     {
         clear();
     }
