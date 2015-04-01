@@ -232,11 +232,9 @@ Handle::connect(Error *errp)
             connstr += std::string("?certpath=");
             connstr += std::string(options.certpath);
             certpath = options.certpath;
-            connstr += std::string("&console_log_level=5");
         } else {
             connstr += std::string("couchbase://") + options.hostname;
             connstr +=  std::string("/") + options.bucket;
-            connstr += std::string("?console_log_level=5");
         }
 
         create_opts.v.v3.connstr = cstr_ornull(connstr);
@@ -315,7 +313,7 @@ Handle::collect_result(ResultSet& rs)
     lcb_wait3(instance, LCB_WAIT_DEFAULT);
 }
 
-void
+bool
 Handle::postsubmit(ResultSet& rs, unsigned int nsubmit)
 {
 
@@ -323,13 +321,14 @@ Handle::postsubmit(ResultSet& rs, unsigned int nsubmit)
 
     if (!rs.options.iterwait) {
         // everything is buffered up
-        return;
+        return true;
     }
 
     if (rs.remaining < rs.options.iterwait) {
-        return;
+        return true;
     }
 
+    lcb_sched_leave(instance);
     lcb_wait(instance);
 
     unsigned int wait_msec = rs.options.getDelay();
@@ -343,6 +342,7 @@ Handle::postsubmit(ResultSet& rs, unsigned int nsubmit)
         Error e;
         connect(&e);
     }
+    return false;
 }
 
 bool
@@ -352,6 +352,7 @@ Handle::dsGet(Command cmd, Dataset const &ds, ResultSet& out,
     out.options = options;
     out.clear();
     do_cancel = false;
+    bool is_buffered = false;
 
     lcb_time_t exp = out.options.expiry;
 
@@ -363,7 +364,9 @@ Handle::dsGet(Command cmd, Dataset const &ds, ResultSet& out,
         std::string k = iter->key();
         log_trace("GET: %s", k.c_str());
 
-        lcb_sched_enter(instance);
+        if (!is_buffered) {
+            lcb_sched_enter(instance);
+        }
         lcb_CMDGET cmd = { 0 };
         LCB_CMD_SET_KEY(&cmd, k.data(), k.size());
         cmd.exptime = exp;
@@ -373,9 +376,10 @@ Handle::dsGet(Command cmd, Dataset const &ds, ResultSet& out,
         lcb_sched_leave(instance);
 
         if (err == LCB_SUCCESS) {
-            postsubmit(out);
+            is_buffered = postsubmit(out);
         } else {
             out.setRescode(err, k, true);
+            is_buffered = false;
         }
     }
 
@@ -392,6 +396,7 @@ Handle::dsMutate(Command cmd, const Dataset& ds, ResultSet& out,
     out.clear();
     lcb_storage_t storop;
     do_cancel = false;
+    bool is_buffered = false;
 
     if (cmd == Command::MC_DS_MUTATE_ADD) {
         storop = LCB_ADD;
@@ -419,7 +424,9 @@ Handle::dsMutate(Command cmd, const Dataset& ds, ResultSet& out,
 
         std::string k = iter->key(), v = iter->value();
 
-        lcb_sched_enter(instance);
+        if (!is_buffered) {
+            lcb_sched_enter(instance);
+        }
         lcb_CMDSTORE cmd = { 0 };
         cmd.operation = storop;
 
@@ -434,9 +441,10 @@ Handle::dsMutate(Command cmd, const Dataset& ds, ResultSet& out,
         lcb_sched_leave(instance);
 
         if (err == LCB_SUCCESS) {
-            postsubmit(out);
+            is_buffered = postsubmit(out);
         } else {
             out.setRescode(err, k, false);
+            is_buffered = false;
         }
     }
     delete iter;

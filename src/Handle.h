@@ -146,10 +146,6 @@ private:
                 }
 
                 extras += curbu[0].asString();
-                if (curbu[1].isInt()) {
-                    extras += ":";
-                    extras += curbu[1].asString();
-                }
             }
 
             extras += ";";
@@ -257,7 +253,7 @@ private:
 
     std::string certpath;
     void collect_result(ResultSet& rs);
-    void postsubmit(ResultSet& rs, unsigned int nsubmit = 1);
+    bool postsubmit(ResultSet& rs, unsigned int nsubmit = 1);
 };
 
 
