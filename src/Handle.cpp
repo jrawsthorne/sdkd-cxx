@@ -175,6 +175,28 @@ static void cb_stats(lcb_t instance, int, const lcb_RESPBASE *resp)
     }
 }
 
+lcb_error_t
+lcb_errmap_user(lcb_t instance, lcb_uint16_t in)
+{
+    (void)instance;
+
+    switch (in) {
+        case PROTOCOL_BINARY_RESPONSE_NOT_MY_VBUCKET:
+            return LCB_ETIMEDOUT;
+        case PROTOCOL_BINARY_RESPONSE_AUTH_CONTINUE:
+            return LCB_AUTH_CONTINUE;
+        case PROTOCOL_BINARY_RESPONSE_EBUSY:
+            return LCB_EBUSY;
+        case PROTOCOL_BINARY_RESPONSE_ETMPFAIL:
+            return LCB_ETMPFAIL;
+        case PROTOCOL_BINARY_RESPONSE_EINTERNAL:
+            return LCB_EINTERNAL;
+        default:
+            fprintf(stderr, "Got unknown error code %d \n", in);
+            return LCB_ERROR;
+    }
+}
+
 static void wire_callbacks(lcb_t instance)
 {
 #define _setcb(t,cb) \
@@ -187,6 +209,7 @@ static void wire_callbacks(lcb_t instance)
     _setcb(LCB_CALLBACK_OBSERVE, cb_observe);
     _setcb(LCB_CALLBACK_STATS, cb_stats);
 #undef _setcb
+    lcb_set_errmap_callback(instance, lcb_errmap_user);
 }
 
 } /* extern "C" */
@@ -199,6 +222,7 @@ Handle::Handle(const HandleOptions& opts) :
 {
     create_opts.version = 3;
 }
+
 
 Handle::~Handle() {
     if (instance != NULL) {

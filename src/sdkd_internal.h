@@ -4,6 +4,7 @@
 #include <libcouchbase/couchbase.h>
 #include <libcouchbase/api3.h>
 #include <libcouchbase/views.h>
+#include "protocol_binary.h"
 
 #ifndef _WIN32
 #include <sys/socket.h>
