@@ -177,6 +177,10 @@ Daemon::Daemon(const DaemonOptions& userOptions)
         }
     }
 
+    if (myOptions.lcbLogLevel == NULL) {
+        myOptions.lcbLogLevel = "0";
+    }
+
 #ifndef _WIN32
     signal(SIGPIPE, SIG_IGN);
 #endif

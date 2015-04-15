@@ -240,7 +240,6 @@ Handle::~Handle() {
     ((s.size()) ? s.c_str() : NULL)
 
 
-
 bool
 Handle::connect(Error *errp)
 {
@@ -256,10 +255,14 @@ Handle::connect(Error *errp)
             connstr += std::string("?certpath=");
             connstr += std::string(options.certpath);
             certpath = options.certpath;
+            connstr += std::string("&");
         } else {
             connstr += std::string("couchbase://") + options.hostname;
             connstr +=  std::string("/") + options.bucket;
+            connstr += std::string("?");
         }
+        connstr += std::string("console_log_level=");
+        connstr += std::string(Daemon::MainDaemon->getOptions().lcbLogLevel);
 
         create_opts.v.v3.connstr = cstr_ornull(connstr);
         create_opts.v.v3.passwd = cstr_ornull(options.password);
@@ -270,7 +273,7 @@ Handle::connect(Error *errp)
             cached_opts.cachefile = Daemon::MainDaemon->getOptions().conncachePath;
         }
     }
-    
+
     io = Daemon::MainDaemon->createIO();
     create_opts.v.v3.io = io;
 
@@ -613,7 +616,7 @@ Handle::dsEndureWithSeqNo(Command cmd, Dataset const &ds, ResultSet& out,
     dopts.v.v0.replicate_to = options.replicate;
     dopts.v.v0.cap_max = 1;
     //dopts.v.v0.pollopts = LCB_DURABILITY_METH_SEQNO;
-    
+
 
     for (iter->start();
             iter->done() == false && do_cancel == false;

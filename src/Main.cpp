@@ -59,58 +59,62 @@ bool
 Program::parseCliOptions(int argc, char **argv)
 {
     cliopts_entry entries[] = {
-            { 'd', "debug", CLIOPTS_ARGT_INT, &userOptions.debugLevel,
-                    "Level (0=off, 1=most verbose, higher numbers less verbsose)",
-                    "LEVEL"
-            },
+        {'L', "lcb log level", CLIOPTS_ARGT_STRING, &userOptions.lcbLogLevel,
+            "Level 0-5",
+            "LCB LOG LEVEL"
+        },
+        { 'd', "debug", CLIOPTS_ARGT_INT, &userOptions.debugLevel,
+            "Level (0=off, 1=most verbose, higher numbers less verbsose)",
+            "LEVEL"
+        },
 
-            { 'c', "color", CLIOPTS_ARGT_NONE, &userOptions.debugColors,
-                    "Whether to use color logging" },
+        { 'c', "color", CLIOPTS_ARGT_NONE, &userOptions.debugColors,
+            "Whether to use color logging" },
 
-            { 'f', "portfile", CLIOPTS_ARGT_STRING, &userOptions.portFile,
-                    "File to write port information (if listening on random port)",
-                    "FILE"
-            },
+        { 'f', "portfile", CLIOPTS_ARGT_STRING, &userOptions.portFile,
+            "File to write port information (if listening on random port)",
+            "FILE"
+        },
 
-            { 'l', "listen", CLIOPTS_ARGT_UINT, &userOptions.portNumber,
-                    "Port to listen on",
-                    "PORT"
-            },
+        { 'l', "listen", CLIOPTS_ARGT_UINT, &userOptions.portNumber,
+            "Port to listen on",
+            "PORT"
+        },
 
-            { 'P', "persist", CLIOPTS_ARGT_NONE, &userOptions.isPersistent,
-                    "Keep running after GOODBYEs",
-            },
+        { 'P', "persist", CLIOPTS_ARGT_NONE, &userOptions.isPersistent,
+            "Keep running after GOODBYEs",
+        },
 
-            { 0, "ttl", CLIOPTS_ARGT_INT, &userOptions.initialTTL,
-                    "TTL For daemon"
-            },
+        { 0, "ttl", CLIOPTS_ARGT_INT, &userOptions.initialTTL,
+            "TTL For daemon"
+        },
 
-            { 'V', "version", CLIOPTS_ARGT_NONE, &printVersion,
-                    "Print versions and exit"
-            },
+        { 'V', "version", CLIOPTS_ARGT_NONE, &printVersion,
+            "Print versions and exit"
+        },
 
-            { 0, "conncache", CLIOPTS_ARGT_STRING, &userOptions.conncachePath,
-                    "Path to cached configuration"
-            },
+        { 0, "conncache", CLIOPTS_ARGT_STRING, &userOptions.conncachePath,
+            "Path to cached configuration"
+        },
 
-            { 0, "no-persist", CLIOPTS_ARGT_NONE, &userOptions.noPersist,
-                    "Reset LCB Handle after each operation"
-            },
+        { 0, "no-persist", CLIOPTS_ARGT_NONE, &userOptions.noPersist,
+            "Reset LCB Handle after each operation"
+        },
 
-            { 0, "io-plugin-name", CLIOPTS_ARGT_STRING, &userOptions.ioPluginName,
-                    "Name of IO Plugin to use. Must be in linker search path"
-            },
+        { 0, "io-plugin-name", CLIOPTS_ARGT_STRING, &userOptions.ioPluginName,
+            "Name of IO Plugin to use. Must be in linker search path"
+        },
 
-            { 0, "io-plugin-symbol", CLIOPTS_ARGT_STRING, &userOptions.ioPluginSymbol,
-                    "Symbol within the IO plugin which contains the initializer"
-            },
+        { 0, "io-plugin-symbol", CLIOPTS_ARGT_STRING, &userOptions.ioPluginSymbol,
+            "Symbol within the IO plugin which contains the initializer"
+        },
 
-            { 0, "io-plugin-base", CLIOPTS_ARGT_STRING, &userOptions.ioPluginBase,
-                    "Base name for a built-in IO options structure. You "
-                    "may prefix the name with '@' to use a built-in plugin"
-            },
+        { 0, "io-plugin-base", CLIOPTS_ARGT_STRING, &userOptions.ioPluginBase,
+            "Base name for a built-in IO options structure. You "
+                "may prefix the name with '@' to use a built-in plugin"
+        },
 
-            { 0 }
+        { 0 }
     };
 
     int last_arg;
