@@ -237,13 +237,9 @@ public:
 private:
     HandleOptions options;
     lcb_create_st create_opts;
-    lcb_cached_config_st cached_opts;
 
-    bool is_connected;
     bool do_cancel;
 
-    int ifd;
-    int ofd;
 
     std::vector<ResultSet>pending_results;
     std::vector<Error>pending_errors;

@@ -37,7 +37,6 @@ namespace CBSdkd {
             unsigned int interval;
 
         private:
-            Mutex *stopmutex;
             Json::Value memusages;
             Json::Value cputimeusages;
             Json::Value samplingtime; 

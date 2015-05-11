@@ -53,6 +53,7 @@ typedef SOCKET sdkd_socket_t;
 #include <time.h>
 #include <stdio.h>
 #include <errno.h>
+#include<stdlib.h>
 
 #include "protostrings.h"
 

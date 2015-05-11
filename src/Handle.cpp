@@ -56,23 +56,14 @@ void Handle::VersionInfoJson(Json::Value &res) {
     res["TIME"] = (Json::UInt64)time(NULL);
 }
 
-
-
-static void cb_err(lcb_t instance, lcb_error_t err, const char *desc)
-{
-    Handle *handle = (Handle*)lcb_get_cookie(instance);
-    int myerr = Handle::mapError(err);
-    handle->appendError(myerr, desc ? desc : "");
-    log_noctx_error("Got error %d: %s", err, desc ? desc : "");
-}
-
-static void cb_config(lcb_t instance, lcb_configuration_t config)
+static void cb_config(lcb_t instance, lcb_error_t err)
 {
     (void)instance;
-    (void)config;
-    // Too verbose
-    //log_noctx_trace("Instance %p: CONFIG UPDATE [%d]", instance, config);
+    int myerr = Handle::mapError(err);
+    log_noctx_error("Got error %d", myerr);
+
 }
+
 
 static void cb_remove(lcb_t instance, int, const lcb_RESPBASE *resp)
 {
@@ -217,7 +208,6 @@ static void wire_callbacks(lcb_t instance)
 
 Handle::Handle(const HandleOptions& opts) :
         options(opts),
-        is_connected(false),
         instance(NULL)
 {
     create_opts.version = 3;
@@ -261,26 +251,25 @@ Handle::connect(Error *errp)
             connstr +=  std::string("/") + options.bucket;
             connstr += std::string("?");
         }
-        connstr += std::string("console_log_file=");
-        connstr += std::string(Daemon::MainDaemon->getOptions().lcblogFile);
-
         create_opts.v.v3.connstr = cstr_ornull(connstr);
         create_opts.v.v3.passwd = cstr_ornull(options.password);
-
-        if (Daemon::MainDaemon->getOptions().conncachePath) {
-            memset(&cached_opts, 0, sizeof(cached_opts));
-            memcpy(&cached_opts.createopt, &create_opts, sizeof(create_opts));
-            cached_opts.cachefile = Daemon::MainDaemon->getOptions().conncachePath;
-        }
     }
 
     io = Daemon::MainDaemon->createIO();
     create_opts.v.v3.io = io;
 
     if (Daemon::MainDaemon->getOptions().conncachePath) {
-        the_error = lcb_create_compat(LCB_CACHED_CONFIG, &cached_opts, &instance, NULL);
-    } else {
-        the_error = lcb_create(&instance, &create_opts);
+        char *path = Daemon::MainDaemon->getOptions().conncachePath;
+        lcb_cntl(instance, LCB_CNTL_SET, LCB_CNTL_CONFIGCACHE, path);
+    }
+
+    the_error = lcb_create(&instance, &create_opts);
+    if (the_error != LCB_SUCCESS) {
+        errp->setCode(mapError(the_error));
+        errp->errstr = lcb_strerror(instance, the_error);
+
+        log_error("lcb_connect faile: %s", errp->prettyPrint().c_str());
+        return false;
     }
 
     if (!instance) {
@@ -290,11 +279,11 @@ Handle::connect(Error *errp)
     }
 
     if (options.timeout) {
-        lcb_set_timeout(instance, options.timeout * 1000000);
+        unsigned long timeout = options.timeout * 1000000;
+        lcb_cntl(instance, LCB_CNTL_SET, LCB_CNTL_OP_TIMEOUT, &timeout);
     }
 
-    lcb_set_error_callback(instance, cb_err);
-    lcb_set_configuration_callback(instance, cb_config);
+    lcb_set_bootstrap_callback(instance, cb_config);
     lcb_set_cookie(instance, this);
     wire_callbacks(instance);
 

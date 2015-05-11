@@ -32,7 +32,6 @@ private:
     typedef vector<_kvp> kvp_list;
     kvp_list values;
     Handle* handle;
-    unsigned total;
 };
 
 class ViewExecutor : protected DebugContext {

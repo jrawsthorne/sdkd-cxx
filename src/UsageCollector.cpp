@@ -44,7 +44,7 @@ namespace CBSdkd {
                 }
                 double oncputime_s = usage.ru_utime.tv_sec + usage.ru_stime.tv_sec;
                 double oncputime_us = usage.ru_utime.tv_usec + usage.ru_stime.tv_usec;
-                double currenttime, mem, end_span;
+                double currenttime, mem, end_span = 0.0;
 
                 struct timeval tv;
                 gettimeofday(&tv, NULL);
