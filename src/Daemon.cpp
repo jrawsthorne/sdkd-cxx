@@ -177,8 +177,8 @@ Daemon::Daemon(const DaemonOptions& userOptions)
         }
     }
 
-    if (myOptions.lcbLogLevel == NULL) {
-        myOptions.lcbLogLevel = "0";
+    if (myOptions.lcblogFile == NULL) {
+        myOptions.lcblogFile = "out.log";
     }
 
 #ifndef _WIN32

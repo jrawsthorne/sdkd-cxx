@@ -261,8 +261,8 @@ Handle::connect(Error *errp)
             connstr +=  std::string("/") + options.bucket;
             connstr += std::string("?");
         }
-        connstr += std::string("console_log_level=");
-        connstr += std::string(Daemon::MainDaemon->getOptions().lcbLogLevel);
+        connstr += std::string("console_log_file=");
+        connstr += std::string(Daemon::MainDaemon->getOptions().lcblogFile);
 
         create_opts.v.v3.connstr = cstr_ornull(connstr);
         create_opts.v.v3.passwd = cstr_ornull(options.password);

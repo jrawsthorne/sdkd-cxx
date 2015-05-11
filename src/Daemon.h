@@ -7,7 +7,7 @@ struct DaemonOptions {
         memset(this, 0, sizeof(*this));
     }
 
-    char *lcbLogLevel;
+    char *lcblogFile;
     int debugLevel;
     int debugColors;
     char *portFile;

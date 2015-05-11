@@ -59,9 +59,9 @@ bool
 Program::parseCliOptions(int argc, char **argv)
 {
     cliopts_entry entries[] = {
-        {'L', "lcb log level", CLIOPTS_ARGT_STRING, &userOptions.lcbLogLevel,
-            "Level 0-5",
-            "LCB LOG LEVEL"
+        {'L', "lcb log file", CLIOPTS_ARGT_STRING, &userOptions.lcblogFile,
+            "Log file",
+            "LCB LOG FILE"
         },
         { 'd', "debug", CLIOPTS_ARGT_INT, &userOptions.debugLevel,
             "Level (0=off, 1=most verbose, higher numbers less verbsose)",
