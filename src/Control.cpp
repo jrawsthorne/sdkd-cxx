@@ -126,6 +126,9 @@ MainDispatch::dispatchCommand(Request *reqp)
         Handle::VersionInfoJson(infores);
         res.setResponseData(infores);
         writeResponse(res);
+        coll = new UsageCollector();
+        coll->Start();
+        isCollectingStats = true;
     } else if (reqp->command == Command::TTL) {
         if (!reqp->payload.isMember(CBSDK_MSGFLD_TTL_SECONDS)) {
             writeResponse(Response(reqp,

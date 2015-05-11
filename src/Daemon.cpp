@@ -181,12 +181,12 @@ Daemon::Daemon(const DaemonOptions& userOptions)
         myOptions.lcblogFile = (char *)std::string("out.log").c_str();
     }
 #ifndef _WIN32
-    if(setenv("LCB_LOGFILE", myOptions.lcblogFile, 1) != -1) {
+    if(setenv("LCB_LOGFILE", myOptions.lcblogFile, 1) == -1) {
         cerr << "Unable to set environment for log file" << endl;
         exit(1);
     }
-#elif
-    if(_setenv("LCB_LOGFILE", myOptions.lcblogFile, 1) != -1) {
+#else
+    if(_setenv("LCB_LOGFILE", myOptions.lcblogFile, 1) == -1) {
         cerr << "Unable to set environment for log file" << endl;
         exit(1);
     }
