@@ -295,8 +295,6 @@ Handle::connect(Error *errp)
         log_error("lcb_connect failed: %s", errp->prettyPrint().c_str());
         return false;
     }
-    lcb_wait(instance);
-
     the_error = lcb_get_bootstrap_status(instance);
     if (the_error != LCB_SUCCESS) {
         errp->setCode(mapError(the_error));
