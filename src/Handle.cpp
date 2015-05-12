@@ -295,6 +295,8 @@ Handle::connect(Error *errp)
         log_error("lcb_connect failed: %s", errp->prettyPrint().c_str());
         return false;
     }
+    lcb_wait3(instance, LCB_WAIT_NOCHECK);
+
     the_error = lcb_get_bootstrap_status(instance);
     if (the_error != LCB_SUCCESS) {
         errp->setCode(mapError(the_error));
@@ -304,7 +306,6 @@ Handle::connect(Error *errp)
         return false;
     }
 
-    lcb_wait3(instance, LCB_WAIT_NOCHECK);
 
     if (pending_errors.size()) {
         *errp = pending_errors.back();
