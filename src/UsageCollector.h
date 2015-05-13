@@ -13,32 +13,30 @@
 #include "sdkd_internal.h"
 
 namespace CBSdkd {
+class UsageCollector {
+    public:
+        UsageCollector():interval(5) {
+        }
 
+        virtual ~UsageCollector() {
+        }
 
-    class UsageCollector {
-        public:
-            UsageCollector():interval(5) {
-            } 
-
-            virtual ~UsageCollector() {
+        void StopCollector() {
+            if (thr && thr->isAlive()){
+                thr->abort();
             }
+        }
 
-            void StopCollector() {
-                if (thr && thr->isAlive()){
-                    thr->abort();
-                }
-            }
-            
-            void Start();
-            void Loop();
-            void GetResponseJson(Json::Value &res);
+        void Start();
+        void Loop();
+        void GetResponseJson(Json::Value &res);
 
-            Thread *thr;
-            unsigned int interval;
+        Thread *thr;
+        unsigned int interval;
 
-        private:
-            Json::Value memusages;
-            Json::Value cputimeusages;
-            Json::Value samplingtime; 
-    };
+    private:
+        Json::Value memusages;
+        Json::Value cputimeusages;
+        Json::Value samplingtime;
+};
 }

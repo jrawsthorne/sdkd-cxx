@@ -215,6 +215,8 @@ Handle::Handle(const HandleOptions& opts) :
 
 
 Handle::~Handle() {
+    delete logger;
+
     if (instance != NULL) {
         lcb_destroy(instance);
     }
@@ -258,17 +260,11 @@ Handle::connect(Error *errp)
     io = Daemon::MainDaemon->createIO();
     create_opts.v.v3.io = io;
 
-    if (Daemon::MainDaemon->getOptions().conncachePath) {
-        char *path = Daemon::MainDaemon->getOptions().conncachePath;
-        lcb_cntl(instance, LCB_CNTL_SET, LCB_CNTL_CONFIGCACHE, path);
-    }
-
     the_error = lcb_create(&instance, &create_opts);
     if (the_error != LCB_SUCCESS) {
         errp->setCode(mapError(the_error));
         errp->errstr = lcb_strerror(instance, the_error);
-
-        log_error("lcb_connect faile: %s", errp->prettyPrint().c_str());
+        log_error("lcb_connect failed: %s", errp->prettyPrint().c_str());
         return false;
     }
 
@@ -278,9 +274,25 @@ Handle::connect(Error *errp)
         return false;
     }
 
+    if (Daemon::MainDaemon->getOptions().conncachePath) {
+        char *path = Daemon::MainDaemon->getOptions().conncachePath;
+        the_error = lcb_cntl(instance, LCB_CNTL_SET, LCB_CNTL_CONFIGCACHE, path);
+    }
+
+    //set the logger procs
+    logger = new Logger(0, Daemon::MainDaemon->getOptions().lcblogFile);
+    the_error = lcb_cntl(instance, LCB_CNTL_SET, LCB_CNTL_LOGGER, logger);
+
     if (options.timeout) {
         unsigned long timeout = options.timeout * 1000000;
-        lcb_cntl(instance, LCB_CNTL_SET, LCB_CNTL_OP_TIMEOUT, &timeout);
+        the_error =lcb_cntl(instance, LCB_CNTL_SET, LCB_CNTL_OP_TIMEOUT, &timeout);
+    }
+
+    if (the_error != LCB_SUCCESS) {
+        errp->setCode(mapError(the_error));
+        errp->errstr = lcb_strerror(instance, the_error);
+        log_error("lcb instance control settings failed: %s", errp->prettyPrint().c_str());
+        return false;
     }
 
     lcb_set_bootstrap_callback(instance, cb_config);
@@ -717,7 +729,6 @@ Handle::dsVerifyStats(Command cmd, const Dataset& ds, ResultSet& out,
     return true;
 
 }
-
 void
 Handle::cancelCurrent()
 {
@@ -727,6 +738,4 @@ Handle::cancelCurrent()
         remove(certpath.c_str());
     }
 }
-
-
 } /* namespace CBSdkd */

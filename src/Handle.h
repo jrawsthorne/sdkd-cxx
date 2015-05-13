@@ -239,7 +239,7 @@ private:
     lcb_create_st create_opts;
 
     bool do_cancel;
-
+    lcb_logprocs *logger;
 
     std::vector<ResultSet>pending_results;
     std::vector<Error>pending_errors;
