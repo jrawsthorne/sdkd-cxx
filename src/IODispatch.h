@@ -83,6 +83,7 @@ public:
 
 };
 
+class UsageCollector;
 class MainDispatch;
 class WorkerDispatch;
 class WorkerHandle;
@@ -116,12 +117,15 @@ private:
     Mutex *dsmutex;
     Mutex *wmutex;
 
+
     void _collect_workers();
     const Handle* _get_handle(cbsdk_hid_t);
 
     void dispatch_cancel(const Request&);
     bool loopOnce();
     bool dispatchCommand(Request*);
+    bool isCollectingStats;
+    UsageCollector *coll;
 };
 
 

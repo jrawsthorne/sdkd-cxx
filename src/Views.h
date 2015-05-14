@@ -32,7 +32,6 @@ private:
     typedef vector<_kvp> kvp_list;
     kvp_list values;
     Handle* handle;
-    unsigned total;
 };
 
 class ViewExecutor : protected DebugContext {
@@ -54,8 +53,8 @@ public:
 
 
 private:
-    bool genQueryString(const Request& req, string& out, Error& err);
-    void runSingleView(const lcb_http_cmd_t *htcmd);
+    bool genOptionsString(const Request& req, string& out, Error& err);
+    void runSingleView(lcb_CMDVIEWQUERY *cmd, ResultSet& out);
 
     Handle *handle;
     ResultSet *rs;

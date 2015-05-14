@@ -24,6 +24,7 @@ public:
     bool full;
     unsigned int multi;
     unsigned int expiry;
+    unsigned int flags;
     unsigned int iterwait;
 
     unsigned int delay_min;
@@ -94,6 +95,7 @@ class ResultSet {
 public:
     ResultSet() :
         remaining(0),
+        vresp_complete(false),
         parent(NULL),
         dsiter(NULL)
     {
@@ -131,6 +133,11 @@ public:
     void setRescode(lcb_error_t err, const std::string key,
                     bool expect_value) {
         setRescode(err, key.c_str(), key.length(), true, NULL, 0);
+    }
+
+    void setRescode(lcb_error_t err, bool isFinal) {
+        vresp_complete = isFinal;
+        setRescode(err, NULL, 0, false, NULL, 0);
     }
 
     std::map<int,int> stats;
@@ -198,9 +205,9 @@ public:
     }
 
     static std::map<lcb_error_t,int> Errmap;
-
-    //storing the key from observe callback
-    std::string observekey;
+    unsigned int obs_persist_count;
+    unsigned int obs_replica_count;
+    bool vresp_complete;
 
 private:
     friend class Handle;

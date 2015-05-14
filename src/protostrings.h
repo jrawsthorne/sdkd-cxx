@@ -75,6 +75,9 @@
 #define CBSDKD_MSGFLD_HANDLE_OPTIONS            "Options"
 #define CBSDKD_MSGFLD_HANDLE_OPT_TMO            "Timeout"
 #define CBSDKD_MSGFLD_HANDLE_OPT_BACKUPS        "OtherNodes"
+#define CBSDKD_MSGFLD_HANDLE_OPT_CLUSTERCERT    "ClusterCertificate"
+#define CBSDKD_MSGFLD_HANDLE_OPT_SSL            "SSL"
+
 
 /**
  * TTL Parameters
@@ -108,5 +111,8 @@
 #define CBSDKD_MSGFLD_V_QOPTS "ViewParameters"
 #define CBSDKD_MSGFLD_V_QDELAY "ViewQueryDelay"
 #define CBSDKD_MSGFLD_V_QITERCOUNT "ViewQueryCount"
+
+/** get usage interval */
+#define CBSDKD_MSDGFLD_SAMPLING_INTERVAL "Interval"
 
 #endif /* CBSDKD_H_ */

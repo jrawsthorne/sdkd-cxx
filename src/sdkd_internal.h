@@ -2,6 +2,9 @@
 #define SDKD_INTERNAL_H_
 
 #include <libcouchbase/couchbase.h>
+#include <libcouchbase/api3.h>
+#include <libcouchbase/views.h>
+#include "protocol_binary.h"
 
 #ifndef _WIN32
 #include <sys/socket.h>
@@ -11,12 +14,14 @@
 #include <fcntl.h>
 #include <signal.h>
 #include <sys/time.h>
+#include <sys/resource.h>
 
 #define closesocket close
 #define sdkd_millisleep(ms) usleep(ms * 1000)
 #define sdkd_strdup strdup
 #define SDKD_SOCK_EWOULDBLOCK EWOULDBLOCK
 #define SDKD_SOCK_EINTR EINTR
+#define PID_FILE "/var/run/sdkd-cpp.pid"
 typedef int sdkd_socket_t;
 
 #ifndef INVALID_SOCKET
@@ -48,6 +53,7 @@ typedef SOCKET sdkd_socket_t;
 #include <time.h>
 #include <stdio.h>
 #include <errno.h>
+#include<stdlib.h>
 
 #include "protostrings.h"
 
@@ -104,6 +110,8 @@ int gettimeofday(struct timeval *tv, void *tz);
 #include "ResultSet.h"
 #include "Handle.h"
 #include "IODispatch.h"
+#include "UsageCollector.h"
+#include "logging.h"
 
 #include "views/viewopts.h"
 #include "views/viewrow.h"
