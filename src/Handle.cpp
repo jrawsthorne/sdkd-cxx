@@ -263,7 +263,6 @@ Handle::connect(Error *errp)
 
     the_error = lcb_create(&instance, &create_opts);
     if (the_error != LCB_SUCCESS) {
-        errp->setCode(mapError(the_error));
         errp->errstr = lcb_strerror(instance, the_error);
         log_error("lcb_connect failed: %s", errp->prettyPrint().c_str());
         return false;
@@ -290,7 +289,6 @@ Handle::connect(Error *errp)
     }
 
     if (the_error != LCB_SUCCESS) {
-        errp->setCode(mapError(the_error));
         errp->errstr = lcb_strerror(instance, the_error);
         log_error("lcb instance control settings failed: %s", errp->prettyPrint().c_str());
         return false;
@@ -302,7 +300,6 @@ Handle::connect(Error *errp)
 
     the_error = lcb_connect(instance);
     if (the_error != LCB_SUCCESS) {
-        errp->setCode(mapError(the_error));
         errp->errstr = lcb_strerror(instance, the_error);
 
         log_error("lcb_connect failed: %s", errp->prettyPrint().c_str());
@@ -312,7 +309,6 @@ Handle::connect(Error *errp)
 
     the_error = lcb_get_bootstrap_status(instance);
     if (the_error != LCB_SUCCESS) {
-        errp->setCode(mapError(the_error));
         errp->errstr = lcb_strerror(instance, the_error);
 
         log_error("lcb_bootstrap status failed: %s 0x%X", errp->prettyPrint().c_str(), the_error);

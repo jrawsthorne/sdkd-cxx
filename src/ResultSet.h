@@ -109,19 +109,10 @@ public:
     // @param expect_value whether this operation should have returned a value
     // @param value the value (can be NULL)
     // @param n_value the size of the value
-    void setRescode(Error err, const void* key, size_t nkey,
+    void setRescode(lcb_error_t err, const void* key, size_t nkey,
                     bool expect_value, const void* value, size_t n_value);
 
-    void setRescode(lcb_error_t err, const void *key, size_t nkey,
-                    bool expect_value, const void *value, size_t n_value) {
-        Error eo = Error();
-        if (err != LCB_SUCCESS) {
-            eo = mapError(err);
-        }
-        setRescode(eo, key, nkey, expect_value, value, n_value);
-    }
-
-    void setRescode(Error err) {
+    void setRescode(lcb_error_t err) {
         setRescode(err, NULL, 0, false, NULL, 0);
     }
 

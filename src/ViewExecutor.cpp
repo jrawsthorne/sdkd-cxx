@@ -136,11 +136,7 @@ static void rowCallback(lcb_t instance, int, const lcb_RESPVIEWQUERY *response) 
         reinterpret_cast<ResultSet*>(response->cookie)->setRescode(response->rc, true);
         return;
     }
-    if (response->rc == LCB_SUCCESS) {
-        reinterpret_cast<ResultSet*>(response->cookie)->setRescode(0);
-    } else {
-        reinterpret_cast<ResultSet*>(response->cookie)->setRescode(Error(Error::SUBSYSf_VIEWS,Error::VIEWS_MISMATCH));
-   }
+    reinterpret_cast<ResultSet*>(response->cookie)->setRescode(response->rc);
 }
 
 }
@@ -165,9 +161,7 @@ ViewExecutor::runSingleView(lcb_CMDVIEWQUERY *cmd, ResultSet& out)
 GT_ERR:
     if (lcb_err != LCB_SUCCESS) {
         // mark the actual error
-        rs->setRescode(lcb_err, "", 0);
-        // mark the schedule phase
-        rs->setRescode(Error(Error::SUBSYSf_CLIENT, Error::CLIENT_ESCHED));
+        rs->setRescode(lcb_err);
     }
 }
 

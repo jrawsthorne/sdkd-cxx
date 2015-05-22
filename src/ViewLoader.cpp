@@ -53,8 +53,7 @@ void ViewLoader::flushValues(ResultSet& rs)
                                 &scmds_p[0]);
 
     if (err != LCB_SUCCESS) {
-        rs.setRescode(Error(Error::SUBSYSf_CLIENT, Error::CLIENT_ESCHED));
-        rs.setRescode(err, "", 0);
+        rs.setRescode(err);
 
     } else {
         lcb_wait(handle->getLcb());

@@ -58,14 +58,14 @@ ResultOptions::_determine_delay() {
 }
 
 void
-ResultSet::setRescode(Error err,
+ResultSet::setRescode(lcb_error_t err,
                       const void *key,
                       size_t nkey,
                       bool expect_value,
                       const void *value,
                       size_t nvalue)
 {
-    int myerr = err.code;
+    int myerr = err;
 
     stats[myerr]++;
     remaining--;
