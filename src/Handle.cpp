@@ -216,7 +216,6 @@ Handle::Handle(const HandleOptions& opts) :
 
 
 Handle::~Handle() {
-    delete logger;
 
     if (instance != NULL) {
         lcb_destroy(instance);
@@ -227,6 +226,7 @@ Handle::~Handle() {
         io = NULL;
     }
     instance = NULL;
+    delete logger;
 }
 
 #define cstr_ornull(s) \
