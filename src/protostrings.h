@@ -114,5 +114,6 @@
 
 /** get usage interval */
 #define CBSDKD_MSDGFLD_SAMPLING_INTERVAL "Interval"
+#define FLAGS 0x2
 
 #endif /* CBSDKD_H_ */

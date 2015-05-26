@@ -142,7 +142,9 @@ static void cb_stats(lcb_t instance, int, const lcb_RESPBASE *resp)
                 int exp_expiry = out->options.expiry;
                 int expiry = atoi(buf);
                 if(exp_expiry  != expiry) {
-                    fprintf(stderr, "TTL not matched Received %d Expected %d\n", expiry, exp_expiry);
+                    fprintf(stderr,
+                            "TTL not matched Received %d Expected %d key %s\n",
+                            expiry, exp_expiry, sresp->key);
                     exit(1);
                 }
             }
@@ -151,10 +153,13 @@ static void cb_stats(lcb_t instance, int, const lcb_RESPBASE *resp)
                 memcpy(buf, sresp->value, sresp->nvalue);
                 buf[sresp->nvalue] = '\0';
 
-                int exp_flags = out->options.flags;
-                int flags = atoi(buf);
+                int exp_flags = FLAGS;
+                int flags = ntohl(atoi(buf));
+
                 if(exp_flags != flags) {
-                    fprintf(stderr, "Flags not matched Received %d Expected %d\n", flags, exp_flags);
+                    fprintf(stderr,
+                            "Flags not matched Received %d Expected %d Key %s\n",
+                            flags, exp_flags, sresp->key);
                     exit(1);
                 }
             }
@@ -457,7 +462,7 @@ Handle::dsMutate(Command cmd, const Dataset& ds, ResultSet& out,
         LCB_CMD_SET_KEY(&cmd, k.data(), k.size());
         LCB_CMD_SET_VALUE(&cmd, v.data(), v.size());
         cmd.exptime = exp;
-        cmd.flags = out.options.flags;
+        cmd.flags = FLAGS;
 
 
         out.markBegin();
