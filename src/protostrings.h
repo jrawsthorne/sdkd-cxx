@@ -116,4 +116,14 @@
 #define CBSDKD_MSDGFLD_SAMPLING_INTERVAL "Interval"
 #define FLAGS 0x2
 
+/** N1QL query options */
+#define CBSDKD_MSDGFLD_NQ_PARAM "NQParam"
+#define CBSDKD_MSDGFLD_NQ_PARAMVALUES "NQParamValues"
+#define CBSDKD_MSDFLD_NQ_INDEX_ENGINE "NQIndexEngine"
+#define CBSDKD_MSDFLD_NQ_INDEX_TYPE "NQIndexType"
+#define CBSDKD_MSDFLD_NQ_PREPARED "NQPrepared"
+#define CBSDKD_MSDFLD_NQ_PARAMETERIZED "NQParameterized"
+#define CBSDKD_MSDFLD_NQ_DEFAULT_INDEX_NAME "NQDefaultIndexName"
+#define CBSDKD_MSDFLD_NQ_SCANCONSISTENCY "NQScanConsistency"
+
 #endif /* CBSDKD_H_ */
