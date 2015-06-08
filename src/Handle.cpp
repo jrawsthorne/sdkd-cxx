@@ -106,20 +106,28 @@ static void cb_observe(lcb_t instance, int, const lcb_RESPBASE *resp)
     if (obresp->rc == LCB_SUCCESS) {
         if (obresp->rflags & LCB_RESP_F_FINAL) {
             if (out->options.persist != out->obs_persist_count) {
-                fprintf(stderr, "Item persistence not matched Received %d Expected %d",
-                        out->obs_persist_count, out->options.persist);
+                fprintf(stderr, "Item persistence not matched Received %d Expected %d \n",
+                         out->obs_persist_count, out->options.persist);
             }
             if (out->options.replicate != out->obs_replica_count) {
-                fprintf(stderr, "Item replication not matched Received %d Expected %d",
+                fprintf(stderr, "Item replication not matched Received %d Expected %d \n",
                         out->obs_replica_count, out->options.replicate);
             }
             out->setRescode(obresp->rc, obresp->key, obresp->nkey);
         }
-        if (obresp->status == 1) {
+        if (obresp->ismaster == 1) {
             out->obs_persist_count++;
-            out->obs_replica_count++;
+            out->obs_master_cas = obresp->cas;
+            fprintf(stderr, "master cas %llu\n", obresp->cas);
         }
-        if (obresp->status == 0)  {
+
+        else if (obresp->status == 1) {
+            if (obresp->cas == out->obs_master_cas) {
+                out->obs_persist_count++;
+            } else {
+                fprintf(stderr, "cas not matched master cas %llu  replica %llu \n",
+                        out->obs_master_cas, obresp->cas);
+            }
             out->obs_replica_count++;
         }
     } else {
@@ -285,7 +293,8 @@ Handle::connect(Error *errp)
     }
 
     //set the logger procs
-    logger = new Logger(0, Daemon::MainDaemon->getOptions().lcblogFile);
+    logger = new Logger(Daemon::MainDaemon->getOptions().lcblogLevel,
+            Daemon::MainDaemon->getOptions().lcblogFile);
     the_error = lcb_cntl(instance, LCB_CNTL_SET, LCB_CNTL_LOGGER, logger);
 
     if (options.timeout) {
@@ -590,6 +599,8 @@ Handle::dsObserve(Command cmd, Dataset const &ds, ResultSet& out,
         lcb_error_t err =  mctx->done(mctx, &out);
         lcb_sched_leave(instance);
 
+        out.obs_persist_count = 0;
+        out.obs_replica_count = 0;
         if (err == LCB_SUCCESS) {
             postsubmit(out);
         } else {
@@ -626,13 +637,21 @@ Handle::dsEndureWithSeqNo(Command cmd, Dataset const &ds, ResultSet& out,
 
         std::string k = iter->key(), v = iter->value();
 
+
+        lcb_CMDSTORE scmd = { 0 };
+        scmd.operation = LCB_SET;
+        LCB_CMD_SET_KEY(&scmd, k.data(), k.size());
+        LCB_CMD_SET_VALUE(&scmd, v.data(), v.size());
+
+
+
         lcb_CMDENDURE cmd = { 0 };
         LCB_CMD_SET_KEY(&cmd, k.data(), k.size());
 
         out.markBegin();
-
         lcb_MULTICMD_CTX *mctx = lcb_endure3_ctxnew(instance, &dopts, NULL);
         lcb_sched_enter(instance);
+        mctx->addcmd(mctx, (lcb_CMDBASE*)&scmd);
         mctx->addcmd(mctx, (lcb_CMDBASE*)&cmd);
         lcb_error_t err =  mctx->done(mctx, &out);
         lcb_sched_leave(instance);
