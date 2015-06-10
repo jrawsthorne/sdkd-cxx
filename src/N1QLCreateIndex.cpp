@@ -1,15 +1,6 @@
 #include "sdkd_internal.h"
 
 namespace CBSdkd {
-
-N1QLCreateIndex::N1QLCreateIndex(Handle *handle) {
-    this->handle = handle;
-    this->success = false;
-}
-
-N1QLCreateIndex::~N1QLCreateIndex() {
-}
-
 void
 N1QLCreateIndex::query_cb(lcb_t, int, const lcb_RESPN1QL *resp) {
     N1QLCreateIndex *obj = static_cast<N1QLCreateIndex *>(resp->cookie);
@@ -20,47 +11,64 @@ N1QLCreateIndex::query_cb(lcb_t, int, const lcb_RESPN1QL *resp) {
     }
 }
 
+
 bool
 N1QLCreateIndex::execute(Command cmd,
-                            ResultSet& out,
-                            const ResultOptions& options,
-                            const Request& req)
+                        const Request& req,
+                        N1QLConfig *config)
 {
+
     Json::Value ctlopts = req.payload[CBSDKD_MSGFLD_DSREQ_OPTS];
-    string indexType = ctlopts[CBSDKD_MSDGFLD_NQ_PARAM].asString();
-    string indexEngine = ctlopts[CBSDKD_MSDGFLD_NQ_PARAMVALUES].asString();
-    string indexName = ctlopts[CBSDKD_MSDFLD_NQ_DEFAULT_INDEX_NAME].asString();
-    string query;
-    char buf[1024];
-    memset(buf, '\0', sizeof(buf));
-    if(sprintf(buf, "CREATE PRIMARY INDEX ON `%s` using %s",
-                                                this->handle->options.bucket.c_str(),
-                                                indexEngine.c_str()) != -1) {
+    string indexType = ctlopts[CBSDKD_MSGFLD_NQ_INDEX_TYPE].asString();
+    string indexEngine = ctlopts[CBSDKD_MSGFLD_NQ_INDEX_ENGINE].asString();
+    string indexName = ctlopts[CBSDKD_MSGFLD_NQ_DEFAULT_INDEX_NAME].asString();
+
+    char qbuf[1024];
+    memset(qbuf, '\0', sizeof(qbuf));
+    if(sprintf(qbuf, "CREATE PRIMARY INDEX ON `%s` using %s",
+                                        this->handle->options.bucket.c_str(),
+                                        indexEngine.c_str()) != -1) {
         return false;
     }
-    query = std::string(buf);
 
-    lcb_CMDN1QL qcmd = {0};
+    lcb_CMDN1QL qcmd = { 0 };
     qcmd.callback = query_cb;
 
-    lcb_N1QLPARAMS *n1p = lcb_n1p_new();
-    lcb_error_t err;
-    err = lcb_n1p_setquery(n1p, query.c_str(), query.length(),
-            LCB_N1P_QUERY_STATEMENT);
+    if(N1QL::query(qbuf, &qcmd, LCB_N1P_QUERY_STATEMENT, this) &&
+            this->success) {
+        string params = ctlopts[CBSDKD_MSGFLD_NQ_PARAM].asString();
+        string paramValues = ctlopts[CBSDKD_MSGFLD_NQ_PARAMVALUES].asString();
 
-    if (err != LCB_SUCCESS) return false;
+        //construct secondary index on the params
+        memset(qbuf, '\0', sizeof(qbuf));
+        if (strcmp(params.c_str(), "") == 0  ||
+                strcmp(paramValues.c_str(), "") == 0) {
+            return true;
+        }
+        string param = string(strtok((char *)params.c_str(), ","));
+        if(sprintf(qbuf,
+                    "CREATE INDEX %s ON `%s`(%s) using %s",
+                    indexName.c_str(),
+                    this->handle->options.bucket.c_str(),
+                    param.c_str(),
+                    indexEngine.c_str()) != -1) {
+            return false;
+        }
 
-    err = lcb_n1p_mkcmd(n1p, &qcmd);
-    if (err != LCB_SUCCESS) return false;
+        memset(&qcmd, '0', sizeof(qcmd));
+        qcmd.callback = query_cb;
 
-    err = lcb_n1ql_query(handle->getLcb(), this, &qcmd);
-    if (err != LCB_SUCCESS) return false;
+        if(N1QL::query(qbuf, &qcmd, LCB_N1P_QUERY_PREPARED, this) &&
+                this->success){
+            if (config) {
+                config->set_index_name(indexName);
+                config->set_params(params);
+                config->set_param_values(paramValues);
+            }
+            return true;
+        }
 
-    err = lcb_n1p_mkcmd(n1p, &qcmd);
-    if (err != LCB_SUCCESS) return false;
-
-    lcb_wait(handle->getLcb());
-    lcb_n1p_free(n1p);
-    return this->success;
+    }
+    return false;
 }
 }

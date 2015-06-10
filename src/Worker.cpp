@@ -185,10 +185,6 @@ WorkerDispatch::processRequest(const Request& req)
         h.dsEndure(req.command, *ds, rs, opts);
         break;
 
-    case Command::MC_DS_ENDURESEQNO:
-        h.dsEndureWithSeqNo(req.command, *ds, rs, opts);
-        break;
-
     case Command::MC_DS_OBSERVE:
         h.dsObserve(req.command, *ds, rs, opts);
         break;
