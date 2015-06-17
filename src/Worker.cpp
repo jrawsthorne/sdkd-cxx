@@ -100,7 +100,9 @@ WorkerDispatch::processRequest(const Request& req)
 
     Handle& h = *cur_handle;
 
-    if (req.command == Command::CB_VIEW_QUERY) {
+    if (req.command == Command::CB_VIEW_QUERY ||
+            req.command == Command::CB_N1QL_QUERY ||
+            req.command == Command::CB_N1QL_CREATE_INDEX) {
         needs_ds = false;
     }
 
@@ -204,6 +206,23 @@ WorkerDispatch::processRequest(const Request& req)
     {
         ViewExecutor ve = ViewExecutor(cur_handle);
         ve.executeView(req.command, rs, opts, req);
+        break;
+    }
+
+    case Command::CB_N1QL_CREATE_INDEX:
+    {
+        N1QLCreateIndex ci = N1QLCreateIndex(cur_handle);
+        if(!ci.execute(req.command, req)) {
+            fprintf(stderr, "Fatal::Unable to create index failing");
+            return false;
+        }
+        break;
+    }
+
+    case Command::CB_N1QL_QUERY:
+    {
+        N1QLQueryExecutor qe = N1QLQueryExecutor(cur_handle);
+        qe.execute(req.command, rs, opts, req);
         break;
     }
 

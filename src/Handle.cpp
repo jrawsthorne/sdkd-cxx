@@ -573,7 +573,7 @@ Handle::dsEndure(Command cmd, Dataset const &ds, ResultSet& out,
     dopts.v.v0.persist_to = options.persist;
     dopts.v.v0.replicate_to = options.replicate;
     dopts.v.v0.cap_max = 1;
-    dopts.v.v0.pollopts = LCB_DURABILITY_METH_SEQNO;
+    dopts.v.v0.pollopts = LCB_DURABILITY_MODE_SEQNO;
 
 
     for (iter->start();
