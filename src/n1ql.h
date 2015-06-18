@@ -17,24 +17,22 @@ public:
     }
     ~N1QL() {}
 
-    bool query(const char *buf, lcb_CMDN1QL *qcmd, int type, void *cookie, lcb_error_t& err) {
-        lcb_N1QLPARAMS *n1p = lcb_n1p_new();
+    bool query(const char *buf, lcb_CMDN1QL *qcmd, int type, void *cookie, lcb_error_t& err, std::string& consistency) {
 
-        std::string q = std::string(buf);
-        err = lcb_n1p_setquery(n1p, q.c_str(), q.length(),
-                type);
-
-        if (err != LCB_SUCCESS) return false;
-
-        err = lcb_n1p_mkcmd(n1p, qcmd);
-        if (err != LCB_SUCCESS) return false;
+        Json::Value req;
+        req["statement"] = std::string(buf);
+        req["scan_consistency"] = consistency;
+        std::string q = Json::FastWriter().write(req);
+        qcmd->query = q.c_str();
+        qcmd->nquery = q.size();
+        qcmd->content_type = "application/json";
+        fprintf(stderr, "Query %s\n", q.c_str());
 
         err = lcb_n1ql_query(handle->getLcb(), cookie, qcmd);
         if (err != LCB_SUCCESS) return false;
 
 
         lcb_wait(handle->getLcb());
-        lcb_n1p_free(n1p);
         return true;
     };
 

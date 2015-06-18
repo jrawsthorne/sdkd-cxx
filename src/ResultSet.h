@@ -198,6 +198,8 @@ public:
     static std::map<lcb_error_t,int> Errmap;
     unsigned int obs_persist_count;
     unsigned int obs_replica_count;
+    unsigned int query_doc_insert_count;
+    unsigned int query_resp_count;
     bool vresp_complete;
 
 private:
