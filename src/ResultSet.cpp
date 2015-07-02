@@ -58,7 +58,7 @@ ResultOptions::_determine_delay() {
 }
 
 void
-ResultSet::setRescode(lcb_error_t err,
+ResultSet::setRescode(int err,
                       const void *key,
                       size_t nkey,
                       bool expect_value,

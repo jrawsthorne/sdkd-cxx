@@ -56,6 +56,7 @@ public:
             const Request& req);
 
     bool is_isuccess;
+    bool query;
     lcb_error_t insert_err;
 
 private:

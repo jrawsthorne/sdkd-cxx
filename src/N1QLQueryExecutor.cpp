@@ -63,6 +63,9 @@ query_cb(lcb_t instance,
         fprintf(stderr, "insert count %d resp count %d \n",
                 obj->query_doc_insert_count,
                 obj->query_resp_count);
+       if (obj->ryow && obj->query_resp_count != obj->query_doc_insert_count -1) {
+            obj->setRescode(Error::SUBSYSf_QUERY || Error::RYOW_MISMATCH, true);
+        }
         obj->setRescode(resp->rc , true);
         return;
     }

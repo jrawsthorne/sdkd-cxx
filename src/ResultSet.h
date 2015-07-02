@@ -109,7 +109,7 @@ public:
     // @param expect_value whether this operation should have returned a value
     // @param value the value (can be NULL)
     // @param n_value the size of the value
-    void setRescode(lcb_error_t err, const void* key, size_t nkey,
+    void setRescode(int err, const void* key, size_t nkey,
                     bool expect_value, const void* value, size_t n_value);
 
     void setRescode(lcb_error_t err) {
@@ -126,7 +126,7 @@ public:
         setRescode(err, key.c_str(), key.length(), true, NULL, 0);
     }
 
-    void setRescode(lcb_error_t err, bool isFinal) {
+    void setRescode(int err, bool isFinal) {
         vresp_complete = isFinal;
         setRescode(err, NULL, 0, false, NULL, 0);
     }
@@ -201,6 +201,7 @@ public:
     unsigned int query_doc_insert_count;
     unsigned int query_resp_count;
     bool vresp_complete;
+    bool ryow;
 
 private:
     friend class Handle;

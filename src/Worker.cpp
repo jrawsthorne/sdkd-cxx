@@ -144,6 +144,7 @@ WorkerDispatch::processRequest(const Request& req)
     }
 
     ResultOptions opts = ResultOptions(req.payload["Options"]);
+
     // There are some sanity checking operations we should perform.
     // Because we wrap the handle, and the handle cannot return any responses.
 
@@ -221,11 +222,11 @@ WorkerDispatch::processRequest(const Request& req)
 
     case Command::CB_N1QL_QUERY:
     {
+        opts.timeres = req.payload[CBSDKD_MSGFLD_DSREQ_TIMERES].asUInt();
         N1QLQueryExecutor qe = N1QLQueryExecutor(cur_handle);
         qe.execute(req.command, rs, opts, req);
         break;
     }
-
 
     default:
         log_warn("Command '%s' not implemented",
