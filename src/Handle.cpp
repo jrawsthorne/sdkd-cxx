@@ -283,6 +283,8 @@ Handle::connect(Error *errp)
         char *path = Daemon::MainDaemon->getOptions().conncachePath;
         the_error = lcb_cntl(instance, LCB_CNTL_SET, LCB_CNTL_CONFIGCACHE, path);
     }
+    int val= 1;
+    the_error = lcb_cntl(instance, LCB_CNTL_SET, LCB_CNTL_FETCH_SYNCTOKENS, &val);
 
     //set the logger procs
     logger = new Logger(0, Daemon::MainDaemon->getOptions().lcblogFile);

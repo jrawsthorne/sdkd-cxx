@@ -17,21 +17,23 @@ public:
     }
     ~N1QL() {}
 
-    bool query(const char *buf, lcb_CMDN1QL *qcmd, int type, void *cookie, lcb_error_t& err, std::string& consistency) {
+    bool query(const char *buf, lcb_CMDN1QL *qcmd, int type, void *cookie, lcb_error_t& err, std::string& consistency, Json::Value& scan_vector) {
 
         Json::Value req;
         req["statement"] = std::string(buf);
         req["scan_consistency"] = consistency;
+        if (consistency == "at_plus") {
+            //req["scan_consistency"] = "request_plus";
+            req["scan_vector"] = scan_vector;
+
+        }
         std::string q = Json::FastWriter().write(req);
         qcmd->query = q.c_str();
         qcmd->nquery = q.size();
         qcmd->content_type = "application/json";
-        fprintf(stderr, "Query %s\n", q.c_str());
 
         err = lcb_n1ql_query(handle->getLcb(), cookie, qcmd);
         if (err != LCB_SUCCESS) return false;
-
-
         lcb_wait(handle->getLcb());
         return true;
     };
@@ -47,6 +49,15 @@ public:
     N1QLQueryExecutor(Handle *handle) :
         N1QL(handle), is_isuccess(false),
         insert_err(LCB_SUCCESS), handle(handle), doc_index(0) {
+
+        //int i = 0;
+
+        /*for (i=0;i< 1024; i++) {
+            Json::Value vbucket;
+            vbucket["value"] = 0;
+            vbucket["guard"] = std::to_string(0);
+            tokens[std::to_string(i)] = vbucket;
+        }*/
     }
     ~N1QLQueryExecutor() {}
 
@@ -58,7 +69,7 @@ public:
     bool is_isuccess;
     bool query;
     lcb_error_t insert_err;
-
+    Json::Value tokens;
 private:
     bool insertDoc(lcb_t instance,
             std::vector<std::string>& params,

@@ -40,8 +40,9 @@ N1QLCreateIndex::execute(Command cmd,
     qcmd.callback = query_cb;
     lcb_error_t scherr;
     std::string consistency = "not_bounded";
+    Json::Value scan_vector;
 
-    if(!N1QL::query(qbuf, &qcmd, LCB_N1P_QUERY_STATEMENT, (void *)this, scherr, consistency) ||
+    if(!N1QL::query(qbuf, &qcmd, LCB_N1P_QUERY_STATEMENT, (void *)this, scherr, consistency, scan_vector) ||
             !this->is_qsuccess) {
         if (scherr !=  LCB_SUCCESS) {
             fprintf(stderr, "Scheduling primary index failed 0x%x %s \n",
@@ -68,7 +69,7 @@ N1QLCreateIndex::execute(Command cmd,
         qcmd.callback = query_cb;
 
 
-        if(!N1QL::query(qbuf, &qcmd, LCB_N1P_QUERY_STATEMENT, (void *)this, scherr, consistency) ||
+        if(!N1QL::query(qbuf, &qcmd, LCB_N1P_QUERY_STATEMENT, (void *)this, scherr, consistency, scan_vector) ||
                 !this->is_qsuccess){
             if (scherr !=  LCB_SUCCESS) {
                 fprintf(stderr, "Scheduling secondary index command failed 0x%x %s \n",

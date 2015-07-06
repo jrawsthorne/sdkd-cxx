@@ -86,7 +86,7 @@ ResultSet::setRescode(int err,
     }
 
     if (!options.timeres) {
-        return;
+        options.timeres = 1;
     }
 
     struct timeval tv;
