@@ -92,7 +92,7 @@ public:
     int getSDKDErrorCode(int lcberr) {
         if (lcberr == LCB_KEY_ENOENT) {
 
-            return (int)MEMD_ENOENT;
+            return (int)(SUBSYSf_MEMD | MEMD_ENOENT);
         }
         return lcberr;
     }
