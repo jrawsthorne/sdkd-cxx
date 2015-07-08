@@ -12,6 +12,7 @@
 #endif
 
 namespace CBSdkd {
+
 extern "C" {
     static void logcb(lcb_logprocs_st *procs, unsigned int iid, const char *subsys, int severity, const char *srcfile, int srcline, const char *fmt, va_list ap);
 
@@ -58,11 +59,8 @@ class Logger : public lcb_logprocs_st {
                 va_list ap)
         {
             uint64_t now = gethrtime();
-            if (!start_time) {
-                start_time = gethrtime();
-            }
-            if (now == start_time) {
-                now++;
+            if (start_time == 0) {
+                start_time = now;
             }
             flockfile(fp);
             fprintf(fp, "%lums  [I%d] (%s - L:%d) ",
@@ -72,6 +70,7 @@ class Logger : public lcb_logprocs_st {
                     srcline);
             vfprintf(fp, fmt, ap);
             fprintf(fp, "\n");
+            fflush(fp);
             funlockfile(fp);
         }
     private:
