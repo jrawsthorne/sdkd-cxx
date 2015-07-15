@@ -84,6 +84,12 @@ static void cb_storage(lcb_t instance, int, const lcb_RESPBASE *resp)
             resp->key, resp->nkey);
 }
 
+static void cb_storedur(lcb_t instance, int, const lcb_RESPBASE *resp)
+{
+    reinterpret_cast<ResultSet*>(resp->cookie)->setRescode(resp->rc,
+            resp->key, resp->nkey);
+}
+
 static void cb_get(lcb_t instance, int, const lcb_RESPBASE *resp)
 {
     lcb_RESPGET* gresp = (lcb_RESPGET *)resp;
@@ -94,8 +100,14 @@ static void cb_get(lcb_t instance, int, const lcb_RESPBASE *resp)
 
 static void cb_endure(lcb_t instance, int, const lcb_RESPBASE *resp)
 {
-    reinterpret_cast<ResultSet*>(resp->cookie)->setRescode(resp->rc,
-            resp->key, resp->nkey);
+    lcb_RESPSTOREDUR* dresp = (lcb_RESPSTOREDUR *)resp;
+    if (dresp->store_ok == 0) {
+        reinterpret_cast<ResultSet*>(resp->cookie)->setRescode(resp->rc,
+                resp->key, resp->nkey);
+    } else {
+        reinterpret_cast<ResultSet*>(resp->cookie)->setRescode(LCB_ERROR,
+                resp->key, resp->nkey);
+    }
 }
 
 static void cb_observe(lcb_t instance, int, const lcb_RESPBASE *resp)
@@ -214,6 +226,7 @@ static void wire_callbacks(lcb_t instance)
     _setcb(LCB_CALLBACK_OBSERVE, cb_observe);
     _setcb(LCB_CALLBACK_STATS, cb_stats);
     _setcb(LCB_CALLBACK_GETREPLICA, cb_get);
+    _setcb(LCB_CALLBACK_STOREDUR, cb_storedur);
 #undef _setcb
     lcb_set_errmap_callback(instance, lcb_errmap_user);
 }
@@ -538,27 +551,23 @@ Handle::dsEndure(Command cmd, Dataset const &ds, ResultSet& out,
 
     DatasetIterator* iter = ds.getIter();
 
-    //Use the same context for all endure commands
-    lcb_durability_opts_t dopts = { 0 };
-    dopts.v.v0.persist_to = options.persist;
-    dopts.v.v0.replicate_to = options.replicate;
-    dopts.v.v0.cap_max = 1;
-
     for (iter->start();
             iter->done() == false && do_cancel == false;
             iter->advance()) {
 
         std::string k = iter->key(), v = iter->value();
 
-        lcb_CMDENDURE cmd = { 0 };
+        lcb_CMDSTOREDUR cmd = { 0 };
         LCB_CMD_SET_KEY(&cmd, k.data(), k.size());
+        LCB_CMD_SET_VALUE(&cmd, v.data(), v.size());
+        cmd.operation = LCB_SET;
+        cmd.persist_to = options.persist;
+        cmd.replicate_to = options.replicate;
 
         out.markBegin();
-
-        lcb_MULTICMD_CTX *mctx = lcb_endure3_ctxnew(instance, &dopts, NULL);
+        
         lcb_sched_enter(instance);
-        mctx->addcmd(mctx, (lcb_CMDBASE*)&cmd);
-        lcb_error_t err =  mctx->done(mctx, &out);
+        lcb_error_t err = lcb_storedur3(instance, &out, &cmd);
         lcb_sched_leave(instance);
 
         if (err == LCB_SUCCESS) {
