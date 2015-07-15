@@ -63,6 +63,9 @@ Program::parseCliOptions(int argc, char **argv)
             "Log file",
             "LCB LOG FILE"
         },
+        { 0, "lcbloglevel", CLIOPTS_ARGT_INT, &userOptions.lcblogLevel,
+            "Log level for lcb"
+        },
         { 'd', "debug", CLIOPTS_ARGT_INT, &userOptions.debugLevel,
             "Level (0=off, 1=most verbose, higher numbers less verbsose)",
             "LEVEL"

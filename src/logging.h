@@ -12,6 +12,7 @@
 #endif
 
 namespace CBSdkd {
+
 extern "C" {
     static void logcb(lcb_logprocs_st *procs, unsigned int iid, const char *subsys, int severity, const char *srcfile, int srcline, const char *fmt, va_list ap);
 
@@ -19,7 +20,7 @@ extern "C" {
 
 class Logger : public lcb_logprocs_st {
     public:
-        Logger(int level, const char *filename) : file(NULL)
+        Logger(int level, const char *filename) :start_time(0), file(NULL)
         {
             minlevel = level;
             fp = fopen(filename, "a");
@@ -37,6 +38,18 @@ class Logger : public lcb_logprocs_st {
                 fclose(fp);
             }
         }
+
+        uint64_t gethrtime() {
+            uint64_t ret = 0;
+            struct timeval tv;
+            if (gettimeofday(&tv, NULL) == -1) {
+                return -1;
+            }
+            ret = (uint64_t)tv.tv_sec * 1000000000;
+            ret += (uint64_t)tv.tv_usec * 1000;
+            return ret;
+        }
+
         void log(unsigned int iid,
                 const char *subsys,
                 int severity,
@@ -45,16 +58,23 @@ class Logger : public lcb_logprocs_st {
                 const char *fmt,
                 va_list ap)
         {
+            uint64_t now = gethrtime();
+            if (start_time == 0) {
+                start_time = now;
+            }
             flockfile(fp);
-            fprintf(fp, "[I%d] (%s - L:%d) ",
+            fprintf(fp, "%lums  [I%d] (%s - L:%d) ",
+                    (unsigned long)(now - start_time) /1000000,
                     iid,
                     subsys,
                     srcline);
             vfprintf(fp, fmt, ap);
             fprintf(fp, "\n");
+            fflush(fp);
             funlockfile(fp);
         }
     private:
+        uint64_t start_time;
         const char *file;
         FILE *fp;
         int minlevel;

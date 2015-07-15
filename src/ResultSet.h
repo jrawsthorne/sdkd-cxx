@@ -186,20 +186,18 @@ public:
         if (err == LCB_SUCCESS) {
             return 0;
         }
-        if (Errmap.find(err) != Errmap.end()) {
-            return Errmap[err];
-        }
+
 
         int ret = Error::SUBSYSf_SDK;
         ret |= err << 8;
         return ret;
     }
 
-    static std::map<lcb_error_t,int> Errmap;
     unsigned int obs_persist_count;
     unsigned int obs_replica_count;
     unsigned int query_doc_insert_count;
     unsigned int query_resp_count;
+    unsigned long long obs_master_cas;
     bool vresp_complete;
     bool ryow;
 

@@ -66,6 +66,8 @@ ResultSet::setRescode(int err,
                       size_t nvalue)
 {
     int myerr = err;
+    Error *errCode = new Error();
+    myerr = errCode->getSDKDErrorCode(err);
 
     stats[myerr]++;
     remaining--;
@@ -198,13 +200,5 @@ ResultSet::resultsJson(Json::Value *in) const
         root[CBSDKD_MSGFLD_DRES_TIMINGS] = jtimes;
     }
 }
-
-std::map<lcb_error_t,int> ResultSet::Errmap = create_map<lcb_error_t,int>
-
-#define X(a,b) (a,b)
-CBSDKD_XERRMAP(X);
-#undef X
-
-
 
 }

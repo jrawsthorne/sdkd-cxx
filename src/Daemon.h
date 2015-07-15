@@ -8,6 +8,7 @@ struct DaemonOptions {
     }
 
     char *lcblogFile;
+    int lcblogLevel;
     int debugLevel;
     int debugColors;
     char *portFile;

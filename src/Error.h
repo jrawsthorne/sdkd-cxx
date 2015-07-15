@@ -19,7 +19,7 @@ using std::stringstream;
 
 class Error {
 public:
-    enum Code {
+     enum Code {
         SUBSYSf_UNKNOWN      = 0x1,
         SUBSYSf_CLUSTER      = 0x2,
         SUBSYSf_CLIENT       = 0x4,
@@ -90,6 +90,14 @@ public:
     Error(int subsys, int minor, string errstr = "") {
         this->setCode(subsys | minor);
         this->errstr = errstr;
+    }
+
+    int getSDKDErrorCode(int lcberr) {
+        if (lcberr == LCB_KEY_ENOENT) {
+
+            return (int)(SUBSYSf_MEMD | MEMD_ENOENT);
+        }
+        return lcberr;
     }
 
     virtual ~Error() {
