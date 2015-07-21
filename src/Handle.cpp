@@ -55,6 +55,7 @@ void Handle::VersionInfoJson(Json::Value &res) {
     res["HEADERS"] = hdrComponents;
     res["CONFIG"] = config;
     res["TIME"] = (Json::UInt64)time(NULL);
+    res["SDK"] = "libcouchbase" ;
 }
 
 static void cb_config(lcb_t instance, lcb_error_t err)
