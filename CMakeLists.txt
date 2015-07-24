@@ -45,6 +45,8 @@ SET(COMMON_SOURCES
     src/IODispatch.cpp
     src/Worker.cpp
     src/UsageCollector.cpp
+    src/N1QLQueryExecutor.cpp
+    src/N1QLCreateIndex.cpp
 
     src/ViewExecutor.cpp
     src/ViewLoader.cpp

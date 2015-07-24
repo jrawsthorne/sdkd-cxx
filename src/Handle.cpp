@@ -306,6 +306,8 @@ Handle::connect(Error *errp)
         char *path = Daemon::MainDaemon->getOptions().conncachePath;
         the_error = lcb_cntl(instance, LCB_CNTL_SET, LCB_CNTL_CONFIGCACHE, path);
     }
+    int val= 1;
+    the_error = lcb_cntl(instance, LCB_CNTL_SET, LCB_CNTL_FETCH_SYNCTOKENS, &val);
 
     //set the logger procs
     logger = new Logger(Daemon::MainDaemon->getOptions().lcblogLevel,
@@ -624,60 +626,7 @@ Handle::dsObserve(Command cmd, Dataset const &ds, ResultSet& out,
     return true;
 }
 
-bool
-Handle::dsEndureWithSeqNo(Command cmd, Dataset const &ds, ResultSet& out,
-              const ResultOptions& options)
-{
-    out.options = options;
-    out.clear();
-    do_cancel = false;
 
-    DatasetIterator* iter = ds.getIter();
-
-    //Use the same context for all endure commands
-    lcb_durability_opts_t dopts = { 0 };
-    dopts.v.v0.persist_to = options.persist;
-    dopts.v.v0.replicate_to = options.replicate;
-    dopts.v.v0.cap_max = 1;
-    //dopts.v.v0.pollopts = LCB_DURABILITY_METH_SEQNO;
-
-
-    for (iter->start();
-            iter->done() == false && do_cancel == false;
-            iter->advance()) {
-
-        std::string k = iter->key(), v = iter->value();
-
-
-        lcb_CMDSTORE scmd = { 0 };
-        scmd.operation = LCB_SET;
-        LCB_CMD_SET_KEY(&scmd, k.data(), k.size());
-        LCB_CMD_SET_VALUE(&scmd, v.data(), v.size());
-
-
-
-        lcb_CMDENDURE cmd = { 0 };
-        LCB_CMD_SET_KEY(&cmd, k.data(), k.size());
-
-        out.markBegin();
-        lcb_MULTICMD_CTX *mctx = lcb_endure3_ctxnew(instance, &dopts, NULL);
-        lcb_sched_enter(instance);
-        mctx->addcmd(mctx, (lcb_CMDBASE*)&scmd);
-        mctx->addcmd(mctx, (lcb_CMDBASE*)&cmd);
-        lcb_error_t err =  mctx->done(mctx, &out);
-        lcb_sched_leave(instance);
-
-        if (err == LCB_SUCCESS) {
-            postsubmit(out);
-        } else {
-            out.setRescode(err, k, true);
-        }
-    }
-
-    delete iter;
-    collect_result(out);
-    return true;
-}
 
 bool
 Handle::dsKeyop(Command cmd, const Dataset& ds, ResultSet& out,

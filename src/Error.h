@@ -29,6 +29,7 @@ public:
         SUBSYSf_KVOPS        = 0x40,
         SUBSYSf_VIEWS        = 0x41,
         SUBSYSf_SDK          = 0x80,
+        SUBSYSf_QUERY        = 0x81,
 
         KVOPS_EMATCH         = 0x200,
 
@@ -54,6 +55,8 @@ public:
         MEMD_ECAS            = 0x300,
         MEMD_ESET            = 0x400,
         MEMD_EVBUCKET        = 0x500,
+
+        RYOW_MISMATCH        = 0x300,
         SUCCESS              = 0
     };
 

@@ -233,9 +233,9 @@ public:
     }
 
     static void VersionInfoJson(Json::Value& res);
+    HandleOptions options;
 
 private:
-    HandleOptions options;
     lcb_create_st create_opts;
 
     bool do_cancel;

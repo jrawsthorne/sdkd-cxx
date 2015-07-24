@@ -100,7 +100,9 @@ WorkerDispatch::processRequest(const Request& req)
 
     Handle& h = *cur_handle;
 
-    if (req.command == Command::CB_VIEW_QUERY) {
+    if (req.command == Command::CB_VIEW_QUERY ||
+            req.command == Command::CB_N1QL_QUERY ||
+            req.command == Command::CB_N1QL_CREATE_INDEX) {
         needs_ds = false;
     }
 
@@ -142,6 +144,7 @@ WorkerDispatch::processRequest(const Request& req)
     }
 
     ResultOptions opts = ResultOptions(req.payload["Options"]);
+
     // There are some sanity checking operations we should perform.
     // Because we wrap the handle, and the handle cannot return any responses.
 
@@ -185,10 +188,6 @@ WorkerDispatch::processRequest(const Request& req)
         h.dsEndure(req.command, *ds, rs, opts);
         break;
 
-    case Command::MC_DS_ENDURESEQNO:
-        h.dsEndureWithSeqNo(req.command, *ds, rs, opts);
-        break;
-
     case Command::MC_DS_OBSERVE:
         h.dsObserve(req.command, *ds, rs, opts);
         break;
@@ -211,6 +210,23 @@ WorkerDispatch::processRequest(const Request& req)
         break;
     }
 
+    case Command::CB_N1QL_CREATE_INDEX:
+    {
+        N1QLCreateIndex ci = N1QLCreateIndex(cur_handle);
+        if(!ci.execute(req.command, req)) {
+            fprintf(stderr, "Fatal::Unable to create index failing");
+            return false;
+        }
+        break;
+    }
+
+    case Command::CB_N1QL_QUERY:
+    {
+        opts.timeres = req.payload[CBSDKD_MSGFLD_DSREQ_TIMERES].asUInt();
+        N1QLQueryExecutor qe = N1QLQueryExecutor(cur_handle);
+        qe.execute(req.command, rs, opts, req);
+        break;
+    }
 
     default:
         log_warn("Command '%s' not implemented",
