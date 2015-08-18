@@ -9,11 +9,11 @@ insert_cb(lcb_t instance, int type, lcb_RESPBASE *resp) {
     N1QLQueryExecutor *obj = reinterpret_cast<N1QLQueryExecutor*>(sresp->cookie);
     if (resp->rc == LCB_SUCCESS) {
         obj->is_isuccess = true;
-        lcb_SYNCTOKEN ss = *lcb_resp_get_synctoken(type, resp);
+        lcb_MUTATION_TOKEN ss = *lcb_resp_get_mutation_token(type, resp);
         Json::Value vbucket;
-        vbucket["guard"] = std::to_string(LCB_SYNCTOKEN_ID(&ss));
-        vbucket["value"]  = LCB_SYNCTOKEN_SEQ(&ss);
-        obj->tokens[std::to_string(LCB_SYNCTOKEN_VB(&ss))] = vbucket;
+        vbucket["guard"] = std::to_string(LCB_MUTATION_TOKEN_ID(&ss));
+        vbucket["value"]  = LCB_MUTATION_TOKEN_SEQ(&ss);
+        obj->tokens[std::to_string(LCB_MUTATION_TOKEN_VB(&ss))] = vbucket;
         std::string val = Json::FastWriter().write(obj->tokens);
     } else {
         obj->is_isuccess = false;
@@ -66,11 +66,10 @@ query_cb(lcb_t instance,
         const lcb_RESPN1QL *resp) {
     ResultSet *obj = reinterpret_cast<ResultSet *>(resp->cookie);
     if (resp->rflags & LCB_RESP_F_FINAL) {
-        fprintf(stderr, "insert count %d resp count %d \n",
-                obj->query_doc_insert_count,
-                obj->query_resp_count -1);
-       if (obj->ryow && obj->query_resp_count != obj->query_doc_insert_count -1) {
-            obj->setRescode(Error::SUBSYSf_QUERY || Error::RYOW_MISMATCH, true);
+        if (obj->query_doc_insert_count) {
+            if (obj->ryow && obj->query_resp_count != obj->query_doc_insert_count -1) {
+                obj->setRescode(Error::SUBSYSf_QUERY || Error::RYOW_MISMATCH, true);
+            }
         }
         obj->setRescode(resp->rc , true);
         return;
@@ -105,23 +104,30 @@ N1QLQueryExecutor::execute(Command cmd,
     split(req.payload[CBSDKD_MSGFLD_NQ_PARAM].asString(), ',', params);
     std::vector<std::string> paramValues;
     split(req.payload[CBSDKD_MSGFLD_NQ_PARAMVALUES].asString(), ',', paramValues);
-    std::string scanConsistency = req.payload[CBSDKD_MSGFLD_NQ_SCANCONSISTENCY].asString();
+    std::string scanConsistency = req.payload[CBSDKD_MSGFLD_NQ_SCANCONSISTENCY].asString();    int batchCount = req.payload[CBSDKD_MSGFLD_NQ_BATCHCOUNT].asInt();
+    if (!batchCount) {
+        batchCount = 100;
+    }
 
+    int i = 0;
     out.clear();
 
     handle->externalEnter();
 
     while(!handle->isCancelled()) {
+
         out.query_resp_count = 0;
         lcb_error_t err;
 
-        if(!insertDoc(handle->getLcb(), params, paramValues, err)) {
-            fprintf(stderr, "Inserting document returned error 0x%x %s\n",
+        if (scanConsistency == "request_plus" || scanConsistency == "at_plus") {
+            if(!insertDoc(handle->getLcb(), params, paramValues, err)) {
+                fprintf(stderr, "Inserting document returned error 0x%x %s\n",
                     err, lcb_strerror(NULL, err));
-            return false;
+                return false;
+            }
+            out.query_doc_insert_count = this->doc_index;
+            this->doc_index++;
         }
-        out.query_doc_insert_count = this->doc_index;
-        this->doc_index++;
 
         std::string q = std::string("select * from `") + this->handle->options.bucket.c_str() + "`";
 
@@ -157,6 +163,10 @@ N1QLQueryExecutor::execute(Command cmd,
         if (iterdelay) {
             sdkd_millisleep(iterdelay);
         }
+        if (i % batchCount == 0) {
+            lcb_wait(handle->getLcb());
+        }
+        i++;
     }
     handle->externalLeave();
     return true;

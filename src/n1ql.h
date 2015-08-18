@@ -34,7 +34,6 @@ public:
 
         err = lcb_n1ql_query(handle->getLcb(), cookie, qcmd);
         if (err != LCB_SUCCESS) return false;
-        lcb_wait(handle->getLcb());
         return true;
     };
 

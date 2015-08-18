@@ -125,5 +125,6 @@
 #define CBSDKD_MSGFLD_NQ_PARAMETERIZED "NQParameterized"
 #define CBSDKD_MSGFLD_NQ_DEFAULT_INDEX_NAME "NQDefaultIndexName"
 #define CBSDKD_MSGFLD_NQ_SCANCONSISTENCY "NQScanConsistency"
+#define CBSDKD_MSGFLD_NQ_BATCHCOUNT "NQBatchCount"
 
 #endif /* CBSDKD_H_ */

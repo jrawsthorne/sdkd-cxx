@@ -293,6 +293,7 @@ Handle::connect(Error *errp)
     if (the_error != LCB_SUCCESS) {
         errp->errstr = lcb_strerror(instance, the_error);
         log_error("lcb_connect failed: %s", errp->prettyPrint().c_str());
+        abort();
         return false;
     }
 
@@ -307,7 +308,7 @@ Handle::connect(Error *errp)
         the_error = lcb_cntl(instance, LCB_CNTL_SET, LCB_CNTL_CONFIGCACHE, path);
     }
     int val= 1;
-    the_error = lcb_cntl(instance, LCB_CNTL_SET, LCB_CNTL_FETCH_SYNCTOKENS, &val);
+    the_error = lcb_cntl(instance, LCB_CNTL_SET, LCB_CNTL_FETCH_MUTATION_TOKENS, &val);
 
     //set the logger procs
     logger = new Logger(Daemon::MainDaemon->getOptions().lcblogLevel,

@@ -12,6 +12,7 @@ query_cb(lcb_t, int, const lcb_RESPN1QL *resp) {
     } else {
         obj->is_qsuccess = false;
         obj->rc = resp->rc;
+        exit(1);
     }
 }
 }
@@ -42,14 +43,17 @@ N1QLCreateIndex::execute(Command cmd,
     std::string consistency = "not_bounded";
     Json::Value scan_vector;
 
-    if(!N1QL::query(qbuf, &qcmd, LCB_N1P_QUERY_STATEMENT, (void *)this, scherr, consistency, scan_vector) ||
-            !this->is_qsuccess) {
-        if (scherr !=  LCB_SUCCESS) {
-            fprintf(stderr, "Scheduling primary index failed 0x%x %s \n",
-                    scherr, lcb_strerror(NULL, scherr));
-        } else {
+    if(N1QL::query(qbuf, &qcmd, LCB_N1P_QUERY_STATEMENT, (void *)this, scherr, consistency, scan_vector)) {
+        lcb_wait(handle->getLcb());
+        if (!this->is_qsuccess) {
             fprintf(stderr, "Create primary index failed 0x%x %s \n",
                     this->rc, lcb_strerror(NULL, this->rc));
+            return false;
+        }
+    } else {
+        if (scherr !=  LCB_SUCCESS) {
+            fprintf(stderr, "Scheduling primary index command failed 0x%x %s \n",
+                    scherr, lcb_strerror(NULL, scherr));
         }
         return false;
     }
@@ -59,24 +63,27 @@ N1QLCreateIndex::execute(Command cmd,
         memset(qbuf, '\0', sizeof(qbuf));
 
         sprintf(qbuf,
-                    "CREATE INDEX %s ON `%s`(%s) using %s",
-                    indexName.c_str(),
-                    this->handle->options.bucket.c_str(),
-                    params.c_str(),
-                    indexEngine.c_str());
+                "CREATE INDEX %s ON `%s`(%s) using %s",
+                indexName.c_str(),
+                this->handle->options.bucket.c_str(),
+                params.c_str(),
+                indexEngine.c_str());
 
         memset(&qcmd, '\0', sizeof(qcmd));
         qcmd.callback = query_cb;
 
 
-        if(!N1QL::query(qbuf, &qcmd, LCB_N1P_QUERY_STATEMENT, (void *)this, scherr, consistency, scan_vector) ||
-                !this->is_qsuccess){
+        if(N1QL::query(qbuf, &qcmd, LCB_N1P_QUERY_STATEMENT, (void *)this, scherr, consistency, scan_vector)){
+            lcb_wait(handle->getLcb());
+            if (!this->is_qsuccess) {
+                fprintf(stderr, "Create secondary index command failed 0x%x %s \n",
+                        this->rc, lcb_strerror(NULL, this->rc));
+                return false;
+            }
+        } else {
             if (scherr !=  LCB_SUCCESS) {
                 fprintf(stderr, "Scheduling secondary index command failed 0x%x %s \n",
                         scherr, lcb_strerror(NULL, scherr));
-            } else {
-                fprintf(stderr, "Create secondary index command failed 0x%x %s \n",
-                        this->rc, lcb_strerror(NULL, this->rc));
             }
             return false;
         }
