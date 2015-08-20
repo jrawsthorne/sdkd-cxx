@@ -27,15 +27,15 @@ void Handle::VersionInfoJson(Json::Value &res) {
     lcb_uint32_t vout = 0;
     lcb_get_version(&vout);
     sprintf(vbuf, "0x%X", vout);
-    rtComponents["SDK"] = vbuf;
+    rtComponents["SDKVersion"] = vbuf;
 
     sprintf(vbuf, "0x%x", LCB_VERSION);
-    hdrComponents["SDK"] = vbuf;
+    hdrComponents["SDKVersion"] = vbuf;
 
 // Thanks mauke
 #define STRINGIFY_(X) #X
 #define STRINGIFY(X) STRINGIFY_(X)
-    hdrComponents["CHANGESET"] = STRINGIFY(LCB_VERSION_CHANGESET);
+    hdrComponents["CHANGESET"] = LCB_VERSION_CHANGESET;
     fprintf(stderr, " SDK version changeset %s", hdrComponents["CHANGESET"].asString().c_str());
 #undef STRINGIFY
 #undef STRINGIFY_
@@ -56,6 +56,7 @@ void Handle::VersionInfoJson(Json::Value &res) {
     res["CONFIG"] = config;
     res["TIME"] = (Json::UInt64)time(NULL);
     res["SDK"] = "libcouchbase" ;
+    res["CHANGESET"] = hdrComponents["CHANGESET"];
 }
 
 static void cb_config(lcb_t instance, lcb_error_t err)
