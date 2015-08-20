@@ -132,14 +132,14 @@ static void cb_observe(lcb_t instance, int, const lcb_RESPBASE *resp)
         if (obresp->ismaster == 1) {
             out->obs_persist_count++;
             out->obs_master_cas = obresp->cas;
-            fprintf(stderr, "master cas %llu\n", obresp->cas);
+            fprintf(stderr, "master cas %lu\n", obresp->cas);
         }
 
         else if (obresp->status == 1) {
             if (obresp->cas == out->obs_master_cas) {
                 out->obs_persist_count++;
             } else {
-                fprintf(stderr, "cas not matched master cas %llu  replica %llu \n",
+                fprintf(stderr, "cas not matched master cas %llu  replica %lu \n",
                         out->obs_master_cas, obresp->cas);
             }
             out->obs_replica_count++;
@@ -166,7 +166,7 @@ static void cb_stats(lcb_t instance, int, const lcb_RESPBASE *resp)
                 if(exp_expiry  != expiry) {
                     fprintf(stderr,
                             "TTL not matched Received %d Expected %d key %s\n",
-                            expiry, exp_expiry, sresp->key);
+                            expiry, exp_expiry, (char *)sresp->key);
                     exit(1);
                 }
             }
@@ -181,7 +181,7 @@ static void cb_stats(lcb_t instance, int, const lcb_RESPBASE *resp)
                 if(exp_flags != flags) {
                     fprintf(stderr,
                             "Flags not matched Received %d Expected %d Key %s\n",
-                            flags, exp_flags, sresp->key);
+                            flags, exp_flags, (char *) sresp->key);
                     exit(1);
                 }
             }

@@ -12,7 +12,7 @@ insert_cb(lcb_t instance, int type, lcb_RESPBASE *resp) {
         lcb_MUTATION_TOKEN ss = *lcb_resp_get_mutation_token(type, resp);
         Json::Value vbucket;
         vbucket["guard"] = std::to_string(LCB_MUTATION_TOKEN_ID(&ss));
-        vbucket["value"]  = LCB_MUTATION_TOKEN_SEQ(&ss);
+        vbucket["value"]  = std::to_string(LCB_MUTATION_TOKEN_SEQ(&ss));
         obj->tokens[std::to_string(LCB_MUTATION_TOKEN_VB(&ss))] = vbucket;
         std::string val = Json::FastWriter().write(obj->tokens);
     } else {
