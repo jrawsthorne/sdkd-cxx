@@ -19,7 +19,7 @@ int main(void) {
     DatasetSeededIterator iter(&spec);
     iter.start();
 
-    for (int i = 0; i < spec.count; i++, iter.advance()) {
+    for (unsigned int i = 0; i < spec.count; i++, iter.advance()) {
         std::string key = iter.key();
         std::string val = iter.value();
         assert(key.length() < 50);
