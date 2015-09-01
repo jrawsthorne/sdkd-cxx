@@ -100,6 +100,7 @@ N1QLQueryExecutor::execute(Command cmd,
     std::string indexType = req.payload[CBSDKD_MSGFLD_NQ_INDEX_TYPE].asString();
     std::string indexEngine = req.payload[CBSDKD_MSGFLD_NQ_INDEX_ENGINE].asString();
     std::string indexName = req.payload[CBSDKD_MSGFLD_NQ_DEFAULT_INDEX_NAME].asString();
+    bool isPrepared = req.payload[CBSDKD_MSGFLD_NQ_PREPARED].asBool();
     std::vector<std::string> params;
     split(req.payload[CBSDKD_MSGFLD_NQ_PARAM].asString(), ',', params);
     std::vector<std::string> paramValues;
@@ -115,7 +116,6 @@ N1QLQueryExecutor::execute(Command cmd,
     handle->externalEnter();
 
     while(!handle->isCancelled()) {
-
         out.query_resp_count = 0;
         lcb_error_t err;
 
@@ -149,8 +149,11 @@ N1QLQueryExecutor::execute(Command cmd,
         }
 
         out.markBegin();
-
         lcb_CMDN1QL qcmd = { 0 };
+        if (isPrepared) {
+            qcmd.cmdflags |= LCB_CMDN1QL_F_PREPCACHE;
+        }
+
         qcmd.callback = query_cb;
         Json::Value scan_vector = tokens;
 
