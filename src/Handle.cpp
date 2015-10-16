@@ -364,6 +364,9 @@ Handle::collect_result(ResultSet& rs)
     // Here we 'wait' for a result.. we might either wait after each
     // operation, or wait until we've accumulated all batches. It really
     // depends on the options.
+    if (rs.remaining < 0) {
+        fprintf(stderr, "Received extra callbacks");
+    }
     if (!rs.remaining) {
         return;
     }
