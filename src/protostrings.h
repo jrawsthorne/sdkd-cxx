@@ -10,7 +10,6 @@
 #define CBSDKD_MSGFLD_DSREQ_DS                  "DS"
 #define CBSDKD_MSGFLD_STATUS                    "Status"
 #define CBSDKD_MSGFLD_ERRSTR                    "ErrorString"
-
 /**
  * Seed-specific fields
  */
@@ -126,5 +125,6 @@
 #define CBSDKD_MSGFLD_NQ_DEFAULT_INDEX_NAME "NQDefaultIndexName"
 #define CBSDKD_MSGFLD_NQ_SCANCONSISTENCY "NQScanConsistency"
 #define CBSDKD_MSGFLD_NQ_BATCHCOUNT "NQBatchCount"
+#define CBSDKD_MSGFLD_NQ_COUNT "NQCount"
 
 #endif /* CBSDKD_H_ */

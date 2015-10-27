@@ -37,6 +37,17 @@ public:
         return true;
     };
 
+    void split(const std::string &s, char delim, std::vector<std::string> &elems) {
+        std::stringstream ss(s);
+        std::string item;
+
+        while(std::getline(ss, item, delim)) {
+            if (!item.empty()) {
+                elems.push_back(item);
+            }
+        }
+    };
+
     bool is_qsuccess;
     lcb_error_t rc;
 private:
@@ -47,16 +58,7 @@ class N1QLQueryExecutor : public N1QL {
 public:
     N1QLQueryExecutor(Handle *handle) :
         N1QL(handle), is_isuccess(false),
-        insert_err(LCB_SUCCESS), handle(handle), doc_index(0) {
-
-        //int i = 0;
-
-        /*for (i=0;i< 1024; i++) {
-            Json::Value vbucket;
-            vbucket["value"] = 0;
-            vbucket["guard"] = std::to_string(0);
-            tokens[std::to_string(i)] = vbucket;
-        }*/
+        insert_err(LCB_SUCCESS), handle(handle) {
     }
     ~N1QLQueryExecutor() {}
 
@@ -76,7 +78,6 @@ private:
             lcb_error_t& err);
 
     Handle *handle;
-    int doc_index;
     void split(const std::string& str, char delim, std::vector<std::string>& elems);
 };
 
@@ -90,5 +91,16 @@ public:
 
 private:
     Handle *handle;
+};
+
+class N1QLLoader : public N1QL {
+public:
+    N1QLLoader(Handle *handle) :
+        N1QL(handle), handle(handle) {
+    }
+    bool populate(const Dataset& ds);
+private:
+    Handle *handle;
+
 };
 }

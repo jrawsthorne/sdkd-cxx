@@ -15,7 +15,8 @@
     X(DSTYPE_FILE) \
     X(DSTYPE_INLINE) \
     X(DSTYPE_REFERENCE) \
-    X(DSTYPE_SEEDED)
+    X(DSTYPE_SEEDED) \
+    X(DSTYPE_N1QL)
 
 namespace CBSdkd {
 
@@ -137,6 +138,42 @@ private:
     struct DatasetSeedSpecification spec;
     bool verify_spec();
 
+};
+
+struct N1QLDatasetSpecification {
+    std::vector<std::string> params;
+    std::vector<std::string> paramValues;
+    bool continuous;
+    unsigned int count;
+};
+
+class N1QLDatasetIterator : public DatasetIterator
+{
+public:
+    N1QLDatasetIterator(const struct N1QLDatasetSpecification *spec);
+    bool done();
+    virtual void advance();
+
+private:
+    void init_data(int idx);
+    const N1QLDatasetSpecification *spec;
+};
+
+class N1QLDataset : public Dataset {
+public:
+    N1QLDataset(const Json::Value& spec);
+    N1QLDataset(const struct N1QLDatasetSpecification& spec);
+    N1QLDatasetIterator* getIter() const;
+    unsigned int getCount() const;
+    void split(const std::string &s, char delim, std::vector<std::string> &elems);
+
+    const N1QLDatasetSpecification& getSpec() const {
+        return spec;
+    }
+
+private:
+    struct N1QLDatasetSpecification spec;
+    bool verify_spec();
 };
 
 } /* namespace CBSdkd */

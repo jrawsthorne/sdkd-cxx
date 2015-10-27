@@ -47,6 +47,8 @@ WorkerDispatch::initializeHandle(const Request &req)
 
     cur_handle = new Handle(hOpts);
     cur_hid = req.handle_id;
+    cur_handle->hid =  cur_hid;
+
     parent->registerWDHandle(cur_hid, this);
     if (!cur_handle->connect(&err)) {
         log_error("Couldn't establish initial LCB connection");
@@ -207,6 +209,14 @@ WorkerDispatch::processRequest(const Request& req)
     {
         ViewExecutor ve = ViewExecutor(cur_handle);
         ve.executeView(req.command, rs, opts, req);
+        break;
+    }
+
+    case Command::CB_N1QL_LOAD:
+    {
+        fprintf(stderr, "n1ql loader \n");
+        N1QLLoader nl = N1QLLoader(cur_handle);
+        nl.populate(*ds);
         break;
     }
 

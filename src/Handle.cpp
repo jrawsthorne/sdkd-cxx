@@ -132,15 +132,15 @@ static void cb_observe(lcb_t instance, int, const lcb_RESPBASE *resp)
         if (obresp->ismaster == 1) {
             out->obs_persist_count++;
             out->obs_master_cas = obresp->cas;
-            fprintf(stderr, "master cas %lu\n", obresp->cas);
+            fprintf(stderr, "master cas %lu\n", (unsigned long)obresp->cas);
         }
 
         else if (obresp->status == 1) {
             if (obresp->cas == out->obs_master_cas) {
                 out->obs_persist_count++;
             } else {
-                fprintf(stderr, "cas not matched master cas %llu  replica %lu \n",
-                        out->obs_master_cas, obresp->cas);
+                fprintf(stderr, "cas not matched master cas %lu  replica %lu \n",
+                        (unsigned long)out->obs_master_cas, (unsigned long)obresp->cas);
             }
             out->obs_replica_count++;
         }
@@ -312,8 +312,7 @@ Handle::connect(Error *errp)
     the_error = lcb_cntl(instance, LCB_CNTL_SET, LCB_CNTL_FETCH_MUTATION_TOKENS, &val);
 
     //set the logger procs
-    logger = new Logger(Daemon::MainDaemon->getOptions().lcblogLevel,
-            Daemon::MainDaemon->getOptions().lcblogFile);
+    logger = new Logger(Daemon::MainDaemon->getOptions().lcblogFile);
     the_error = lcb_cntl(instance, LCB_CNTL_SET, LCB_CNTL_LOGGER, logger);
 
     if (options.timeout) {
@@ -573,7 +572,7 @@ Handle::dsEndure(Command cmd, Dataset const &ds, ResultSet& out,
         cmd.replicate_to = options.replicate;
 
         out.markBegin();
-        
+
         lcb_sched_enter(instance);
         lcb_error_t err = lcb_storedur3(instance, &out, &cmd);
         lcb_sched_leave(instance);

@@ -179,7 +179,7 @@ public:
     }
 
     Error oper_error;
-    unsigned int remaining;
+    int remaining;
 
     static int
     mapError(lcb_error_t err) {
@@ -195,11 +195,11 @@ public:
 
     unsigned int obs_persist_count;
     unsigned int obs_replica_count;
-    unsigned int query_doc_insert_count;
     unsigned int query_resp_count;
     unsigned long long obs_master_cas;
     bool vresp_complete;
     bool ryow;
+    std::string scan_consistency;
 
 private:
     friend class Handle;

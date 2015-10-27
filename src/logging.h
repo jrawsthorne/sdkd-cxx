@@ -20,9 +20,8 @@ extern "C" {
 
 class Logger : public lcb_logprocs_st {
     public:
-        Logger(int level, const char *filename) :start_time(0), file(NULL)
+        Logger(const char *filename) :start_time(0), file(NULL)
         {
-            minlevel = level;
             fp = fopen(filename, "a");
             if (!fp) {
                 fp = stderr;
@@ -77,7 +76,6 @@ class Logger : public lcb_logprocs_st {
         uint64_t start_time;
         const char *file;
         FILE *fp;
-        int minlevel;
 };
 
 extern "C" {

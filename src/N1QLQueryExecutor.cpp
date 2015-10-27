@@ -12,7 +12,7 @@ insert_cb(lcb_t instance, int type, lcb_RESPBASE *resp) {
         lcb_MUTATION_TOKEN ss = *lcb_resp_get_mutation_token(type, resp);
         Json::Value vbucket;
         vbucket["guard"] = std::to_string(LCB_MUTATION_TOKEN_ID(&ss));
-        vbucket["value"]  = std::to_string(LCB_MUTATION_TOKEN_SEQ(&ss));
+        vbucket["value"]  = LCB_MUTATION_TOKEN_SEQ(&ss);
         obj->tokens[std::to_string(LCB_MUTATION_TOKEN_VB(&ss))] = vbucket;
         std::string val = Json::FastWriter().write(obj->tokens);
     } else {
@@ -32,7 +32,7 @@ N1QLQueryExecutor::insertDoc(lcb_t instance,
     std::vector<std::string>::iterator vit = paramValues.begin();
 
     Json::Value doc;
-    doc["id"] = this->doc_index;
+    doc["id"] = std::to_string(handle->hid);
 
     for(;pit<params.end(); pit++, vit++) {
         doc[*pit] = *vit;
@@ -66,8 +66,8 @@ query_cb(lcb_t instance,
         const lcb_RESPN1QL *resp) {
     ResultSet *obj = reinterpret_cast<ResultSet *>(resp->cookie);
     if (resp->rflags & LCB_RESP_F_FINAL) {
-        if (obj->query_doc_insert_count) {
-            if (obj->ryow && obj->query_resp_count != obj->query_doc_insert_count -1) {
+        if (obj->scan_consistency == "request_plus" || obj->scan_consistency == "at_plus") {
+            if (obj->query_resp_count != 1) {
                 obj->setRescode(Error::SUBSYSf_QUERY || Error::RYOW_MISMATCH, true);
             }
         }
@@ -76,17 +76,6 @@ query_cb(lcb_t instance,
     }
     obj->query_resp_count++;
 }
-}
-void
-N1QLQueryExecutor::split(const std::string &s, char delim, std::vector<std::string> &elems) {
-    std::stringstream ss(s);
-    std::string item;
-
-    while(std::getline(ss, item, delim)) {
-        if (!item.empty()) {
-            elems.push_back(item);
-        }
-    }
 }
 
 bool
@@ -102,32 +91,30 @@ N1QLQueryExecutor::execute(Command cmd,
     std::string indexName = req.payload[CBSDKD_MSGFLD_NQ_DEFAULT_INDEX_NAME].asString();
     bool isPrepared = req.payload[CBSDKD_MSGFLD_NQ_PREPARED].asBool();
     std::vector<std::string> params;
-    split(req.payload[CBSDKD_MSGFLD_NQ_PARAM].asString(), ',', params);
+    N1QL::split(req.payload[CBSDKD_MSGFLD_NQ_PARAM].asString(), ',', params);
     std::vector<std::string> paramValues;
-    split(req.payload[CBSDKD_MSGFLD_NQ_PARAMVALUES].asString(), ',', paramValues);
-    std::string scanConsistency = req.payload[CBSDKD_MSGFLD_NQ_SCANCONSISTENCY].asString();    int batchCount = req.payload[CBSDKD_MSGFLD_NQ_BATCHCOUNT].asInt();
-    if (!batchCount) {
-        batchCount = 100;
-    }
-
-    int i = 0;
+    N1QL::split(req.payload[CBSDKD_MSGFLD_NQ_PARAMVALUES].asString(), ',', paramValues);
+    std::string scanConsistency = req.payload[CBSDKD_MSGFLD_NQ_SCANCONSISTENCY].asString();
+    int batchCount = req.payload[CBSDKD_MSGFLD_NQ_BATCHCOUNT].asInt();
+    int i = 1;
+    params.push_back("handleid");
+    paramValues.push_back(std::to_string(handle->hid));
     out.clear();
 
+    if (batchCount == 0) {
+        batchCount = 1;
+    }
     handle->externalEnter();
 
     while(!handle->isCancelled()) {
         out.query_resp_count = 0;
         lcb_error_t err;
-
-        if (scanConsistency == "request_plus" || scanConsistency == "at_plus") {
-            if(!insertDoc(handle->getLcb(), params, paramValues, err)) {
-                fprintf(stderr, "Inserting document returned error 0x%x %s\n",
+             if(!insertDoc(handle->getLcb(), params, paramValues, err)) {
+            fprintf(stderr, "Inserting document returned error 0x%x %s\n",
                     err, lcb_strerror(NULL, err));
-                return false;
-            }
-            out.query_doc_insert_count = this->doc_index;
-            this->doc_index++;
+            return false;
         }
+        out.scan_consistency = scanConsistency;
 
         std::string q = std::string("select * from `") + this->handle->options.bucket.c_str() + "`";
 
@@ -136,7 +123,6 @@ N1QLQueryExecutor::execute(Command cmd,
             bool isFirst = true;
             std::vector<std::string>::iterator pit = params.begin();
             std::vector<std::string>::iterator vit = paramValues.begin();
-
 
             for(;pit != params.end(); pit++, vit++) {
                 if(!isFirst) {
@@ -156,18 +142,13 @@ N1QLQueryExecutor::execute(Command cmd,
 
         qcmd.callback = query_cb;
         Json::Value scan_vector = tokens;
-
-
         if(!N1QL::query(q.c_str(), &qcmd, LCB_N1P_QUERY_STATEMENT, &out, err, consistency, scan_vector)) {
             fprintf(stderr,"Querying returned error 0x%x %s\n",
                     err, lcb_strerror(NULL, err));
         }
-
+        lcb_wait(handle->getLcb());
         if (iterdelay) {
             sdkd_millisleep(iterdelay);
-        }
-        if (i % batchCount == 0) {
-            lcb_wait(handle->getLcb());
         }
         i++;
     }
