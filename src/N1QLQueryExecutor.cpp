@@ -90,13 +90,12 @@ N1QLQueryExecutor::execute(Command cmd,
     std::string indexEngine = req.payload[CBSDKD_MSGFLD_NQ_INDEX_ENGINE].asString();
     std::string indexName = req.payload[CBSDKD_MSGFLD_NQ_DEFAULT_INDEX_NAME].asString();
     bool isPrepared = req.payload[CBSDKD_MSGFLD_NQ_PREPARED].asBool();
-    std::vector<std::string> params;
+
+    std::vector<std::string> params, paramValues;
     N1QL::split(req.payload[CBSDKD_MSGFLD_NQ_PARAM].asString(), ',', params);
-    std::vector<std::string> paramValues;
     N1QL::split(req.payload[CBSDKD_MSGFLD_NQ_PARAMVALUES].asString(), ',', paramValues);
     std::string scanConsistency = req.payload[CBSDKD_MSGFLD_NQ_SCANCONSISTENCY].asString();
     int batchCount = req.payload[CBSDKD_MSGFLD_NQ_BATCHCOUNT].asInt();
-    int i = 1;
     params.push_back("handleid");
     paramValues.push_back(std::to_string(handle->hid));
     out.clear();
@@ -150,7 +149,6 @@ N1QLQueryExecutor::execute(Command cmd,
         if (iterdelay) {
             sdkd_millisleep(iterdelay);
         }
-        i++;
     }
     handle->externalLeave();
     return true;
