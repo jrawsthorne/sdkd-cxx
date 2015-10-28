@@ -39,7 +39,8 @@
     XX(CANCEL) \
     XX(INFO) \
     XX(TTL) \
-    XX(GETUSAGE)
+    XX(GETUSAGE) \
+    XX(UPLOADLOGS)
 
 namespace CBSdkd {
 

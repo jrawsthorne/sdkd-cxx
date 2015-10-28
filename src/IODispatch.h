@@ -101,6 +101,7 @@ public:
     void unregisterWDHandle(cbsdk_hid_t);
 
     const Dataset* getDatasetById(const std::string& dsid);
+    std::string uploadLogs(std::string path);
 
 private:
     sdkd_socket_t acceptfd;

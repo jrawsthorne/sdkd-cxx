@@ -81,7 +81,7 @@
 /**
  * TTL Parameters
  */
-#define CBSDK_MSGFLD_TTL_SECONDS                "Seconds"
+#define CBSDKD_MSGFLD_TTL_SECONDS                "Seconds"
 
 /** View Query Parameters */
 #define CBSDKD_MSGFLD_QVOPT_STALE "stale"

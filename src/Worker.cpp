@@ -214,7 +214,6 @@ WorkerDispatch::processRequest(const Request& req)
 
     case Command::CB_N1QL_LOAD:
     {
-        fprintf(stderr, "n1ql loader \n");
         N1QLLoader nl = N1QLLoader(cur_handle);
         nl.populate(*ds);
         break;
