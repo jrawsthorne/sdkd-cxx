@@ -95,20 +95,24 @@ N1QLQueryExecutor::execute(Command cmd,
     N1QL::split(req.payload[CBSDKD_MSGFLD_NQ_PARAM].asString(), ',', params);
     N1QL::split(req.payload[CBSDKD_MSGFLD_NQ_PARAMVALUES].asString(), ',', paramValues);
     std::string scanConsistency = req.payload[CBSDKD_MSGFLD_NQ_SCANCONSISTENCY].asString();
-    int batchCount = req.payload[CBSDKD_MSGFLD_NQ_BATCHCOUNT].asInt();
     params.push_back("handleid");
     paramValues.push_back(std::to_string(handle->hid));
+
+    int ii = 0;
+    params.push_back("unique_id");
+    paramValues.push_back(std::to_string(ii));
+
     out.clear();
 
-    if (batchCount == 0) {
-        batchCount = 1;
-    }
     handle->externalEnter();
 
     while(!handle->isCancelled()) {
         out.query_resp_count = 0;
+        paramValues.pop_back();
+        paramValues.push_back(std::to_string(ii));
+
         lcb_error_t err;
-             if(!insertDoc(handle->getLcb(), params, paramValues, err)) {
+        if(!insertDoc(handle->getLcb(), params, paramValues, err)) {
             fprintf(stderr, "Inserting document returned error 0x%x %s\n",
                     err, lcb_strerror(NULL, err));
             return false;
@@ -149,6 +153,7 @@ N1QLQueryExecutor::execute(Command cmd,
         if (iterdelay) {
             sdkd_millisleep(iterdelay);
         }
+        ii++;
     }
     handle->externalLeave();
     return true;
