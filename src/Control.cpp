@@ -130,12 +130,12 @@ MainDispatch::dispatchCommand(Request *reqp)
         coll->Start();
         isCollectingStats = true;
     } else if (reqp->command == Command::TTL) {
-        if (!reqp->payload.isMember(CBSDK_MSGFLD_TTL_SECONDS)) {
+        if (!reqp->payload.isMember(CBSDKD_MSGFLD_TTL_SECONDS)) {
             writeResponse(Response(reqp,
                                    Error::createInvalid(
                                            "Missing Seconds")));
         } else {
-            int seconds = reqp->payload[CBSDK_MSGFLD_TTL_SECONDS].asInt();
+            int seconds = reqp->payload[CBSDKD_MSGFLD_TTL_SECONDS].asInt();
 
             if (seconds < 0) {
                 seconds = 0;
@@ -148,6 +148,13 @@ MainDispatch::dispatchCommand(Request *reqp)
         coll = new UsageCollector();
         coll->Start();
         isCollectingStats = true;
+    } else if (reqp->command == Command::UPLOADLOGS) {
+        std::string url = uploadLogs("pylib/s3upload.py");
+        Response res = Response(reqp);
+        Json::Value val;
+        val["url"] = url;
+        res.setResponseData(val);
+        writeResponse(res);
     } else {
     // We don't currently support other types of control messages
         writeResponse(Response(reqp,
@@ -315,6 +322,20 @@ MainDispatch::getDatasetById(const std::string& dsid)
     const Dataset *ret = dsmap[dsid];
     dsmutex->unlock();
     return ret;
+}
+
+std::string
+MainDispatch::uploadLogs(std::string scriptpath) {
+    char command[1024], urlbuf[1024];
+
+    memset(command, '\0', sizeof command);
+    sprintf(command, "python %s --file=%s",
+                    scriptpath.c_str(),
+                    Daemon::MainDaemon->getOptions().lcblogFile);
+    FILE *fp = popen(command, "r");
+    memset(command, '\0', sizeof urlbuf);
+    fgets(urlbuf, sizeof urlbuf, fp);
+    return std::string(urlbuf);
 }
 
 }

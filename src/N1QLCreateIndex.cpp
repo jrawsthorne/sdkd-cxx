@@ -62,6 +62,7 @@ N1QLCreateIndex::execute(Command cmd,
         //construct secondary index on the params
         memset(qbuf, '\0', sizeof(qbuf));
 
+        params += ",handleid";
         sprintf(qbuf,
                 "CREATE INDEX %s ON `%s`(%s) using %s",
                 indexName.c_str(),

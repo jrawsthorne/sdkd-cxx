@@ -234,6 +234,7 @@ public:
 
     static void VersionInfoJson(Json::Value& res);
     HandleOptions options;
+    unsigned long int hid;
 
 private:
     lcb_create_st create_opts;
