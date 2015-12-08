@@ -23,7 +23,6 @@ public:
         req["statement"] = std::string(buf);
         req["scan_consistency"] = consistency;
         if (consistency == "at_plus") {
-            //req["scan_consistency"] = "request_plus";
             req["scan_vector"] = scan_vector;
 
         }
