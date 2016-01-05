@@ -6,6 +6,7 @@ namespace CBSdkd {
 ResultOptions::ResultOptions(const Json::Value& opts)
 :
     full(opts[CBSDKD_MSGFLD_DSREQ_FULL].asTruthVal()),
+    preload(opts[CBSDKD_MSGFLD_DS_PRELOAD].asTruthVal()),
     multi(opts[CBSDKD_MSGFLD_DSREQ_MULTI].asUInt()),
     expiry(opts[CBSDKD_MSGFLD_DSREQ_EXPIRY].asUInt()),
     iterwait(opts[CBSDKD_MSGFLD_DSREQ_ITERWAIT].asUInt()),
@@ -19,9 +20,12 @@ ResultOptions::ResultOptions(const Json::Value& opts)
     _determine_delay();
 }
 
-ResultOptions::ResultOptions(bool full, unsigned int expiry,
-              unsigned int delay) :
+ResultOptions::ResultOptions(bool full,
+                            bool preload,
+                            unsigned int expiry,
+                            unsigned int delay) :
     full(full),
+    preload(preload),
     multi(0),
     expiry(expiry),
     iterwait(false),

@@ -22,6 +22,7 @@ class Handle;
 class ResultOptions {
 public:
     bool full;
+    bool preload;
     unsigned int multi;
     unsigned int expiry;
     unsigned int flags;
@@ -37,6 +38,7 @@ public:
 
     ResultOptions(const Json::Value&);
     ResultOptions(bool full = false,
+                  bool preload = false,
                   unsigned int expiry = 0,
                   unsigned int delay = 0);
 

@@ -10,6 +10,8 @@
 #define CBSDKD_MSGFLD_DSREQ_DS                  "DS"
 #define CBSDKD_MSGFLD_STATUS                    "Status"
 #define CBSDKD_MSGFLD_ERRSTR                    "ErrorString"
+
+#define CBSDKD_MSGFLD_DS_PRELOAD                "Preload"
 /**
  * Seed-specific fields
  */
