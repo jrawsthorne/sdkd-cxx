@@ -15,8 +15,6 @@ insert_cb(lcb_t instance, int type, lcb_RESPBASE *resp) {
         vbucket["value"]  = (unsigned int)LCB_MUTATION_TOKEN_SEQ(&ss);
         obj->tokens[std::to_string(LCB_MUTATION_TOKEN_VB(&ss))] = vbucket;
         std::string val = Json::FastWriter().write(obj->tokens);
-    } else {
-        obj->is_isuccess = false;
     }
     obj->insert_err = resp->rc;
 }
