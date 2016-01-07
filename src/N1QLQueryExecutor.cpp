@@ -49,12 +49,16 @@ N1QLQueryExecutor::insertDoc(lcb_t instance,
     lcb_sched_enter(instance);
     err = lcb_store3(instance, (void *)this, &scmd);
     if (err != LCB_SUCCESS) {
+        this->insert_err = err;
         return false;
     }
     lcb_sched_leave(instance);
     lcb_wait(instance);
     err = this->insert_err;
-    return this->is_isuccess;
+    if (err != LCB_SUCCESS) {
+        return false;
+    }
+    return true;
 }
 
 extern "C" {
@@ -64,7 +68,7 @@ query_cb(lcb_t instance,
         const lcb_RESPN1QL *resp) {
     ResultSet *obj = reinterpret_cast<ResultSet *>(resp->cookie);
     if (resp->rflags & LCB_RESP_F_FINAL) {
-        if (obj->scan_consistency == "request_plus" || obj->scan_consistency == "at_plus") {
+        if (obj->scan_consistency == "request_plus" || obj->scan_consistency == "at_plus")          {
             if (obj->query_resp_count != 1) {
                 obj->setRescode(Error::SUBSYSf_QUERY || Error::RYOW_MISMATCH, true);
             }
@@ -113,7 +117,6 @@ N1QLQueryExecutor::execute(Command cmd,
         if(!insertDoc(handle->getLcb(), params, paramValues, err)) {
             fprintf(stderr, "Inserting document returned error 0x%x %s\n",
                     err, lcb_strerror(NULL, err));
-            return false;
         }
         out.scan_consistency = scanConsistency;
 
@@ -144,9 +147,11 @@ N1QLQueryExecutor::execute(Command cmd,
         qcmd.callback = query_cb;
         Json::Value scan_vector = tokens;
         if(!N1QL::query(q.c_str(), &qcmd, LCB_N1P_QUERY_STATEMENT, &out, err, consistency, scan_vector)) {
-            fprintf(stderr,"Querying returned error 0x%x %s\n",
+            fprintf(stderr,"Scheduling query returned error 0x%x %s\n",
                     err, lcb_strerror(NULL, err));
+            continue;
         }
+
         lcb_wait(handle->getLcb());
         if (iterdelay) {
             sdkd_millisleep(iterdelay);
