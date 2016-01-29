@@ -229,6 +229,9 @@ static void wire_callbacks(lcb_t instance)
     _setcb(LCB_CALLBACK_STATS, cb_stats);
     _setcb(LCB_CALLBACK_GETREPLICA, cb_get);
     _setcb(LCB_CALLBACK_STOREDUR, cb_storedur);
+    //_setcb(LCB_CALLBACK_SDGET, cb_sdget);
+    //_setcb(LCB_CALLBACK_SDSTORE, cb_sdstore);
+    //_setcb(LCB_CALLBACK_SDCOUNTER, cb_sdcounter);
 #undef _setcb
     lcb_set_errmap_callback(instance, lcb_errmap_user);
 }
@@ -719,6 +722,85 @@ Handle::dsVerifyStats(Command cmd, const Dataset& ds, ResultSet& out,
     return true;
 
 }
+
+bool
+Handle::dsSDGet(Command cmd, const Dataset& ds, ResultSet& out,
+        const ResultOptions& options) {
+
+    out.options = options;
+    out.clear();
+    DatasetIterator *iter = ds.getIter();
+    do_cancel = false;
+
+    for (iter->start();
+            iter->done() == false && do_cancel == false;
+            iter->advance()) {
+
+        std::string key = iter->key();
+        std::string path = iter->path();
+
+        lcb_CMDSDGET cmd = { 0 };
+        LCB_CMD_SET_KEY(&cmd, key.c_str(), key.size());
+        LCB_SDCMD_SET_PATH(&cmd, path.c_str(), path.size());
+
+        lcb_sched_enter(instance);
+        out.markBegin();
+
+        lcb_error_t err =  lcb_sdget3(instance, &out, &cmd);
+        lcb_sched_leave(instance);
+
+        if (err == LCB_SUCCESS) {
+            postsubmit(out);
+        } else {
+            out.setRescode(err, key, true);
+        }
+    }
+    delete iter;
+    collect_result(out);
+    return true;
+}
+
+bool
+Handle::dsSDStore(Command cmd, const Dataset& ds, ResultSet& out,
+        const ResultOptions& options) {
+
+    out.options = options;
+    out.clear();
+    DatasetIterator *iter = ds.getIter();
+    do_cancel = false;
+
+    for (iter->start();
+            iter->done() == false && do_cancel == false;
+            iter->advance()) {
+
+        std::string key = iter->key();
+        std::string path = iter->path();
+        std::string value = iter->value();
+
+        lcb_CMDSDSTORE cmd = { 0 };
+        LCB_CMD_SET_KEY(&cmd, key.c_str(), key.size());
+        LCB_SDCMD_SET_PATH(&cmd, path.c_str(), path.size());
+        LCB_CMD_SET_VALUE(&cmd, value.c_str(), value.size());
+
+        lcb_sched_enter(instance);
+        out.markBegin();
+
+        lcb_error_t err =  lcb_sdstore3(instance, &out, &cmd);
+        lcb_sched_leave(instance);
+
+        if (err == LCB_SUCCESS) {
+            postsubmit(out);
+        } else {
+            out.setRescode(err, key, true);
+        }
+    }
+    delete iter;
+    collect_result(out);
+    return true;
+}
+
+
+
 void
 Handle::cancelCurrent()
 {

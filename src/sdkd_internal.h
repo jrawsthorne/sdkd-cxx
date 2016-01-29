@@ -58,6 +58,18 @@ typedef SOCKET sdkd_socket_t;
 
 #include "protostrings.h"
 
+typedef enum {
+    SD_INSERT,
+    SD_GET,
+    SD_EXISTS,
+    SD_UPSERT,
+    SD_REPLACE,
+    SD_DELETE,
+    SD_PUSHIN,
+    SD_COUNTER,
+    SD_MULTIMUTATE,
+    SD_MULTILOOKUP
+} SUBDOC_OP;
 
 #ifdef __cplusplus
 extern "C" {
