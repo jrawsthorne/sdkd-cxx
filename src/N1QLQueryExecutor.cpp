@@ -70,7 +70,7 @@ query_cb(lcb_t instance,
     if (resp->rflags & LCB_RESP_F_FINAL) {
         if (obj->scan_consistency == "request_plus" || obj->scan_consistency == "at_plus")          {
             if (obj->query_resp_count != 1) {
-                obj->setRescode(Error::SUBSYSf_QUERY || Error::RYOW_MISMATCH, true);
+                fprintf(stderr, "Query count mismatch for stale=false");
             }
         }
         obj->setRescode(resp->rc , true);

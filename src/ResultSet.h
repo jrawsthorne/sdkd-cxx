@@ -48,28 +48,6 @@ private:
     void _determine_delay();
 };
 
-// Result set/cookie
-
-class FullResult {
-public:
-
-    FullResult(std::string s) : str(s), status(0) { }
-    FullResult(int err) : str(""), status(err) { }
-    FullResult() : str(""), status(Error::SUBSYSf_MEMD|Error::MEMD_ENOENT) { }
-
-    operator int () const { return status; }
-    operator std::string () const { return str; }
-    operator bool () const {
-        return this->status == 0;
-    }
-
-    int getStatus() const  { return status; }
-    std::string getString() const { return str; }
-
-private:
-    std::string str;
-    int status;
-};
 
 class TimeWindow {
 public:
@@ -90,7 +68,7 @@ public:
     unsigned int time_avg;
 
     unsigned count;
-    std::map<int, int> ec;
+    std::map<std::string, int> ec;
 };
 
 class ResultSet {
@@ -111,7 +89,7 @@ public:
     // @param expect_value whether this operation should have returned a value
     // @param value the value (can be NULL)
     // @param n_value the size of the value
-    void setRescode(int err, const void* key, size_t nkey,
+    void setRescode(lcb_error_t err, const void* key, size_t nkey,
                     bool expect_value, const void* value, size_t n_value);
 
     void setRescode(lcb_error_t err) {
@@ -128,13 +106,13 @@ public:
         setRescode(err, key.c_str(), key.length(), true, NULL, 0);
     }
 
-    void setRescode(int err, bool isFinal) {
+    void setRescode(lcb_error_t err, bool isFinal) {
         vresp_complete = isFinal;
         setRescode(err, NULL, 0, false, NULL, 0);
     }
 
-    std::map<int,int> stats;
-    std::map<std::string,FullResult> fullstats;
+    std::map<std::string,int> stats;
+    std::map<std::string,std::string> fullstats;
     std::vector<TimeWindow> timestats;
 
     ResultOptions options;
@@ -173,7 +151,6 @@ public:
         fullstats.clear();
         timestats.clear();
         remaining = 0;
-        parent = NULL;
 
         win_begin = 0;
         cur_wintime = 0;
@@ -202,10 +179,10 @@ public:
     bool vresp_complete;
     bool ryow;
     std::string scan_consistency;
+    Handle* parent;
 
 private:
     friend class Handle;
-    const Handle* parent;
     DatasetIterator *dsiter;
 
     // Timing stuff

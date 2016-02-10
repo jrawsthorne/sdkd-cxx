@@ -62,9 +62,9 @@ void Handle::VersionInfoJson(Json::Value &res) {
 static void cb_config(lcb_t instance, lcb_error_t err)
 {
     (void)instance;
-    int myerr = Handle::mapError(err);
-    log_noctx_error("Got error %d", myerr);
-
+    if (err != LCB_SUCCESS) {
+        log_noctx_error("Got error 0x%x", err);
+    }
 }
 
 
@@ -424,7 +424,6 @@ Handle::dsGet(Command cmd, Dataset const &ds, ResultSet& out,
             iter->advance()) {
 
         std::string k = iter->key();
-        log_trace("GET: %s", k.c_str());
 
         if (!is_buffered) {
             lcb_sched_enter(instance);
@@ -479,16 +478,12 @@ Handle::dsMutate(Command cmd, const Dataset& ds, ResultSet& out,
 
     lcb_time_t exp = out.options.expiry;
     DatasetIterator *iter = ds.getIter();
-    std::string handleidStr = std::to_string(hid);
-    if (out.options.preload ==  true) {
-        handleidStr = "";
-    }
 
     for (iter->start();
             iter->done() == false && do_cancel == false;
             iter->advance()) {
 
-        std::string k = iter->key() + handleidStr;
+        std::string k = iter->key();
         std::string v = iter->value();
 
         if (!is_buffered) {
@@ -798,8 +793,6 @@ Handle::dsSDStore(Command cmd, const Dataset& ds, ResultSet& out,
     collect_result(out);
     return true;
 }
-
-
 
 void
 Handle::cancelCurrent()

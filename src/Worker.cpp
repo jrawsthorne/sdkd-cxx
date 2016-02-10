@@ -61,7 +61,6 @@ WorkerDispatch::initializeHandle(const Request &req)
     } else {
         writeResponse(Response(req, err));
     }
-
     return true;
 }
 
@@ -101,6 +100,7 @@ WorkerDispatch::processRequest(const Request& req)
     }
 
     Handle& h = *cur_handle;
+    rs.parent = cur_handle;
 
     if (req.command == Command::CB_VIEW_QUERY ||
             req.command == Command::CB_N1QL_QUERY ||

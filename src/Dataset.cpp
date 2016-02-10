@@ -235,13 +235,12 @@ static const std::string
 _fill_repeat(const std::string base,
              unsigned int limit,
              const std::string repeat,
-             unsigned int idx,
-             unsigned int hid)
+             unsigned int idx)
 {
     char idxbuf[32] = { 0 };
     sprintf(idxbuf, "%u", idx);
     const std::string repeat_ext = repeat + idxbuf;
-    std::string result = base + repeat_ext + std::to_string(hid);
+    std::string result = base + repeat_ext;
 
     result.reserve(limit+repeat_ext.length());
     while (result.size() < limit-1) {
@@ -263,15 +262,14 @@ DatasetSeededIterator::advance()
 void
 DatasetSeededIterator::init_data(int idx)
 {
+
     this->curk = _fill_repeat(this->spec->kseed,
                               this->spec->ksize,
                               this->spec->repeat,
-                              this->spec->hid,
                               idx);
     this->curv = _fill_repeat(this->spec->vseed,
                               this->spec->vsize,
                               this->spec->repeat,
-                              this->spec->hid,
                               idx);
 }
 
