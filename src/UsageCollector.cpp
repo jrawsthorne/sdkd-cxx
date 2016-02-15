@@ -34,7 +34,7 @@ void UsageCollector::Loop(void) {
     memusages.append("memory");
     cputimeusages = Json::Value(Json::arrayValue);
     cputimeusages.append("cpu");
-    double start_time_span = 0;
+    double current_span = 0;
 
     while(1) {
         memset(&usage, '0', sizeof usage);
@@ -44,32 +44,12 @@ void UsageCollector::Loop(void) {
         }
         double oncputime_s = usage.ru_utime.tv_sec + usage.ru_stime.tv_sec;
         double oncputime_us = usage.ru_utime.tv_usec + usage.ru_stime.tv_usec;
-        double currenttime, mem, end_span = 0.0;
-
-        struct timeval tv;
-        gettimeofday(&tv, NULL);
-        currenttime = tv.tv_sec + (tv.tv_usec/1000000);
-
-        mem = usage.ru_maxrss;
-
-        if (start_time_span == 0) {
-            end_span = 0;
-
-        } else {
-            end_span = end_span + (currenttime - start_time_span);
-        }
-
-        start_time_span = currenttime;
-
-        samplingtime.append(end_span);
+        double mem = usage.ru_maxrss;
+        samplingtime.append(current_span);
         memusages.append(mem);
-
         cputimeusages.append(oncputime_s + (oncputime_us/1000000));
-
-        //memusages.push_back(usage.ru_maxrss);
-        //cputimeusages.push_back(oncputime_s + (oncputime_us/1000000));
-
         sleep(interval);
+        current_span += interval;
     }
 }
 
