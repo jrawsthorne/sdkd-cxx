@@ -476,16 +476,12 @@ Handle::dsMutate(Command cmd, const Dataset& ds, ResultSet& out,
 
     lcb_time_t exp = out.options.expiry;
     DatasetIterator *iter = ds.getIter();
-    std::string handleidStr = std::to_string(hid);
-    if (out.options.preload ==  true) {
-        handleidStr = "";
-    }
 
     for (iter->start();
             iter->done() == false && do_cancel == false;
             iter->advance()) {
 
-        std::string k = iter->key() + handleidStr;
+        std::string k = iter->key();
         std::string v = iter->value();
 
         if (!is_buffered) {
