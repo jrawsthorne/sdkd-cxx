@@ -126,7 +126,7 @@ WorkerDispatch::processRequest(const Request& req)
                 goto GT_CHECKERR;
             }
         } else {
-            ds = Dataset::fromType(dstype, req, req.command == Command::MC_DS_GET? false:true);
+            ds = Dataset::fromType(dstype, req);
             if (ds == NULL) {
                 errp.setCode(Error::SUBSYSf_SDKD|Error::SDKD_EINVAL);
                 errp.setString("Bad dataset parameters");

@@ -67,14 +67,14 @@ Dataset::determineType(const Request& req, std::string* refid)
 }
 
 Dataset *
-Dataset::fromType(Type t, const Request& req, bool addHid)
+Dataset::fromType(Type t, const Request& req)
 {
     Dataset *ret;
     if (t == DSTYPE_INLINE) {
         ret = new DatasetInline(req.payload[CBSDKD_MSGFLD_DSREQ_DS]);
     } else if (t == DSTYPE_SEEDED) {
         assert(req.payload[CBSDKD_MSGFLD_DSREQ_DS].asTruthVal());
-        ret = new DatasetSeeded(req.payload[CBSDKD_MSGFLD_DSREQ_DS], req.handle_id, addHid);
+        ret = new DatasetSeeded(req.payload[CBSDKD_MSGFLD_DSREQ_DS]);
     } else if (t == DSTYPE_N1QL) {
         assert(req.payload[CBSDKD_MSGFLD_DSREQ_DS].asTruthVal());
         ret = new N1QLDataset(req.payload[CBSDKD_MSGFLD_DSREQ_DS]);
@@ -181,7 +181,7 @@ DatasetSeeded::verify_spec(void)
     return true;
 }
 
-DatasetSeeded::DatasetSeeded(const Json::Value& jspec, unsigned int hid, bool useHid)
+DatasetSeeded::DatasetSeeded(const Json::Value& jspec)
 : Dataset(Dataset::DSTYPE_SEEDED)
 {
     struct DatasetSeedSpecification *spec = &this->spec;
@@ -194,9 +194,6 @@ DatasetSeeded::DatasetSeeded(const Json::Value& jspec, unsigned int hid, bool us
     spec->repeat = jspec[CBSDKD_MSGFLD_DSSEED_REPEAT].asString();
     spec->count = jspec[CBSDKD_MSGFLD_DSSEED_COUNT].asUInt();
     spec->continuous = jspec[CBSDKD_MSGFLD_DSREQ_CONTINUOUS].asTruthVal();
-    if (useHid == true) {
-        spec->hid = hid;
-    }
     verify_spec();
 
 }
@@ -230,13 +227,12 @@ static const std::string
 _fill_repeat(const std::string base,
              unsigned int limit,
              const std::string repeat,
-             unsigned int idx,
-             unsigned int hid)
+             unsigned int idx)
 {
     char idxbuf[32] = { 0 };
     sprintf(idxbuf, "%u", idx);
     const std::string repeat_ext = repeat + idxbuf;
-    std::string result = base + repeat_ext + std::to_string(hid);
+    std::string result = base + repeat_ext;
 
     result.reserve(limit+repeat_ext.length());
     while (result.size() < limit-1) {
@@ -261,12 +257,10 @@ DatasetSeededIterator::init_data(int idx)
     this->curk = _fill_repeat(this->spec->kseed,
                               this->spec->ksize,
                               this->spec->repeat,
-                              this->spec->hid,
                               idx);
     this->curv = _fill_repeat(this->spec->vseed,
                               this->spec->vsize,
                               this->spec->repeat,
-                              this->spec->hid,
                               idx);
 }
 

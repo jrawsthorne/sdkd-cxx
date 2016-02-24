@@ -289,7 +289,7 @@ MainDispatch::create_new_ds(const Request *reqp)
         writeResponse(resp);
     }
 
-    Dataset *ds = Dataset::fromType(dstype, *reqp, reqp->command == Command::MC_DS_GET? false:true);
+    Dataset *ds = Dataset::fromType(dstype, *reqp);
 
     if (ds && ds->isValid() && refid.size()) {
         // Insert the DS

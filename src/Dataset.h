@@ -68,7 +68,7 @@ public:
     determineType(const Request& req, std::string *refid);
 
     static Dataset*
-    fromType(Type t, const Request& req, bool addHid);
+    fromType(Type t, const Request& req);
 
     Error err;
     Type type;
@@ -103,7 +103,6 @@ struct DatasetSeedSpecification {
     unsigned int count;
     unsigned int ksize;
     unsigned int vsize;
-    unsigned int hid;
     bool continuous;
     std::string repeat;
     std::string kseed;
@@ -126,7 +125,7 @@ class DatasetSeeded : public Dataset
 {
 
 public:
-    DatasetSeeded(const Json::Value& spec, unsigned int, bool);
+    DatasetSeeded(const Json::Value& spec);
     DatasetSeeded(const struct DatasetSeedSpecification& spec);
     DatasetIterator* getIter() const;
     unsigned int getCount() const;
