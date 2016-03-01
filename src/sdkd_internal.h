@@ -130,6 +130,7 @@ int gettimeofday(struct timeval *tv, void *tz);
 #include "views/viewrow.h"
 #include "Views.h"
 #include "n1ql.h"
+#include "subdoc.h"
 
 #endif /* SDKD_NO_CXX */
 

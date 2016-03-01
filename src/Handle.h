@@ -204,14 +204,10 @@ public:
              ResultOptions const& options = ResultOptions());
 
     bool
-    dsSDStore(Command cmd,
+    dsSDSinglePath(Command cmd,
              Dataset const&, ResultSet& out,
              ResultOptions const& options = ResultOptions());
 
-    bool
-    dsSDGet(Command cmd,
-             Dataset const&, ResultSet& out,
-             ResultOptions const& options = ResultOptions());
 
     void appendError(int err, const char *desc) {
         pending_errors.push_back(Error(err, desc));

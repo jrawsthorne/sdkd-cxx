@@ -194,6 +194,14 @@ static void cb_stats(lcb_t instance, int, const lcb_RESPBASE *resp)
     }
 }
 
+static void cb_sd(lcb_t instance, int, const lcb_RESPBASE *resp)
+{
+    lcb_RESPSUBDOC *sdresp = (lcb_RESPSUBDOC *)(resp);
+    ResultSet *out = reinterpret_cast<ResultSet*>(resp->cookie);
+    out->setRescode(sdresp->rc);
+
+}
+
 lcb_error_t
 lcb_errmap_user(lcb_t instance, lcb_uint16_t in)
 {
@@ -229,9 +237,8 @@ static void wire_callbacks(lcb_t instance)
     _setcb(LCB_CALLBACK_STATS, cb_stats);
     _setcb(LCB_CALLBACK_GETREPLICA, cb_get);
     _setcb(LCB_CALLBACK_STOREDUR, cb_storedur);
-    //_setcb(LCB_CALLBACK_SDGET, cb_sdget);
-    //_setcb(LCB_CALLBACK_SDSTORE, cb_sdstore);
-    //_setcb(LCB_CALLBACK_SDCOUNTER, cb_sdcounter);
+    _setcb(LCB_CALLBACK_SDMUTATE, cb_sd);
+    _setcb(LCB_CALLBACK_SDLOOKUP, cb_sd);
 #undef _setcb
     lcb_set_errmap_callback(instance, lcb_errmap_user);
 }
@@ -724,50 +731,37 @@ Handle::dsVerifyStats(Command cmd, const Dataset& ds, ResultSet& out,
 }
 
 bool
-Handle::dsSDGet(Command cmd, const Dataset& ds, ResultSet& out,
+Handle::dsSDSinglePath(Command command, const Dataset& ds, ResultSet& out,
         const ResultOptions& options) {
-
     out.options = options;
     out.clear();
     DatasetIterator *iter = ds.getIter();
     do_cancel = false;
+    lcb_SUBDOCOP op;
 
-    for (iter->start();
-            iter->done() == false && do_cancel == false;
-            iter->advance()) {
-
-        std::string key = iter->key();
-        std::string path = iter->path();
-
-        lcb_CMDSDGET cmd = { 0 };
-        LCB_CMD_SET_KEY(&cmd, key.c_str(), key.size());
-        LCB_SDCMD_SET_PATH(&cmd, path.c_str(), path.size());
-
-        lcb_sched_enter(instance);
-        out.markBegin();
-
-        lcb_error_t err =  lcb_sdget3(instance, &out, &cmd);
-        lcb_sched_leave(instance);
-
-        if (err == LCB_SUCCESS) {
-            postsubmit(out);
-        } else {
-            out.setRescode(err, key, true);
-        }
+    if (command == Command::MC_DS_SD_GET) {
+        op = LCB_SDCMD_GET;
+    } else if (command == Command::MC_DS_SD_REPLACE) {
+        op = LCB_SDCMD_REPLACE;
+    } else if (command == Command::MC_DS_SD_DICT_ADD) {
+        op = LCB_SDCMD_DICT_ADD;
+    } else if (command == Command::MC_DS_SD_DICT_UPSERT) {
+        op = LCB_SDCMD_DICT_UPSERT;
+    } else if (command == Command::MC_DS_SD_ARRAY_ADD_FIRST) {
+        op = LCB_SDCMD_ARRAY_ADD_FIRST;
+    } else if (command == Command::MC_DS_SD_ARRAY_ADD_LAST) {
+        op = LCB_SDCMD_ARRAY_ADD_LAST;
+    } else if (command == Command::MC_DS_SD_ARRAY_ADD_UNIQUE) {
+        op = LCB_SDCMD_ARRAY_ADD_UNIQUE;
+    } else if (command == Command::MC_DS_SD_ARRAY_INSERT) {
+        op = LCB_SDCMD_ARRAY_INSERT;
+    } else if (command == Command::MC_DS_SD_COUNTER) {
+        op = LCB_SDCMD_COUNTER;
+    } else if (command == Command::MC_DS_SD_REMOVE) {
+        op = LCB_SDCMD_REMOVE;
+    } else if (command == Command::MC_DS_SD_EXISTS) {
+        op = LCB_SDCMD_EXISTS;
     }
-    delete iter;
-    collect_result(out);
-    return true;
-}
-
-bool
-Handle::dsSDStore(Command cmd, const Dataset& ds, ResultSet& out,
-        const ResultOptions& options) {
-
-    out.options = options;
-    out.clear();
-    DatasetIterator *iter = ds.getIter();
-    do_cancel = false;
 
     for (iter->start();
             iter->done() == false && do_cancel == false;
@@ -777,15 +771,23 @@ Handle::dsSDStore(Command cmd, const Dataset& ds, ResultSet& out,
         std::string path = iter->path();
         std::string value = iter->value();
 
-        lcb_CMDSDSTORE cmd = { 0 };
+        lcb_SDSPEC spec = { 0 };
+        lcb_CMDSUBDOC cmd = { 0 };
+        spec.sdcmd = op;
+        cmd.specs = &spec;
+        cmd.nspecs = 1;
+
         LCB_CMD_SET_KEY(&cmd, key.c_str(), key.size());
-        LCB_SDCMD_SET_PATH(&cmd, path.c_str(), path.size());
-        LCB_CMD_SET_VALUE(&cmd, value.c_str(), value.size());
+        LCB_SDSPEC_SET_PATH(&spec, path.c_str(), path.size());
+
+        if (value.size() > 0) {
+            LCB_SDSPEC_SET_VALUE(&spec, value.c_str(), value.size());
+        }
 
         lcb_sched_enter(instance);
         out.markBegin();
 
-        lcb_error_t err =  lcb_sdstore3(instance, &out, &cmd);
+        lcb_error_t err =  lcb_subdoc3(instance, &out, &cmd);
         lcb_sched_leave(instance);
 
         if (err == LCB_SUCCESS) {
@@ -798,8 +800,6 @@ Handle::dsSDStore(Command cmd, const Dataset& ds, ResultSet& out,
     collect_result(out);
     return true;
 }
-
-
 
 void
 Handle::cancelCurrent()
