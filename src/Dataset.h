@@ -33,6 +33,7 @@ public:
     const std::string key() const;
     const std::string value() const;
     const std::string path() const;
+    const std::string command() const;
     void start();
     virtual void advance();
     virtual bool done() = 0;
@@ -41,6 +42,7 @@ protected:
     std::string curk;
     std::string curv;
     std::string curp;
+    std::string curc;
 
     virtual void init_data(int idx) = 0;
     unsigned int curidx;
@@ -183,6 +185,7 @@ private:
 struct SDDatasetSpecification {
     Json::Value doc;
     bool load;
+    std::string command;
     std::string path;
     std::string value;
     bool continuous;

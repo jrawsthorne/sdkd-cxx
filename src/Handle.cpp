@@ -731,37 +731,13 @@ Handle::dsVerifyStats(Command cmd, const Dataset& ds, ResultSet& out,
 }
 
 bool
-Handle::dsSDSinglePath(Command command, const Dataset& ds, ResultSet& out,
+Handle::dsSDSinglePath(Command c, const Dataset& ds, ResultSet& out,
         const ResultOptions& options) {
     out.options = options;
     out.clear();
     DatasetIterator *iter = ds.getIter();
     do_cancel = false;
     lcb_SUBDOCOP op;
-
-    if (command == Command::MC_DS_SD_GET) {
-        op = LCB_SDCMD_GET;
-    } else if (command == Command::MC_DS_SD_REPLACE) {
-        op = LCB_SDCMD_REPLACE;
-    } else if (command == Command::MC_DS_SD_DICT_ADD) {
-        op = LCB_SDCMD_DICT_ADD;
-    } else if (command == Command::MC_DS_SD_DICT_UPSERT) {
-        op = LCB_SDCMD_DICT_UPSERT;
-    } else if (command == Command::MC_DS_SD_ARRAY_ADD_FIRST) {
-        op = LCB_SDCMD_ARRAY_ADD_FIRST;
-    } else if (command == Command::MC_DS_SD_ARRAY_ADD_LAST) {
-        op = LCB_SDCMD_ARRAY_ADD_LAST;
-    } else if (command == Command::MC_DS_SD_ARRAY_ADD_UNIQUE) {
-        op = LCB_SDCMD_ARRAY_ADD_UNIQUE;
-    } else if (command == Command::MC_DS_SD_ARRAY_INSERT) {
-        op = LCB_SDCMD_ARRAY_INSERT;
-    } else if (command == Command::MC_DS_SD_COUNTER) {
-        op = LCB_SDCMD_COUNTER;
-    } else if (command == Command::MC_DS_SD_REMOVE) {
-        op = LCB_SDCMD_REMOVE;
-    } else if (command == Command::MC_DS_SD_EXISTS) {
-        op = LCB_SDCMD_EXISTS;
-    }
 
     for (iter->start();
             iter->done() == false && do_cancel == false;
@@ -770,9 +746,35 @@ Handle::dsSDSinglePath(Command command, const Dataset& ds, ResultSet& out,
         std::string key = iter->key();
         std::string path = iter->path();
         std::string value = iter->value();
+        std::string command = iter->command();
 
         lcb_SDSPEC spec = { 0 };
         lcb_CMDSUBDOC cmd = { 0 };
+
+        if (command == "SD_GET") {
+            op = LCB_SDCMD_GET;
+        } else if (command == "SD_REPLACE") {
+            op = LCB_SDCMD_REPLACE;
+        } else if (command == "SD_DICT_ADD") {
+            op = LCB_SDCMD_DICT_ADD;
+        } else if (command == "SD_DICT_UPSERT") {
+            op = LCB_SDCMD_DICT_UPSERT;
+        } else if (command == "SD_ARRAY_ADD_FIRST") {
+            op = LCB_SDCMD_ARRAY_ADD_FIRST;
+        } else if (command == "SD_ARRAY_ADD_LAST") {
+            op = LCB_SDCMD_ARRAY_ADD_LAST;
+        } else if (command == "SD_ARRAY_ADD_UNIQUE") {
+            op = LCB_SDCMD_ARRAY_ADD_UNIQUE;
+        } else if (command == "SD_ARRAY_INSERT") {
+            op = LCB_SDCMD_ARRAY_INSERT;
+        } else if (command == "SD_COUNTER") {
+            op = LCB_SDCMD_COUNTER;
+        } else if (command == "SD_REMOVE") {
+            op = LCB_SDCMD_REMOVE;
+        } else if (command == "SD_EXISTS") {
+            op = LCB_SDCMD_EXISTS;
+        }
+
         spec.sdcmd = op;
         cmd.specs = &spec;
         cmd.nspecs = 1;

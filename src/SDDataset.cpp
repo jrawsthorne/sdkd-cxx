@@ -23,9 +23,11 @@ SDDataset::SDDataset(const Json::Value& jspec, bool load)
         const Json::Value &doc = jspec[CBSDKD_MSGFLD_SD_SCHEMA].asString();
         spec->doc = doc;
     } else {
+        spec->command = jspec[CBSDKD_MSGFLD_SD_COMMAND].asString();
         spec->path = jspec[CBSDKD_MSGFLD_SD_PATH].asString();
         spec->value = jspec[CBSDKD_MSGFLD_SD_VALUE].asString();
     }
+
     spec->count = jspec[CBSDKD_MSGFLD_NQ_COUNT].asUInt();
     spec->continuous = jspec[CBSDKD_MSGFLD_DSREQ_CONTINUOUS].asTruthVal();
     verify_spec();
@@ -77,6 +79,7 @@ SDDatasetIterator::init_data(int idx)
     } else {
         this->curp = spec->path;
         this->curv = spec->value;
+        this->curc = spec->command;
     }
     this->curk = std::to_string(idx);
 }

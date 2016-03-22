@@ -101,6 +101,13 @@ DatasetIterator::path() const
 {
     return curp;
 }
+
+const std::string
+DatasetIterator::command() const
+{
+    return curc;
+}
+
 void
 DatasetIterator::start()
 {
@@ -110,8 +117,6 @@ DatasetIterator::start()
 
 void DatasetIterator::advance()
 {
-    curk.clear();
-    curv.clear();
     curidx++;
     init_data(curidx);
 }

@@ -198,17 +198,7 @@ WorkerDispatch::processRequest(const Request& req)
         h.dsVerifyStats(req.command, *ds, rs, opts);
         break;
 
-    case Command::MC_DS_SD_GET:
-    case Command::MC_DS_SD_REPLACE:
-    case Command::MC_DS_SD_DICT_ADD:
-    case Command::MC_DS_SD_DICT_UPSERT:
-    case Command::MC_DS_SD_ARRAY_ADD_FIRST:
-    case Command::MC_DS_SD_ARRAY_ADD_LAST:
-    case Command::MC_DS_SD_ARRAY_ADD_UNIQUE:
-    case Command::MC_DS_SD_ARRAY_INSERT:
-    case Command::MC_DS_SD_COUNTER:
-    case Command::MC_DS_SD_REMOVE:
-    case Command::MC_DS_SD_EXISTS:
+    case Command::MC_DS_SD_RUN:
         h.dsSDSinglePath(req.command, *ds, rs, opts);
         break;
 
