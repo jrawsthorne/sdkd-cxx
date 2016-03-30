@@ -78,7 +78,14 @@ Dataset::fromType(Type t, const Request& req, bool addHid)
     } else if (t == DSTYPE_N1QL) {
         assert(req.payload[CBSDKD_MSGFLD_DSREQ_DS].asTruthVal());
         ret = new N1QLDataset(req.payload[CBSDKD_MSGFLD_DSREQ_DS]);
-    } else {
+    } else if (t == DSTYPE_SD) {
+        assert(req.payload[CBSDKD_MSGFLD_DSREQ_DS].asTruthVal());
+        if (req.command == Command::MC_DS_SD_LOAD) {
+            ret = new SDDataset(req.payload[CBSDKD_MSGFLD_DSREQ_DS], true);
+        } else {
+            ret = new SDDataset(req.payload[CBSDKD_MSGFLD_DSREQ_DS], false);
+        }
+    }else {
         ret = NULL;
     }
     return ret;

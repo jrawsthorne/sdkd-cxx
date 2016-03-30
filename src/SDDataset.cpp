@@ -22,13 +22,14 @@ SDDataset::SDDataset(const Json::Value& jspec, bool load)
     if (load) {
         const Json::Value &doc = jspec[CBSDKD_MSGFLD_SD_SCHEMA].asString();
         spec->doc = doc;
+
     } else {
         spec->command = jspec[CBSDKD_MSGFLD_SD_COMMAND].asString();
         spec->path = jspec[CBSDKD_MSGFLD_SD_PATH].asString();
         spec->value = jspec[CBSDKD_MSGFLD_SD_VALUE].asString();
     }
 
-    spec->count = jspec[CBSDKD_MSGFLD_NQ_COUNT].asUInt();
+    spec->count = jspec[CBSDKD_MSGFLD_SD_COUNT].asUInt();
     spec->continuous = jspec[CBSDKD_MSGFLD_DSREQ_CONTINUOUS].asTruthVal();
     verify_spec();
 
@@ -74,8 +75,14 @@ SDDatasetIterator::init_data(int idx)
 {
     if (spec->load) {
         Json::Value doc = spec->doc;
-        doc["id"] = std::to_string(idx);
         this->curv = Json::FastWriter().write(doc);
+        std::string newcurv;
+        for(std::string::iterator it = this->curv.begin(); it != this->curv.end(); ++it) {
+            if (*it != '\\' && it != this->curv.begin() && it != this->curv.end()-2 && it != this->curv.end() -1 && it != this->curv.end()) {
+                newcurv += *it;
+            }
+        }
+        this->curv = newcurv;
     } else {
         this->curp = spec->path;
         this->curv = spec->value;
@@ -88,7 +95,6 @@ bool
 SDDatasetIterator::done() {
 
     if (this->spec->continuous) {
-        // Continuous always returns True
         return false;
     }
 

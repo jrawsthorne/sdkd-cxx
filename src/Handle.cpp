@@ -374,7 +374,7 @@ Handle::collect_result(ResultSet& rs)
     // operation, or wait until we've accumulated all batches. It really
     // depends on the options.
     if (rs.remaining < 0) {
-        fprintf(stderr, "Received extra callbacks");
+        log_error("Received extra callbacks");
     }
     if (!rs.remaining) {
         return;
@@ -751,28 +751,20 @@ Handle::dsSDSinglePath(Command c, const Dataset& ds, ResultSet& out,
         lcb_SDSPEC spec = { 0 };
         lcb_CMDSUBDOC cmd = { 0 };
 
-        if (command == "SD_GET") {
+        if (command == "get") {
             op = LCB_SDCMD_GET;
-        } else if (command == "SD_REPLACE") {
+        } else if (command == "replace") {
             op = LCB_SDCMD_REPLACE;
-        } else if (command == "SD_DICT_ADD") {
+        } else if (command == "dict_add") {
             op = LCB_SDCMD_DICT_ADD;
-        } else if (command == "SD_DICT_UPSERT") {
+        } else if (command == "dict_upsert") {
             op = LCB_SDCMD_DICT_UPSERT;
-        } else if (command == "SD_ARRAY_ADD_FIRST") {
+        } else if (command == "array_add") {
             op = LCB_SDCMD_ARRAY_ADD_FIRST;
-        } else if (command == "SD_ARRAY_ADD_LAST") {
+        } else if (command == "array_add_last") {
             op = LCB_SDCMD_ARRAY_ADD_LAST;
-        } else if (command == "SD_ARRAY_ADD_UNIQUE") {
-            op = LCB_SDCMD_ARRAY_ADD_UNIQUE;
-        } else if (command == "SD_ARRAY_INSERT") {
-            op = LCB_SDCMD_ARRAY_INSERT;
-        } else if (command == "SD_COUNTER") {
+        } else if (command == "counter") {
             op = LCB_SDCMD_COUNTER;
-        } else if (command == "SD_REMOVE") {
-            op = LCB_SDCMD_REMOVE;
-        } else if (command == "SD_EXISTS") {
-            op = LCB_SDCMD_EXISTS;
         }
 
         spec.sdcmd = op;

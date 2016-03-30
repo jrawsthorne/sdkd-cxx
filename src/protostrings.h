@@ -134,6 +134,6 @@
 #define CBSDKD_MSGFLD_SD_PATH "SDPath"
 #define CBSDKD_MSGFLD_SD_VALUE "SDValue"
 #define CBSDKD_MSGFLD_SD_COMMAND "SDCommand"
-
+#define CBSDKD_MSGFLD_SD_COUNT "Count"
 
 #endif /* CBSDKD_H_ */
