@@ -177,6 +177,7 @@ public:
              Dataset const&, ResultSet& out,
              ResultOptions const& options = ResultOptions());
 
+
     bool
     dsEndure(Command cmd,
              Dataset const&, ResultSet& out,
@@ -202,6 +203,10 @@ public:
              Dataset const&, ResultSet& out,
              ResultOptions const& options = ResultOptions());
 
+    bool
+    dsSDSinglePath(Command cmd,
+             Dataset const&, ResultSet& out,
+             ResultOptions const& options = ResultOptions());
 
 
     void appendError(int err, const char *desc) {

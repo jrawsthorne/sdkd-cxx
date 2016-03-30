@@ -161,9 +161,6 @@ WorkerDispatch::processRequest(const Request& req)
         }
     }
 
-    log_debug("Command is %s (%d)", req.command.cmdstr.c_str(),
-              req.command.code);
-
     switch (req.command) {
     case Command::MC_DS_DELETE:
     case Command::MC_DS_TOUCH:
@@ -197,6 +194,18 @@ WorkerDispatch::processRequest(const Request& req)
     case Command::MC_DS_STATS:
         h.dsVerifyStats(req.command, *ds, rs, opts);
         break;
+
+    case Command::MC_DS_SD_RUN:
+    {
+        h.dsSDSinglePath(req.command, *ds, rs, opts);
+        break;
+    }
+    case Command::MC_DS_SD_LOAD:
+    {
+        SDLoader sdLoader = SDLoader(cur_handle);
+        sdLoader.populate(*ds, rs, opts);
+        break;
+    }
 
     case Command::CB_VIEW_LOAD:
     {

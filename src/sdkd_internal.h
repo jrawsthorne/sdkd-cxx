@@ -58,6 +58,18 @@ typedef SOCKET sdkd_socket_t;
 
 #include "protostrings.h"
 
+typedef enum {
+    SD_INSERT,
+    SD_GET,
+    SD_EXISTS,
+    SD_UPSERT,
+    SD_REPLACE,
+    SD_DELETE,
+    SD_PUSHIN,
+    SD_COUNTER,
+    SD_MULTIMUTATE,
+    SD_MULTILOOKUP
+} SUBDOC_OP;
 
 #ifdef __cplusplus
 extern "C" {
@@ -118,6 +130,7 @@ int gettimeofday(struct timeval *tv, void *tz);
 #include "views/viewrow.h"
 #include "Views.h"
 #include "n1ql.h"
+#include "subdoc.h"
 
 #endif /* SDKD_NO_CXX */
 

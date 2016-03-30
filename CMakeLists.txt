@@ -39,11 +39,14 @@ SET(COMMON_SOURCES
     src/Message.cpp
     src/Request.cpp
     src/Dataset.cpp
+    src/N1QLDataset.cpp
+    src/SDDataset.cpp
     src/Response.cpp
     src/Handle.cpp
     src/ResultSet.cpp
     src/IODispatch.cpp
     src/Worker.cpp
+    src/SDLoader.cpp
     src/UsageCollector.cpp
     src/N1QLQueryExecutor.cpp
     src/N1QLCreateIndex.cpp

@@ -194,6 +194,14 @@ static void cb_stats(lcb_t instance, int, const lcb_RESPBASE *resp)
     }
 }
 
+static void cb_sd(lcb_t instance, int, const lcb_RESPBASE *resp)
+{
+    lcb_RESPSUBDOC *sdresp = (lcb_RESPSUBDOC *)(resp);
+    ResultSet *out = reinterpret_cast<ResultSet*>(resp->cookie);
+    out->setRescode(sdresp->rc);
+
+}
+
 lcb_error_t
 lcb_errmap_user(lcb_t instance, lcb_uint16_t in)
 {
@@ -229,6 +237,8 @@ static void wire_callbacks(lcb_t instance)
     _setcb(LCB_CALLBACK_STATS, cb_stats);
     _setcb(LCB_CALLBACK_GETREPLICA, cb_get);
     _setcb(LCB_CALLBACK_STOREDUR, cb_storedur);
+    _setcb(LCB_CALLBACK_SDMUTATE, cb_sd);
+    _setcb(LCB_CALLBACK_SDLOOKUP, cb_sd);
 #undef _setcb
     lcb_set_errmap_callback(instance, lcb_errmap_user);
 }
@@ -364,7 +374,7 @@ Handle::collect_result(ResultSet& rs)
     // operation, or wait until we've accumulated all batches. It really
     // depends on the options.
     if (rs.remaining < 0) {
-        fprintf(stderr, "Received extra callbacks");
+        log_error("Received extra callbacks");
     }
     if (!rs.remaining) {
         return;
@@ -715,6 +725,72 @@ Handle::dsVerifyStats(Command cmd, const Dataset& ds, ResultSet& out,
     return true;
 
 }
+
+bool
+Handle::dsSDSinglePath(Command c, const Dataset& ds, ResultSet& out,
+        const ResultOptions& options) {
+    out.options = options;
+    out.clear();
+    DatasetIterator *iter = ds.getIter();
+    do_cancel = false;
+    lcb_SUBDOCOP op;
+
+    for (iter->start();
+            iter->done() == false && do_cancel == false;
+            iter->advance()) {
+
+        std::string key = iter->key();
+        std::string path = iter->path();
+        std::string value = iter->value();
+        std::string command = iter->command();
+
+        lcb_SDSPEC spec = { 0 };
+        lcb_CMDSUBDOC cmd = { 0 };
+
+        if (command == "get") {
+            op = LCB_SDCMD_GET;
+        } else if (command == "replace") {
+            op = LCB_SDCMD_REPLACE;
+        } else if (command == "dict_add") {
+            op = LCB_SDCMD_DICT_ADD;
+        } else if (command == "dict_upsert") {
+            op = LCB_SDCMD_DICT_UPSERT;
+        } else if (command == "array_add") {
+            op = LCB_SDCMD_ARRAY_ADD_FIRST;
+        } else if (command == "array_add_last") {
+            op = LCB_SDCMD_ARRAY_ADD_LAST;
+        } else if (command == "counter") {
+            op = LCB_SDCMD_COUNTER;
+        }
+
+        spec.sdcmd = op;
+        cmd.specs = &spec;
+        cmd.nspecs = 1;
+
+        LCB_CMD_SET_KEY(&cmd, key.c_str(), key.size());
+        LCB_SDSPEC_SET_PATH(&spec, path.c_str(), path.size());
+
+        if (value.size() > 0) {
+            LCB_SDSPEC_SET_VALUE(&spec, value.c_str(), value.size());
+        }
+
+        lcb_sched_enter(instance);
+        out.markBegin();
+
+        lcb_error_t err =  lcb_subdoc3(instance, &out, &cmd);
+        lcb_sched_leave(instance);
+
+        if (err == LCB_SUCCESS) {
+            postsubmit(out);
+        } else {
+            out.setRescode(err, key, true);
+        }
+    }
+    delete iter;
+    collect_result(out);
+    return true;
+}
+
 void
 Handle::cancelCurrent()
 {

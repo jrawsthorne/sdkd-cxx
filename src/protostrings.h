@@ -129,4 +129,11 @@
 #define CBSDKD_MSGFLD_NQ_BATCHCOUNT "NQBatchCount"
 #define CBSDKD_MSGFLD_NQ_COUNT "NQCount"
 
+/** Subdoc field options */
+#define CBSDKD_MSGFLD_SD_SCHEMA "SDSchema"
+#define CBSDKD_MSGFLD_SD_PATH "SDPath"
+#define CBSDKD_MSGFLD_SD_VALUE "SDValue"
+#define CBSDKD_MSGFLD_SD_COMMAND "SDCommand"
+#define CBSDKD_MSGFLD_SD_COUNT "Count"
+
 #endif /* CBSDKD_H_ */

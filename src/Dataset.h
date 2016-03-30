@@ -16,7 +16,8 @@
     X(DSTYPE_INLINE) \
     X(DSTYPE_REFERENCE) \
     X(DSTYPE_SEEDED) \
-    X(DSTYPE_N1QL)
+    X(DSTYPE_N1QL) \
+    X(DSTYPE_SD)
 
 namespace CBSdkd {
 
@@ -31,6 +32,8 @@ public:
 
     const std::string key() const;
     const std::string value() const;
+    const std::string path() const;
+    const std::string command() const;
     void start();
     virtual void advance();
     virtual bool done() = 0;
@@ -38,6 +41,8 @@ public:
 protected:
     std::string curk;
     std::string curv;
+    std::string curp;
+    std::string curc;
 
     virtual void init_data(int idx) = 0;
     unsigned int curidx;
@@ -173,6 +178,40 @@ public:
 
 private:
     struct N1QLDatasetSpecification spec;
+    bool verify_spec();
+};
+
+struct SDDatasetSpecification {
+    Json::Value doc;
+    bool load;
+    std::string command;
+    std::string path;
+    std::string value;
+    bool continuous;
+    unsigned int count;
+};
+
+class SDDatasetIterator : public DatasetIterator 
+{
+public:
+    SDDatasetIterator(const struct SDDatasetSpecification *spec);
+    bool done();
+    virtual void advance();
+
+private:
+    void init_data(int idx);
+    const SDDatasetSpecification *spec;
+};
+
+class SDDataset : public Dataset {
+public:
+    SDDataset(const Json::Value& spec, bool isLoad);
+    SDDataset(const struct SDDatasetSpecification& spec);
+    SDDatasetIterator* getIter() const;
+    unsigned int getCount() const;
+
+private:
+    struct SDDatasetSpecification spec;
     bool verify_spec();
 };
 
