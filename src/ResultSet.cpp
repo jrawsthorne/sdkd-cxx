@@ -71,6 +71,9 @@ ResultSet::setRescode(int err,
 {
     int myerr = err;
     Error *errCode = new Error();
+    if (err == LCB_KEY_ENOENT) {
+        fprintf(stderr, "key %s not found", (const char *)key);
+    }
     myerr = errCode->getSDKDErrorCode(err);
 
     stats[myerr]++;
