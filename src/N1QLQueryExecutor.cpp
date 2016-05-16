@@ -11,10 +11,11 @@ insert_cb(lcb_t instance, int type, lcb_RESPBASE *resp) {
         obj->is_isuccess = true;
         lcb_MUTATION_TOKEN ss = *lcb_resp_get_mutation_token(type, resp);
         Json::Value vbucket;
-        vbucket["guard"] = std::to_string(LCB_MUTATION_TOKEN_ID(&ss));
-        vbucket["value"]  = (unsigned int)LCB_MUTATION_TOKEN_SEQ(&ss);
-        obj->tokens[std::to_string(LCB_MUTATION_TOKEN_VB(&ss))] = vbucket;
-        std::string val = Json::FastWriter().write(obj->tokens);
+        Json::Value mtInfoArr = Json::Value(Json::arrayValue);
+        mtInfoArr.append((unsigned int)LCB_MUTATION_TOKEN_SEQ(&ss));
+        mtInfoArr.append(std::to_string(LCB_MUTATION_TOKEN_ID(&ss)));
+        vbucket[std::to_string(LCB_MUTATION_TOKEN_VB(&ss))] = mtInfoArr;
+        obj->tokens = vbucket;
     }
     obj->insert_err = resp->rc;
 }
@@ -145,8 +146,9 @@ N1QLQueryExecutor::execute(Command cmd,
         }
 
         qcmd.callback = query_cb;
-        Json::Value scan_vector = tokens;
-        if(!N1QL::query(q.c_str(), &qcmd, LCB_N1P_QUERY_STATEMENT, &out, err, consistency, scan_vector)) {
+        Json::Value bucket_scan_vector;
+        bucket_scan_vector[this->handle->options.bucket.c_str()] = tokens;
+        if(!N1QL::query(q.c_str(), &qcmd, LCB_N1P_QUERY_STATEMENT, &out, err, consistency, bucket_scan_vector)) {
             fprintf(stderr,"Scheduling query returned error 0x%x %s\n",
                     err, lcb_strerror(NULL, err));
             continue;

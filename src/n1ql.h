@@ -23,7 +23,7 @@ public:
         req["statement"] = std::string(buf);
         req["scan_consistency"] = consistency;
         if (consistency == "at_plus") {
-            req["scan_vector"] = scan_vector;
+            req["scan_vectors"] = scan_vector;
 
         }
         std::string q = Json::FastWriter().write(req);
