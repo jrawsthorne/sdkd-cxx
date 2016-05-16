@@ -10,9 +10,10 @@ query_cb(lcb_t, int, const lcb_RESPN1QL *resp) {
         obj->is_qsuccess = true;
         obj->rc = resp->rc;
     } else {
-        obj->is_qsuccess = false;
+        fprintf(stderr, "Create index failed failed 0x%x %s \n",
+                resp->rc, lcb_strerror(NULL, resp->rc));
+        obj->is_qsuccess = true;
         obj->rc = resp->rc;
-        exit(1);
     }
 }
 }
