@@ -5,6 +5,7 @@
 #include <libcouchbase/api3.h>
 #include <libcouchbase/views.h>
 #include <libcouchbase/n1ql.h>
+#include <libcouchbase/cbft.h>
 #include "protocol_binary.h"
 
 #ifndef _WIN32
@@ -131,6 +132,7 @@ int gettimeofday(struct timeval *tv, void *tz);
 #include "Views.h"
 #include "n1ql.h"
 #include "subdoc.h"
+#include "fts.h"
 
 #endif /* SDKD_NO_CXX */
 

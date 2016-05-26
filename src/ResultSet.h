@@ -111,15 +111,15 @@ public:
     // @param expect_value whether this operation should have returned a value
     // @param value the value (can be NULL)
     // @param n_value the size of the value
-    void setRescode(int err, const void* key, size_t nkey,
-                    bool expect_value, const void* value, size_t n_value);
+    void setRescode(int err, const char* key, size_t nkey,
+                    bool expect_value, const char* value, size_t n_value);
 
     void setRescode(lcb_error_t err) {
         setRescode(err, NULL, 0, false, NULL, 0);
     }
 
     void setRescode(lcb_error_t err,
-                    const void *key, size_t nkey) {
+                    const char *key, size_t nkey) {
         setRescode(err, key, nkey, false, NULL, 0);
     }
 
@@ -198,6 +198,8 @@ public:
     unsigned int obs_persist_count;
     unsigned int obs_replica_count;
     unsigned int query_resp_count;
+    unsigned int fts_query_resp_count;
+    unsigned int fts_limit;
     unsigned long long obs_master_cas;
     bool vresp_complete;
     bool ryow;

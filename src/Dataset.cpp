@@ -85,7 +85,10 @@ Dataset::fromType(Type t, const Request& req)
         } else {
             ret = new SDDataset(req.payload[CBSDKD_MSGFLD_DSREQ_DS], false);
         }
-    }else {
+    } else if (t == DSTYPE_FTS) {
+        assert(req.payload[CBSDKD_MSGFLD_DSREQ_DS].asTruthVal());
+        ret = new FTSDataset(req.payload[CBSDKD_MSGFLD_DSREQ_DS]);
+    } else {
         ret = NULL;
     }
     return ret;

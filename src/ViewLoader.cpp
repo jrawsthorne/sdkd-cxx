@@ -13,7 +13,7 @@ cb_store(lcb_t instance, const void *cookie,
          const lcb_store_resp_t *resp)
 {
     ResultSet *rs = reinterpret_cast<ResultSet*>((void*)cookie);
-    rs->setRescode(err, resp->v.v0.key, resp->v.v0.nkey);
+    rs->setRescode(err, (const char *)resp->v.v0.key, resp->v.v0.nkey);
 }
 }
 

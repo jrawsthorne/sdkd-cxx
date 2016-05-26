@@ -228,21 +228,24 @@ WorkerDispatch::processRequest(const Request& req)
         break;
     }
 
-    case Command::CB_N1QL_CREATE_INDEX:
+    case Command::CB_N1QL_QUERY:
     {
-        N1QLCreateIndex ci = N1QLCreateIndex(cur_handle);
-        if(!ci.execute(req.command, req)) {
-            fprintf(stderr, "Fatal::Unable to create index failing");
-            return false;
-        }
+        N1QLQueryExecutor qe = N1QLQueryExecutor(cur_handle);
+        qe.execute(req.command, rs, opts, req);
         break;
     }
 
-    case Command::CB_N1QL_QUERY:
+    case Command::CB_FTS_LOAD:
     {
-        opts.timeres = req.payload[CBSDKD_MSGFLD_DSREQ_TIMERES].asUInt();
-        N1QLQueryExecutor qe = N1QLQueryExecutor(cur_handle);
-        qe.execute(req.command, rs, opts, req);
+        FTSLoader fl = FTSLoader(cur_handle);
+        fl.populate(*ds);
+        break;
+    }
+
+    case Command::CB_FTS_QUERY:
+    {
+        FTSQueryExecutor fe = FTSQueryExecutor(cur_handle);
+        fe.execute(rs, opts, req);
         break;
     }
 

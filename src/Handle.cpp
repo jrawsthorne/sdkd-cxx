@@ -71,33 +71,33 @@ static void cb_config(lcb_t instance, lcb_error_t err)
 static void cb_remove(lcb_t instance, int, const lcb_RESPBASE *resp)
 {
     reinterpret_cast<ResultSet*>(resp->cookie)->setRescode(resp->rc,
-            resp->key, resp->nkey);
+            (const char *)resp->key, resp->nkey);
 }
 
 static void cb_touch(lcb_t instance, int, const lcb_RESPBASE *resp)
 {
     reinterpret_cast<ResultSet*>(resp->cookie)->setRescode(resp->rc,
-            resp->key, resp->nkey);
+            (const char *)resp->key, resp->nkey);
 }
 
 static void cb_storage(lcb_t instance, int, const lcb_RESPBASE *resp)
 {
     reinterpret_cast<ResultSet*>(resp->cookie)->setRescode(resp->rc,
-            resp->key, resp->nkey);
+            (const char *)resp->key, resp->nkey);
 }
 
 static void cb_storedur(lcb_t instance, int, const lcb_RESPBASE *resp)
 {
     reinterpret_cast<ResultSet*>(resp->cookie)->setRescode(resp->rc,
-            resp->key, resp->nkey);
+            (const char *)resp->key, resp->nkey);
 }
 
 static void cb_get(lcb_t instance, int, const lcb_RESPBASE *resp)
 {
     lcb_RESPGET* gresp = (lcb_RESPGET *)resp;
     reinterpret_cast<ResultSet*>(gresp->cookie)->setRescode(gresp->rc,
-            gresp->key, gresp->nkey, true,
-            gresp->value, gresp->nvalue);
+            (const char *)gresp->key, gresp->nkey, true,
+            (const char *)gresp->value, gresp->nvalue);
 }
 
 static void cb_endure(lcb_t instance, int, const lcb_RESPBASE *resp)
@@ -105,10 +105,10 @@ static void cb_endure(lcb_t instance, int, const lcb_RESPBASE *resp)
     lcb_RESPSTOREDUR* dresp = (lcb_RESPSTOREDUR *)resp;
     if (dresp->store_ok == 0) {
         reinterpret_cast<ResultSet*>(resp->cookie)->setRescode(resp->rc,
-                resp->key, resp->nkey);
+                (const char *)resp->key, resp->nkey);
     } else {
         reinterpret_cast<ResultSet*>(resp->cookie)->setRescode(LCB_ERROR,
-                resp->key, resp->nkey);
+                (const char *)resp->key, resp->nkey);
     }
 }
 
@@ -127,7 +127,7 @@ static void cb_observe(lcb_t instance, int, const lcb_RESPBASE *resp)
                 fprintf(stderr, "Item replication not matched Received %d Expected %d \n",
                         out->obs_replica_count, out->options.replicate);
             }
-            out->setRescode(obresp->rc, obresp->key, obresp->nkey);
+            out->setRescode(obresp->rc, (const char *)obresp->key, obresp->nkey);
         }
         if (obresp->ismaster == 1) {
             out->obs_persist_count++;
@@ -145,7 +145,7 @@ static void cb_observe(lcb_t instance, int, const lcb_RESPBASE *resp)
             out->obs_replica_count++;
         }
     } else {
-        out->setRescode(obresp->rc, obresp->key, obresp->nkey);
+        out->setRescode(obresp->rc, (const char *)obresp->key, obresp->nkey);
     }
 }
 
@@ -187,10 +187,10 @@ static void cb_stats(lcb_t instance, int, const lcb_RESPBASE *resp)
             }
         }
         if (sresp->rflags & LCB_RESP_F_FINAL) {
-            out->setRescode(sresp->rc, sresp->key, sresp->nkey);
+            out->setRescode(sresp->rc, (const char *)sresp->key, sresp->nkey);
         }
     } else {
-        out->setRescode(sresp->rc, sresp->key, sresp->nkey);
+        out->setRescode(sresp->rc, (const char *)sresp->key, sresp->nkey);
     }
 }
 
@@ -762,7 +762,6 @@ Handle::dsSDSinglePath(Command c, const Dataset& ds, ResultSet& out,
         } else if (command == "counter") {
             op = LCB_SDCMD_COUNTER;
         }
-
         spec.sdcmd = op;
         cmd.specs = &spec;
         cmd.nspecs = 1;

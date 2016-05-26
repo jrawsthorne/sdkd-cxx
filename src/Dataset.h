@@ -17,7 +17,8 @@
     X(DSTYPE_REFERENCE) \
     X(DSTYPE_SEEDED) \
     X(DSTYPE_N1QL) \
-    X(DSTYPE_SD)
+    X(DSTYPE_SD) \
+    X(DSTYPE_FTS)
 
 namespace CBSdkd {
 
@@ -191,7 +192,7 @@ struct SDDatasetSpecification {
     unsigned int count;
 };
 
-class SDDatasetIterator : public DatasetIterator 
+class SDDatasetIterator : public DatasetIterator
 {
 public:
     SDDatasetIterator(const struct SDDatasetSpecification *spec);
@@ -212,6 +213,36 @@ public:
 
 private:
     struct SDDatasetSpecification spec;
+    bool verify_spec();
+};
+
+struct FTSDatasetSpecification {
+    Json::Value doc;
+    bool continuous;
+    unsigned int count;
+};
+
+class FTSDatasetIterator : public DatasetIterator
+{
+public:
+    FTSDatasetIterator(const struct FTSDatasetSpecification *spec);
+    bool done();
+    virtual void advance();
+
+private:
+    void init_data(int idx);
+    const FTSDatasetSpecification *spec;
+};
+
+class FTSDataset : public Dataset {
+public:
+    FTSDataset(const Json::Value& spec);
+    FTSDataset(const struct FTSDatasetSpecification& spec);
+    FTSDatasetIterator* getIter() const;
+    unsigned int getCount() const;
+
+private:
+    struct FTSDatasetSpecification spec;
     bool verify_spec();
 };
 

@@ -63,16 +63,16 @@ ResultOptions::_determine_delay() {
 
 void
 ResultSet::setRescode(int err,
-                      const void *key,
+                      const char *key,
                       size_t nkey,
                       bool expect_value,
-                      const void *value,
+                      const char *value,
                       size_t nvalue)
 {
     int myerr = err;
     Error *errCode = new Error();
     if (err == LCB_KEY_ENOENT) {
-        fprintf(stderr, "key %s not found", (const char *)key);
+        fprintf(stderr, "key %s not found\n", key);
     }
     myerr = errCode->getSDKDErrorCode(err);
 

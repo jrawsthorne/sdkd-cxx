@@ -80,18 +80,6 @@ private:
     void split(const std::string& str, char delim, std::vector<std::string>& elems);
 };
 
-class N1QLCreateIndex : public N1QL {
-public:
-    N1QLCreateIndex(Handle *handle) :
-        N1QL(handle), handle(handle) {
-    }
-    ~N1QLCreateIndex() {}
-    bool execute(Command cmd, const Request& req);
-
-private:
-    Handle *handle;
-};
-
 class N1QLLoader : public N1QL {
 public:
     N1QLLoader(Handle *handle) :

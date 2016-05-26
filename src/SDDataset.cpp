@@ -27,6 +27,7 @@ SDDataset::SDDataset(const Json::Value& jspec, bool load)
         spec->command = jspec[CBSDKD_MSGFLD_SD_COMMAND].asString();
         spec->path = jspec[CBSDKD_MSGFLD_SD_PATH].asString();
         spec->value = jspec[CBSDKD_MSGFLD_SD_VALUE].asString();
+
     }
 
     spec->count = jspec[CBSDKD_MSGFLD_SD_COUNT].asUInt();
