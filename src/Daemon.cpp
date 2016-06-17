@@ -272,6 +272,7 @@ Daemon::createIO()
 
     lcb_error_t err;
     lcb_io_opt_t ret;
+    fprintf(stderr, "Creating IOPS structure");
 
     err = lcb_create_io_ops(&ret, &ioCreationOptions);
     if (err != LCB_SUCCESS) {
