@@ -60,22 +60,19 @@ ResultOptions::_determine_delay() {
         delay = delay_min = delay_max;
     }
 }
-
 void
-ResultSet::setRescode(int err,
-                      const char *key,
+ResultSet::setRescode(lcb_error_t err,
+                      const void *key,
                       size_t nkey,
                       bool expect_value,
-                      const char *value,
+                      const void *value,
                       size_t nvalue)
 {
-    int myerr = err;
-    Error *errCode = new Error();
-    if (err == LCB_KEY_ENOENT) {
-        fprintf(stderr, "key %s not found\n", key);
+    const char *strerr = lcb_strerror(parent->getLcb(), err);
+    std::string myerr(strerr);
+    if (err == LCB_SUCCESS) {
+        myerr = "SUCCESS";
     }
-    myerr = errCode->getSDKDErrorCode(err);
-
     stats[myerr]++;
     remaining--;
 
@@ -142,7 +139,7 @@ ResultSet::resultsJson(Json::Value *in) const
         summaries = Json::Value(Json::objectValue),
         &root = *in;
 
-    for (std::map<int,int>::const_iterator iter = this->stats.begin();
+    for (std::map<std::string, int>::const_iterator iter = this->stats.begin();
             iter != this->stats.end(); iter++ ) {
         stringstream ss;
         ss << iter->first;
@@ -151,22 +148,19 @@ ResultSet::resultsJson(Json::Value *in) const
 
     root[CBSDKD_MSGFLD_DSRES_STATS] = summaries;
 
-    if (options.full) {
+    /*if (options.full) {
         Json::Value fullstats;
         for (
-                std::map<std::string,FullResult>::const_iterator
+                std::map<std::string, FullResult>::const_iterator
                     iter = this->fullstats.begin();
                 iter != this->fullstats.end();
                 iter++
                 )
         {
-            Json::Value stat;
-            stat[0] = iter->second.getStatus();
-            stat[1] = iter->second.getString();
-            fullstats[iter->first] = stat;
+            fullstats[iter->first] = iter->second;
         }
         root[CBSDKD_MSGFLD_DSRES_FULL] = fullstats;
-    }
+    }*/
 
     if (options.timeres) {
         Json::Value jtimes = Json::Value(Json::objectValue);
@@ -188,7 +182,7 @@ ResultSet::resultsJson(Json::Value *in) const
                     iter->count ? (iter->time_total / iter->count) : 0;
 
             Json::Value errstats = Json::Value(Json::objectValue);
-            for (std::map<int,int>::const_iterator eiter = iter->ec.begin();
+            for (std::map<std::string, int>::const_iterator eiter = iter->ec.begin();
                     eiter != iter->ec.end();
                     eiter++) {
                 stringstream ss;

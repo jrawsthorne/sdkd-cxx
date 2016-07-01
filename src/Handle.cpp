@@ -62,9 +62,9 @@ void Handle::VersionInfoJson(Json::Value &res) {
 static void cb_config(lcb_t instance, lcb_error_t err)
 {
     (void)instance;
-    int myerr = Handle::mapError(err);
-    log_noctx_error("Got error %d", myerr);
-
+    if (err != LCB_SUCCESS) {
+        log_noctx_error("Got error 0x%x", err);
+    }
 }
 
 
@@ -238,7 +238,6 @@ static void wire_callbacks(lcb_t instance)
     _setcb(LCB_CALLBACK_GETREPLICA, cb_get);
     _setcb(LCB_CALLBACK_STOREDUR, cb_storedur);
     _setcb(LCB_CALLBACK_SDMUTATE, cb_sd);
-    _setcb(LCB_CALLBACK_SDLOOKUP, cb_sd);
 #undef _setcb
     lcb_set_errmap_callback(instance, lcb_errmap_user);
 }
@@ -431,7 +430,6 @@ Handle::dsGet(Command cmd, Dataset const &ds, ResultSet& out,
             iter->advance()) {
 
         std::string k = iter->key();
-        log_trace("GET: %s", k.c_str());
 
         if (!is_buffered) {
             lcb_sched_enter(instance);
@@ -729,6 +727,7 @@ Handle::dsVerifyStats(Command cmd, const Dataset& ds, ResultSet& out,
 bool
 Handle::dsSDSinglePath(Command c, const Dataset& ds, ResultSet& out,
         const ResultOptions& options) {
+
     out.options = options;
     out.clear();
     DatasetIterator *iter = ds.getIter();

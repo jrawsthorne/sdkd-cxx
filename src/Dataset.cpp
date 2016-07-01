@@ -274,6 +274,7 @@ DatasetSeededIterator::advance()
 void
 DatasetSeededIterator::init_data(int idx)
 {
+
     this->curk = _fill_repeat(this->spec->kseed,
                               this->spec->ksize,
                               this->spec->repeat,
