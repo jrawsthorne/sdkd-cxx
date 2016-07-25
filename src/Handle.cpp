@@ -238,6 +238,7 @@ static void wire_callbacks(lcb_t instance)
     _setcb(LCB_CALLBACK_GETREPLICA, cb_get);
     _setcb(LCB_CALLBACK_STOREDUR, cb_storedur);
     _setcb(LCB_CALLBACK_SDMUTATE, cb_sd);
+    _setcb(LCB_CALLBACK_SDLOOKUP, cb_sd);
 #undef _setcb
     lcb_set_errmap_callback(instance, lcb_errmap_user);
 }
