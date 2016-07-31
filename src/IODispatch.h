@@ -15,6 +15,8 @@
 
 namespace CBSdkd {
 
+extern int g_pFactor;
+
 typedef unsigned long int cbsdk_hid_t;
 
 class IOProtoHandler : protected DebugContext {
@@ -153,7 +155,7 @@ private:
     Handle *cur_handle;
     cbsdk_hid_t cur_hid;
 
-    ResultSet persistRs;
+    //ResultSet persistRs;
 
     bool initializeHandle(const Request&);
     bool processRequest(const Request&);

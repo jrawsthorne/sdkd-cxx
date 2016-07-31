@@ -5,6 +5,9 @@
 #error "include sdkd_internal.h first"
 #endif
 
+#include <algorithm>
+#include <cmath>
+
 #define CBSDKD_XERRMAP(X) \
 X(LCB_BUCKET_ENOENT,    Error::SUBSYSf_CLUSTER|Error::MEMD_ENOENT) \
 X(LCB_AUTH_ERROR,       Error::SUBSYSf_CLUSTER|Error::CLUSTER_EAUTH) \
@@ -66,6 +69,7 @@ public:
     unsigned int time_min;
     unsigned int time_max;
     unsigned int time_avg;
+    std::vector<suseconds_t> durations;
 
     unsigned count;
     std::map<std::string, int> ec;
@@ -73,12 +77,13 @@ public:
 
 class ResultSet {
 public:
-    ResultSet() :
+    ResultSet(int pFactor) :
         remaining(0),
         vresp_complete(false),
         parent(NULL),
         dsiter(NULL)
     {
+        m_pFactor = pFactor;
         clear();
     }
 
@@ -114,8 +119,9 @@ public:
     std::map<std::string,int> stats;
     std::map<std::string,std::string> fullstats;
     std::vector<TimeWindow> timestats;
-
     ResultOptions options;
+
+    static int m_pFactor;
 
     Error getError() {
         return oper_error;
@@ -143,6 +149,20 @@ public:
     static suseconds_t getEpochMsecs() {
         struct timeval tv;
         return getEpochMsecs(tv);
+    }
+
+    static suseconds_t getPercentile(std::vector<suseconds_t> durations) {
+        int size = durations.size();
+        if (size == 0) {
+            return 0;
+        }
+        if (size == 1) {
+            return durations[0];
+        }
+
+        std::sort (durations.begin(), durations.end());
+        int idx = (int)ceil(size*m_pFactor/100)-1;
+        return durations[idx];
     }
 
     void clear() {
@@ -194,7 +214,6 @@ private:
     // Time at which this result set was first batched
     suseconds_t opstart_tmsec;
 };
-
 
 } // namespace
 #endif /* SDKD_RESULTSET_H_ */

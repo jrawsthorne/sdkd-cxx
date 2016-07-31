@@ -60,6 +60,7 @@
 #define CBSDKD_MSGFLD_TMS_COUNT                 "Count"
 #define CBSDKD_MSGFLD_TMS_MIN                   "Min"
 #define CBSDKD_MSGFLD_TMS_MAX                   "Max"
+#define CBSDKD_MSGFLD_TMS_PERCENTILE            "Percentile"
 #define CBSDKD_MSGFLD_TMS_AVG                   "Avg"
 #define CBSDKD_MSGFLD_TMS_ECS                   "Errors"
 #define CBSDKD_MSGFLD_TMS_WINS                  "Windows"
