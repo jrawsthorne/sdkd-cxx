@@ -2,6 +2,7 @@
 
 namespace CBSdkd {
 
+
 WorkerDispatch::~WorkerDispatch()
 {
     if (cur_handle) {
@@ -24,7 +25,7 @@ WorkerDispatch::WorkerDispatch(sdkd_socket_t newsock, MainDispatch *parent)
     ss << "lcb-sdkd-worker fd=" << newsock;
     setLogPrefix(ss.str());
     hmutex = Mutex::Create();
-    rs = new ResultSet();
+    rs = new ResultSet(g_pFactor);
 }
 
 bool
@@ -70,7 +71,7 @@ WorkerDispatch::processRequest(const Request& req)
 {
     Error errp;
     const Dataset *ds;
-    ResultSet rs;
+    ResultSet rs(g_pFactor);
 
     Dataset::Type dstype;
     std::string refid;

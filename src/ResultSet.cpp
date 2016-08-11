@@ -128,9 +128,13 @@ ResultSet::setRescode(lcb_error_t err,
     win.time_total += duration;
     win.time_min = min(win.time_min, (unsigned int)duration);
     win.time_max = max(win.time_max, (unsigned int)duration);
+    win.durations.push_back(duration);
 //    assert(win.time_min < 10000000);
     win.ec[myerr]++;
 }
+
+int g_pFactor = 95;
+int ResultSet::m_pFactor = 95;
 
 void
 ResultSet::resultsJson(Json::Value *in) const
@@ -191,6 +195,7 @@ ResultSet::resultsJson(Json::Value *in) const
             }
 
             winstat[CBSDKD_MSGFLD_TMS_ECS] = errstats;
+            winstat[CBSDKD_MSGFLD_TMS_PERCENTILE] = Json::Value::Int64(getPercentile(iter->durations));
             windetails.append(winstat);
 
         }
@@ -201,5 +206,4 @@ ResultSet::resultsJson(Json::Value *in) const
         root[CBSDKD_MSGFLD_DRES_TIMINGS] = jtimes;
     }
 }
-
 }

@@ -121,6 +121,7 @@ MainDispatch::dispatchCommand(Request *reqp)
         }
 
     } else if (reqp->command == Command::INFO) {
+        g_pFactor = reqp->payload["PercentileFactor"].asInt();
         Response res = Response(reqp);
         Json::Value infores;
         Handle::VersionInfoJson(infores);
