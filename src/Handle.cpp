@@ -293,6 +293,7 @@ Handle::connect(Error *errp)
             connstr +=  std::string("/") + options.bucket;
             connstr += std::string("?");
         }
+        connstr += "detailed_errcodes=1&";
         create_opts.v.v3.connstr = cstr_ornull(connstr);
         create_opts.v.v3.passwd = cstr_ornull(options.password);
     }
