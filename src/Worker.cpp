@@ -105,7 +105,8 @@ WorkerDispatch::processRequest(const Request& req)
 
     if (req.command == Command::CB_VIEW_QUERY ||
             req.command == Command::CB_N1QL_QUERY ||
-            req.command == Command::CB_N1QL_CREATE_INDEX) {
+            req.command == Command::CB_N1QL_CREATE_INDEX ||
+            req.command == Command::CB_FTS_QUERY) {
         needs_ds = false;
     }
 
