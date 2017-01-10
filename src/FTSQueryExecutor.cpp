@@ -6,17 +6,14 @@ static void
 query_cb(lcb_t instance, int cbtype, const lcb_RESPFTS *resp) {
     ResultSet *obj = reinterpret_cast<ResultSet *>(resp->cookie);
     if ((resp->rflags & LCB_RESP_F_FINAL) && (resp->rc == LCB_SUCCESS)) {
-        if (obj->fts_query_resp_count != obj->fts_limit) {
-            fprintf(stderr, "FTS response does not match expected number of documents");
+        if (obj->fts_query_resp_count != 1) {
+            fprintf(stderr, "FTS response does not match expected number of documents %d\n", obj->fts_query_resp_count);
         }
         obj->setRescode(resp->rc , true);
         return;
-    } else if (resp->rc == LCB_SUCCESS) {
-        obj->fts_query_resp_count++;
-    } else if (resp->rc != LCB_SUCCESS) {
-        fprintf(stderr, "Got error on fts query callback 0x%x %s\n",
-                    resp->rc, lcb_strerror(NULL, resp->rc));
     }
+
+    obj->fts_query_resp_count++;
 }
 }
 
@@ -29,17 +26,23 @@ FTSQueryExecutor::execute(ResultSet& out,
     handle->externalEnter();
     lcb_t instance = handle->getLcb();
     std::string indexName = req.payload[CBSDKD_MSGFLD_FTS_INDEXNAME].asString();
-    out.fts_limit = req.payload[CBSDKD_MSGFLD_FTS_LIMIT].asInt64();
-
+    unsigned int kvCount = req.payload[CBSDKD_MSGFLD_FTS_COUNT].asInt64();
+    int generator = 0;
     while(!handle->isCancelled()) {
         out.markBegin();
         out.fts_query_resp_count = 0;
         lcb_CMDFTS ftscmd = { 0 };
+
+        generator = (generator + 1) % (2 * kvCount);
+
         Json::Value queryJson;
+        Json::Value matchJson;
         queryJson["indexName"] = indexName;
-        queryJson["match"] = "FTS";
-        queryJson["field"] = "type";
-        queryJson["limit"] = limit;
+        std::string searchField = generator % 2 == 0 ?
+            "SampleValue" + std::to_string(generator / 2) :
+            "SampleSubvalue" + std::to_string(generator / 2);
+        matchJson["match"] = searchField;
+        queryJson["query"] = matchJson;
 
         std::string query = Json::FastWriter().write(queryJson);
 
@@ -49,7 +52,7 @@ FTSQueryExecutor::execute(ResultSet& out,
 
         lcb_error_t err = lcb_fts_query(instance, &out, &ftscmd);
         if (err != LCB_SUCCESS) {
-            fprintf(stderr, "Erro scheduling fts query 0x%x %s\n",
+            fprintf(stderr, "Error scheduling fts query 0x%x %s\n",
                     err, lcb_strerror(NULL, err));
         }
         lcb_wait(handle->getLcb());

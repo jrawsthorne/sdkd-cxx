@@ -217,8 +217,6 @@ private:
 };
 
 struct FTSDatasetSpecification {
-    Json::Value doc;
-    bool continuous;
     unsigned int count;
 };
 

@@ -139,7 +139,6 @@
 
 /** FTS field options */
 #define CBSDKD_MSGFLD_FTS_INDEXNAME "FTSIndexName"
-#define CBSDKD_MSGFLD_FTS_SCHEMA "FTSSchema"
 #define CBSDKD_MSGFLD_FTS_LIMIT "FTSLimit"
 #define CBSDKD_MSGFLD_FTS_COUNT "Count"
 

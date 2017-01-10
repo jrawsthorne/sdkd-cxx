@@ -196,7 +196,6 @@ public:
     unsigned int obs_replica_count;
     unsigned int query_resp_count;
     unsigned int fts_query_resp_count;
-    unsigned int fts_limit;
     unsigned long long obs_master_cas;
     bool vresp_complete;
     bool ryow;

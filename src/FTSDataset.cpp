@@ -18,10 +18,7 @@ FTSDataset::FTSDataset(const Json::Value& jspec)
 : Dataset(Dataset::DSTYPE_FTS)
 {
     struct FTSDatasetSpecification *spec = &this->spec;
-    const Json::Value &doc = jspec[CBSDKD_MSGFLD_FTS_SCHEMA].asString();
-    spec->doc = doc;
     spec->count = jspec[CBSDKD_MSGFLD_FTS_COUNT].asUInt();
-    spec->continuous = jspec[CBSDKD_MSGFLD_DSREQ_CONTINUOUS].asTruthVal();
     verify_spec();
 
 }
@@ -56,36 +53,28 @@ void
 FTSDatasetIterator::advance()
 {
     DatasetIterator::advance();
-    if (spec->continuous && curidx > spec->count) {
-        curidx = 0;
-    }
 }
 
 void
 FTSDatasetIterator::init_data(int idx)
 {
-    Json::Value doc = spec->doc;
+    Json::Value doc;
+    doc["value"] = "SampleValue" + std::to_string(idx);
+    Json::Value subValue;
+    subValue["subvalue"] = "SampleSubvalue" + std::to_string(idx);
+    subValue["recurringField"] = "RecurringSubvalue";
+    doc["SubFields"] = subValue;
+
     this->curv = Json::FastWriter().write(doc);
-    std::string newcurv;
-    for(std::string::iterator it = this->curv.begin(); it != this->curv.end(); ++it) {
-        if (*it != '\\' && it != this->curv.begin() && it != this->curv.end()-2 && it != this->curv.end() -1 && it != this->curv.end()) {
-            newcurv += *it;
-        }
-    }
-    this->curv = newcurv;
     this->curk = std::to_string(idx);
 }
 
 bool
 FTSDatasetIterator::done() {
-
-    if (this->spec->continuous) {
-        return false;
-    }
-
     if (this->curidx >= this->spec->count) {
         return true;
     }
     return false;
 }
+
 } /* namespace CBSdkd */
