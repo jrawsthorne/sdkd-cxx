@@ -141,5 +141,6 @@
 #define CBSDKD_MSGFLD_FTS_INDEXNAME "FTSIndexName"
 #define CBSDKD_MSGFLD_FTS_LIMIT "FTSLimit"
 #define CBSDKD_MSGFLD_FTS_COUNT "Count"
+#define CBSDKD_MSGFLD_FTS_CONSISTENCY "FTSConsistency"
 
 #endif /* CBSDKD_H_ */

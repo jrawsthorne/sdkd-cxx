@@ -28,6 +28,7 @@ class FTSQueryExecutor : protected DebugContext {
 public:
     FTSQueryExecutor(Handle* handle) {
         this->handle = handle;
+        generator = 0;
     }
     virtual ~FTSQueryExecutor() {}
 
@@ -46,6 +47,15 @@ public:
 private:
     Handle* handle;
     int limit;
+    int generator;
+
+    lcb_error_t runSearchOnPreloadedData(ResultSet& out,
+            std::string &indexName,
+            int kvCount);
+
+    lcb_error_t runSearchUnderAtPlusConsistency(ResultSet &out,
+            std::string &indexName);
+
 };
 }
 
