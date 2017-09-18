@@ -64,6 +64,20 @@ N1QLQueryExecutor::insertDoc(lcb_t instance,
 
 extern "C" {
 static void
+dump_http_error(const lcb_RESPN1QL *resp) {
+    char *row = (char *)resp->row;
+    int nrow = (int)resp->nrow;
+
+    for (int i = 0; i < nrow; i++) {
+        if (row[i] == '\n') {
+            row[i] = ' ';
+        }
+    }
+    fprintf(stderr, "Failed to execute query. lcb: %d, http: %d, %.*s\n",
+            (int)resp->rc, (int)resp->htresp->htstatus, nrow, row);
+}
+
+static void
 query_cb(lcb_t instance,
         int cbtype,
         const lcb_RESPN1QL *resp) {
@@ -75,6 +89,9 @@ query_cb(lcb_t instance,
             }
         }
         obj->setRescode(resp->rc , true);
+        if (resp->rc != LCB_SUCCESS) {
+            dump_http_error(resp);
+        }
         return;
     }
     obj->query_resp_count++;
