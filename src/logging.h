@@ -62,8 +62,9 @@ class Logger : public lcb_logprocs_st {
                 start_time = now;
             }
             flockfile(fp);
-            fprintf(fp, "%lums  [I%d] (%s - L:%d) ",
+            fprintf(fp, "%lums %s [I%d] (%s - L:%d) ",
                     (unsigned long)(now - start_time) /1000000,
+                    severity_str(severity),
                     iid,
                     subsys,
                     srcline);
@@ -73,6 +74,26 @@ class Logger : public lcb_logprocs_st {
             funlockfile(fp);
         }
     private:
+        static const char * severity_str(int severity)
+        {
+            switch (severity) {
+            case LCB_LOG_TRACE:
+                return "TRACE";
+            case LCB_LOG_DEBUG:
+                return "DEBUG";
+            case LCB_LOG_INFO:
+                return "INFO";
+            case LCB_LOG_WARN:
+                return "WARN";
+            case LCB_LOG_ERROR:
+                return "ERROR";
+            case LCB_LOG_FATAL:
+                return "FATAL";
+            default:
+                return "";
+            }
+        }
+
         uint64_t start_time;
         const char *file;
         FILE *fp;

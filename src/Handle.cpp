@@ -303,7 +303,7 @@ Handle::connect(Error *errp)
     the_error = lcb_create(&instance, &create_opts);
     if (the_error != LCB_SUCCESS) {
         errp->errstr = lcb_strerror(instance, the_error);
-        log_error("lcb_connect failed: %s", errp->prettyPrint().c_str());
+        log_error("lcb_create failed: %s", errp->prettyPrint().c_str());
         abort();
         return false;
     }
@@ -320,6 +320,17 @@ Handle::connect(Error *errp)
     }
     int val= 1;
     the_error = lcb_cntl(instance, LCB_CNTL_SET, LCB_CNTL_FETCH_MUTATION_TOKENS, &val);
+    if (the_error != LCB_SUCCESS) {
+        errp->errstr = lcb_strerror(instance, the_error);
+        log_error("lcb instance control settings failed: %s", errp->prettyPrint().c_str());
+        return false;
+    }
+    the_error = lcb_cntl(instance, LCB_CNTL_SET, LCB_CNTL_DETAILED_ERRCODES, &val);
+    if (the_error != LCB_SUCCESS) {
+        errp->errstr = lcb_strerror(instance, the_error);
+        log_error("lcb instance control settings failed: %s", errp->prettyPrint().c_str());
+        return false;
+    }
 
     //set the logger procs
     logger = new Logger(Daemon::MainDaemon->getOptions().lcblogFile);
