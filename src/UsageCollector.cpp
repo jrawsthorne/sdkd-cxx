@@ -4,6 +4,9 @@
  */
 #include "sdkd_internal.h"
 
+#include <dirent.h>
+#include <sys/stat.h>
+
 namespace CBSdkd {
 
 extern "C" {
@@ -25,8 +28,49 @@ void UsageCollector::Start(void) {
     thr->start(this);
 }
 
+typedef struct fdstats {
+    int total;
+    int files;
+    int socks;
+} fdstats;
+
+static void get_fdstats(fdstats *stats)
+{
+    DIR *dirp;
+    struct dirent *dp;
+
+    memset(stats, 0, sizeof(fdstats));
+
+    if ((dirp = opendir("/proc/self/fd")) == NULL) {
+        perror("Unable to open '/proc/self/fd'");
+        exit(1);
+    }
+
+    while ((dp = readdir(dirp)) != NULL) {
+        stats->total++;
+        switch (dp->d_type) {
+            case DT_REG:
+                stats->files++;
+                break;
+            case DT_LNK: {
+                char buf[PATH_MAX] = {};
+                struct stat st = {};
+                snprintf(buf, sizeof(buf), "/proc/self/fd/%s", dp->d_name);
+                stat(buf, &st);
+                if (S_ISSOCK(st.st_mode)) {
+                    stats->socks++;
+                } else if (S_ISREG(st.st_mode)) {
+                    stats->files++;
+                }
+            } break;
+        }
+    }
+    closedir(dirp);
+}
+
 void UsageCollector::Loop(void) {
     struct rusage usage;
+    fdstats stats;
 
     samplingtime = Json::Value(Json::arrayValue);
     samplingtime.append("time");
@@ -34,6 +78,10 @@ void UsageCollector::Loop(void) {
     memusages.append("memory");
     cputimeusages = Json::Value(Json::arrayValue);
     cputimeusages.append("cpu");
+    cnt_files = Json::Value(Json::arrayValue);
+    cnt_files.append("files");
+    cnt_connections = Json::Value(Json::arrayValue);
+    cnt_connections.append("connections");
     double current_span = 0;
 
     while(1) {
@@ -47,6 +95,9 @@ void UsageCollector::Loop(void) {
         double mem = usage.ru_maxrss;
         samplingtime.append(current_span);
         memusages.append(mem);
+        get_fdstats(&stats);
+        cnt_files.append(stats.files);
+        cnt_connections.append(stats.socks);
         cputimeusages.append(oncputime_s + (oncputime_us/1000000));
         sleep(interval);
         current_span += interval;
@@ -57,8 +108,7 @@ void UsageCollector::GetResponseJson(Json::Value &res) {
     res["time"] =  samplingtime;
     res["memory"] = memusages;
     res["cpu"] = cputimeusages;
+    res["files"] = cnt_files;
+    res["connections"] = cnt_connections;
 }
 }
-
-
-
