@@ -36,7 +36,8 @@ class UsageCollector {
 
     private:
         Json::Value memusages;
-        Json::Value cputimeusages;
+        Json::Value cputimeusages_user;
+        Json::Value cputimeusages_system;
         Json::Value samplingtime;
         Json::Value cnt_files;
         Json::Value cnt_connections;

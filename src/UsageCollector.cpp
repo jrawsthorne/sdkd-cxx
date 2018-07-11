@@ -73,11 +73,13 @@ void UsageCollector::Loop(void) {
     fdstats stats;
 
     samplingtime = Json::Value(Json::arrayValue);
-    samplingtime.append("time");
+    samplingtime.append("ts");
     memusages = Json::Value(Json::arrayValue);
     memusages.append("memory");
-    cputimeusages = Json::Value(Json::arrayValue);
-    cputimeusages.append("cpu");
+    cputimeusages_user = Json::Value(Json::arrayValue);
+    cputimeusages_user.append("cpu_user");
+    cputimeusages_system = Json::Value(Json::arrayValue);
+    cputimeusages_system.append("cpu_system");
     cnt_files = Json::Value(Json::arrayValue);
     cnt_files.append("files");
     cnt_connections = Json::Value(Json::arrayValue);
@@ -90,24 +92,24 @@ void UsageCollector::Loop(void) {
             fprintf(stderr, "Unable to get usage info ! aborting");
             exit(1);
         }
-        double oncputime_s = usage.ru_utime.tv_sec + usage.ru_stime.tv_sec;
-        double oncputime_us = usage.ru_utime.tv_usec + usage.ru_stime.tv_usec;
+        cputimeusages_user.append(usage.ru_utime.tv_sec + ((double)usage.ru_utime.tv_usec/1000000));
+        cputimeusages_system.append(usage.ru_stime.tv_sec + ((double)usage.ru_stime.tv_usec/1000000));
         double mem = usage.ru_maxrss;
         samplingtime.append(current_span);
         memusages.append(mem);
         get_fdstats(&stats);
         cnt_files.append(stats.files);
         cnt_connections.append(stats.socks);
-        cputimeusages.append(oncputime_s + (oncputime_us/1000000));
         sleep(interval);
         current_span += interval;
     }
 }
 
 void UsageCollector::GetResponseJson(Json::Value &res) {
-    res["time"] =  samplingtime;
+    res["ts"] =  samplingtime;
     res["memory"] = memusages;
-    res["cpu"] = cputimeusages;
+    res["cpu_user"] = cputimeusages_user;
+    res["cpu_system"] = cputimeusages_system;
     res["files"] = cnt_files;
     res["connections"] = cnt_connections;
 }
