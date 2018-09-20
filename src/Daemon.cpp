@@ -65,7 +65,7 @@ Daemon::verifyIoPlugin()
     err = lcb_create_io_ops(&io, &ioCreationOptions);
     if (err != LCB_SUCCESS) {
         fprintf(stderr, "Creation of IO plugin failed: %s\n",
-                lcb_strerror(NULL, err));
+                lcb_strerror_short(err));
         return false;
     }
 

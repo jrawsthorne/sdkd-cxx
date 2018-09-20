@@ -165,7 +165,7 @@ FTSQueryExecutor::execute(ResultSet& out,
 
         if (err != LCB_SUCCESS) {
             fprintf(stderr, "Error scheduling fts query 0x%x %s\n",
-                    err, lcb_strerror(NULL, err));
+                    err, lcb_strerror_short(err));
         }
         lcb_wait(handle->getLcb());
     }

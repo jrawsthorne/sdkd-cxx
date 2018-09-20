@@ -134,7 +134,7 @@ N1QLQueryExecutor::execute(Command cmd,
         lcb_error_t err;
         if(!insertDoc(handle->getLcb(), params, paramValues, err)) {
             fprintf(stderr, "Inserting document returned error 0x%x %s\n",
-                    err, lcb_strerror(NULL, err));
+                    err, lcb_strerror_short(err));
         }
         out.scan_consistency = scanConsistency;
 
@@ -167,7 +167,7 @@ N1QLQueryExecutor::execute(Command cmd,
         bucket_scan_vector[this->handle->options.bucket.c_str()] = tokens;
         if(!N1QL::query(q.c_str(), &qcmd, LCB_N1P_QUERY_STATEMENT, &out, err, consistency, bucket_scan_vector)) {
             fprintf(stderr,"Scheduling query returned error 0x%x %s\n",
-                    err, lcb_strerror(NULL, err));
+                    err, lcb_strerror_short(err));
             continue;
         }
 

@@ -68,7 +68,7 @@ ResultSet::setRescode(lcb_error_t err,
                       const void *value,
                       size_t nvalue)
 {
-    const char *strerr = lcb_strerror(parent->getLcb(), err);
+    const char *strerr = lcb_strerror_short(err);
     std::string myerr(strerr);
     if (err == LCB_SUCCESS) {
         myerr = "SUCCESS";
