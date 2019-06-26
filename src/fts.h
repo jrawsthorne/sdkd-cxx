@@ -49,11 +49,11 @@ private:
     int limit;
     int generator;
 
-    lcb_error_t runSearchOnPreloadedData(ResultSet& out,
+    lcb_STATUS runSearchOnPreloadedData(ResultSet& out,
             std::string &indexName,
             int kvCount);
 
-    lcb_error_t runSearchUnderAtPlusConsistency(ResultSet &out,
+    lcb_STATUS runSearchUnderAtPlusConsistency(ResultSet &out,
             std::string &indexName);
 
 };

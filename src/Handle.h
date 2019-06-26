@@ -217,7 +217,7 @@ public:
         pending_errors.push_back(Error(err, desc));
     }
 
-    lcb_t getLcb() {
+    lcb_INSTANCE *getLcb() {
         return instance;
     }
 
@@ -237,7 +237,7 @@ public:
     void cancelCurrent();
 
     static int
-    mapError(lcb_error_t err) {
+    mapError(lcb_STATUS err) {
         return ResultSet::mapError(err);
     }
 
@@ -254,7 +254,7 @@ private:
     std::vector<ResultSet>pending_results;
     std::vector<Error>pending_errors;
 
-    lcb_t instance;
+    lcb_INSTANCE *instance;
     lcb_io_opt_t io;
 
     std::string certpath;

@@ -124,7 +124,7 @@ typedef struct lcb_vopt_st {
  * As the actual structure is not allocated by the library, the library will
  * not free the structure.
  */
-lcb_error_t
+lcb_STATUS
 lcb_vopt_assign(lcb_vopt_t *optobj,
                 const void *option,
                 size_t noption,
@@ -143,7 +143,7 @@ lcb_vopt_assign(lcb_vopt_t *optobj,
  * @return LCB_SUCCESS on success, error otherwise. All memory is freed on error;
  * otherwise the list must be freed using vopt_cleanup
  */
-lcb_error_t
+lcb_STATUS
 lcb_vopt_createv(lcb_vopt_t *optarray[],
                  size_t *noptions, char **errstr, ...);
 

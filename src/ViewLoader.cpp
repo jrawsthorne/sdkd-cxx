@@ -7,13 +7,7 @@ using namespace std;
 
 extern "C"
 {
-static void
-cb_store(lcb_t instance, const void *cookie,
-         lcb_storage_t oper, lcb_error_t err,
-         const lcb_store_resp_t *resp)
-{
-    ResultSet *rs = reinterpret_cast<ResultSet*>((void*)cookie);
-    rs->setRescode(err, (const char *)resp->v.v0.key, resp->v.v0.nkey);
+static void cb_store(lcb_INSTANCE *instance, int, const lcb_RESPBASE *resp) {
 }
 }
 
@@ -24,42 +18,23 @@ ViewLoader::ViewLoader(Handle *handle)
 
 void ViewLoader::flushValues(ResultSet& rs)
 {
-    vector<lcb_store_cmd_t> scmds;
-    vector<const lcb_store_cmd_t*> scmds_p;
+    lcb_install_callback3(handle->getLcb(), LCB_CALLBACK_STORE, cb_store);
 
     for (kvp_list::iterator iter = values.begin();
             iter != values.end();
             iter++) {
 
-        lcb_store_cmd_t cmd = lcb_store_cmd_st();
-        cmd.v.v0.key = iter->key.c_str();
-        cmd.v.v0.nkey = iter->key.size();
+        lcb_CMDSTORE *cmd;
+        lcb_cmdstore_create(&cmd, LCB_STORE_SET);
+        lcb_cmdstore_key(cmd, iter->key.c_str(), iter->key.size());
+        lcb_cmdstore_value(cmd, iter->value.c_str(), iter->value.size());
 
-        cmd.v.v0.bytes = (const void*)iter->value.c_str();
-        cmd.v.v0.nbytes = iter->value.size();
-        cmd.v.v0.operation = LCB_SET;
-        scmds.push_back(cmd);
+        lcb_STATUS err = lcb_store(handle->getLcb(), NULL, cmd);
+        lcb_cmdstore_destroy(cmd);
+        if (err != LCB_SUCCESS) {
+            rs.setRescode(err);
+        }
     }
-
-    for (unsigned int ii = 0; ii < scmds.size(); ii++) {
-        scmds_p.push_back(&scmds[ii]);
-    }
-
-    lcb_store_callback old_cb = lcb_set_store_callback(handle->getLcb(),
-                                                       cb_store);
-
-    lcb_error_t err = lcb_store(handle->getLcb(), &rs,
-                                scmds_p.size(),
-                                &scmds_p[0]);
-
-    if (err != LCB_SUCCESS) {
-        rs.setRescode(err);
-
-    } else {
-        lcb_wait(handle->getLcb());
-    }
-
-    lcb_set_store_callback(handle->getLcb(), old_cb);
 }
 
 bool ViewLoader::populateViewData(Command cmd,

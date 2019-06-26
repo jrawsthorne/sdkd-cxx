@@ -33,7 +33,7 @@ static char *my_strndup(const char *a, int n)
 typedef struct view_param_st view_param;
 
 
-typedef lcb_error_t (*view_param_handler)
+typedef lcb_STATUS (*view_param_handler)
         (view_param *param,
                 struct lcb_vopt_st *optobj,
                 const void *value,
@@ -48,7 +48,7 @@ struct view_param_st {
 };
 
 #define DECLARE_HANDLER(name) \
-    static lcb_error_t\
+    static lcb_STATUS\
         name(\
             view_param *p, \
             lcb_vopt_t *optobj, \
@@ -99,7 +99,7 @@ static void set_user_string(struct lcb_vopt_st *optobj,
 /**
  * Callbacks/Handlers for various parameters
  */
-static lcb_error_t
+static lcb_STATUS
 bool_param_handler(view_param *param,
                   struct lcb_vopt_st *optobj,
                   const void *value,
@@ -136,7 +136,7 @@ bool_param_handler(view_param *param,
     return LCB_SUCCESS;
 }
 
-static lcb_error_t
+static lcb_STATUS
 num_param_handler(view_param *param,
         struct lcb_vopt_st *optobj,
         const void *value,
@@ -237,7 +237,7 @@ static size_t do_pct_encode(char *dest, const char *src, size_t nsrc)
     return ret;
 }
 
-static lcb_error_t
+static lcb_STATUS
 string_param_handler(view_param *p,
                     struct lcb_vopt_st *optobj,
                     const void *value,
@@ -280,7 +280,7 @@ string_param_handler(view_param *p,
     return LCB_SUCCESS;
 }
 
-static lcb_error_t
+static lcb_STATUS
 stale_param_handler(view_param *p,
                    struct lcb_vopt_st *optobj,
                    const void *value,
@@ -317,7 +317,7 @@ stale_param_handler(view_param *p,
     return LCB_EINVAL;
 }
 
-static lcb_error_t
+static lcb_STATUS
 onerror_param_handler(view_param *param,
                      struct lcb_vopt_st *optobj,
                      const void *value,
@@ -365,7 +365,7 @@ find_view_param(const void *option, size_t noption, int flags)
     return NULL;
 }
 
-lcb_error_t
+lcb_STATUS
 lcb_vopt_assign(struct lcb_vopt_st *optobj,
                      const void *option,
                      size_t noption,
@@ -532,13 +532,13 @@ lcb_vqstr_make_optstr(const lcb_vopt_t * const * options,
     return buf;
 }
 
-lcb_error_t
+lcb_STATUS
 lcb_vopt_createv(lcb_vopt_t *optarray[], size_t *noptions, char **errstr, ...)
 {
     /* two lists, first to determine how much to allocated */
     va_list ap_orig, ap_calc;
     char *strp;
-    lcb_error_t err = LCB_SUCCESS;
+    lcb_STATUS err = LCB_SUCCESS;
     int curix;
 
     va_start(ap_orig, errstr);

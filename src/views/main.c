@@ -39,9 +39,9 @@ my_vr_callback(lcb_vrow_ctx_t *ctx,
 
 static void
 http_data_callback(lcb_http_request_t request,
-                       lcb_t instance,
+                       lcb_INSTANCE *instance,
                        const void *cookie,
-                       lcb_error_t error,
+                       lcb_STATUS error,
                        const lcb_http_resp_t *resp)
 {
     lcb_vrow_ctx_t *rctx = (lcb_vrow_ctx_t*)cookie;
@@ -86,12 +86,12 @@ enum {
 };
 
 static void
-schedule_http(lcb_t instance)
+schedule_http(lcb_INSTANCE *instance)
 {
     lcb_http_cmd_t htcmd;
     lcb_http_request_t htreq;
 
-    lcb_error_t err;
+    lcb_STATUS err;
     char *vqstr;
     char *errstr;
     size_t num_options;
@@ -148,12 +148,12 @@ schedule_http(lcb_t instance)
 
 }
 
-static lcb_t
-create_handle(void)
+static lcb_INSTANCE
+*create_handle(void)
 {
     struct lcb_create_st ctor_opts;
-    lcb_t instance = NULL;
-    lcb_error_t err;
+    lcb_INSTANCE *instance = NULL;
+    lcb_STATUS err;
     memset(&ctor_opts, 0, sizeof(ctor_opts));
 
     OV1(&ctor_opts).bucket = "beer-sample";
@@ -192,7 +192,7 @@ test_vopts(void)
     };
     const lcb_vopt_t * const * vl_const = (const lcb_vopt_t* const* )optlist;
 
-    lcb_error_t err;
+    lcb_STATUS err;
     char *estr = NULL;
     int optval;
     int opttype;
@@ -274,7 +274,7 @@ test_vopts(void)
 }
 
 static void
-test_refused(lcb_t handle)
+test_refused(lcb_INSTANCE *handle)
 {
     lcb_http_cmd_t cmd;
     lcb_http_request_t req;
@@ -287,7 +287,7 @@ test_refused(lcb_t handle)
     OV1(&cmd).content_type = "application/json";
     OV1(&cmd).method = LCB_HTTP_METHOD_GET;
 
-    lcb_error_t err;
+    lcb_STATUS err;
     err = lcb_make_http_request(handle, NULL, LCB_HTTP_TYPE_RAW, &cmd, &req);
     assert(err == LCB_SUCCESS);
     lcb_wait(handle);
@@ -341,7 +341,7 @@ test_vrow(void)
 
 int main(void)
 {
-    lcb_t instance = create_handle();
+    lcb_INSTANCE *instance = create_handle();
     test_refused(instance);
 //    schedule_http(instance);
     lcb_destroy(instance);

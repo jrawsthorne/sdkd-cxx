@@ -56,7 +56,7 @@ Daemon::initIOPS()
 bool
 Daemon::verifyIoPlugin()
 {
-    lcb_error_t err;
+    lcb_STATUS err;
     lcb_io_opt_t io;
     if (!hasCreateOptions) {
         return true;
@@ -270,7 +270,7 @@ Daemon::createIO()
         return NULL;
     }
 
-    lcb_error_t err;
+    lcb_STATUS err;
     lcb_io_opt_t ret;
     fprintf(stderr, "Creating IOPS structure");
 

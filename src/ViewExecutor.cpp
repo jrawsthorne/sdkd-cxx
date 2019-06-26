@@ -81,7 +81,7 @@ ViewExecutor::genOptionsString(const Request& req, string& out, Error& eo)
 
         }
 
-        lcb_error_t err = lcb_vopt_assign(&vopt,
+        lcb_STATUS err = lcb_vopt_assign(&vopt,
                                           iter.key().asString().c_str(),
                                           -1,
                                           val_arg,
@@ -131,21 +131,23 @@ ViewExecutor::genOptionsString(const Request& req, string& out, Error& eo)
 
 
 extern "C" {
-static void rowCallback(lcb_t instance, int, const lcb_RESPVIEWQUERY *response) {
-    if (response->rflags  & LCB_RESP_F_FINAL) {
-        reinterpret_cast<ResultSet*>(response->cookie)->setRescode(response->rc, true);
+static void rowCallback(lcb_INSTANCE *instance, int, const lcb_RESPVIEW *response) {
+    void *cookie;
+    lcb_respview_cookie(response, &cookie);
+    if (lcb_respview_is_final(response)) {
+        reinterpret_cast<ResultSet*>(cookie)->setRescode(lcb_respview_status(response), true);
         return;
     }
-    reinterpret_cast<ResultSet*>(response->cookie)->setRescode(response->rc);
+    reinterpret_cast<ResultSet*>(cookie)->setRescode(lcb_respview_status(response));
 }
 
 }
 void
-ViewExecutor::runSingleView(lcb_CMDVIEWQUERY *cmd, ResultSet& out)
+ViewExecutor::runSingleView(lcb_CMDVIEW *cmd, ResultSet& out)
 {
-    lcb_error_t lcb_err;
+    lcb_STATUS lcb_err;
 
-    lcb_err = lcb_view_query(handle->getLcb(),
+    lcb_err = lcb_view(handle->getLcb(),
             &out, cmd);
 
     if (lcb_err != LCB_SUCCESS) {
@@ -196,15 +198,12 @@ ViewExecutor::executeView(Command cmd,
         return false;
     }
 
-    lcb_CMDVIEWQUERY vq = { 0 };
-    vq.ddoc = dname.c_str();
-    vq.nddoc =  dname.size();
-    vq.view = vname.c_str();
-    vq.nview = vname.size();
-    vq.optstr = optstr.c_str();
-    vq.noptstr = optstr.size();
-    vq.callback = rowCallback;
-
+    lcb_CMDVIEW *vcmd;
+    lcb_cmdview_create(&vcmd);
+    lcb_cmdview_design_document(vcmd, dname.c_str(), dname.size());
+    lcb_cmdview_view_name(vcmd, vname.c_str(), vname.size());
+    lcb_cmdview_option_string(vcmd, optstr.c_str(), optstr.size());
+    lcb_cmdview_callback(vcmd, rowCallback);
 
     handle->externalEnter();
 
@@ -212,7 +211,7 @@ ViewExecutor::executeView(Command cmd,
         out.vresp_complete = false;
 
         rs->markBegin();
-        runSingleView(&vq, out);
+        runSingleView(vcmd, out);
 
         if (num_iterations >= 0) {
             num_iterations--;
@@ -227,6 +226,7 @@ ViewExecutor::executeView(Command cmd,
 
     }
 
+    lcb_cmdview_destroy(vcmd);
     handle->externalLeave();
     return true;
 }

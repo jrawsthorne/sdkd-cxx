@@ -4,28 +4,28 @@
 namespace CBSdkd {
 extern "C" {
 static void
-insert_cb(lcb_t instance, int type, lcb_RESPBASE *resp) {
-    lcb_RESPSTORE *sresp = (lcb_RESPSTORE *)resp;
-    N1QLQueryExecutor *obj = reinterpret_cast<N1QLQueryExecutor*>(sresp->cookie);
-    if (resp->rc == LCB_SUCCESS) {
+insert_cb(lcb_INSTANCE *instance, int type, lcb_RESPBASE *resp) {
+    const lcb_RESPSTORE *sresp = (lcb_RESPSTORE *)resp;
+    void *cookie;
+    lcb_respstore_cookie(sresp, &cookie);
+    N1QLQueryExecutor *obj = reinterpret_cast<N1QLQueryExecutor*>(cookie);
+    if (lcb_respstore_status(sresp) == LCB_SUCCESS) {
         obj->is_isuccess = true;
-        lcb_MUTATION_TOKEN ss = *lcb_resp_get_mutation_token(type, resp);
+        lcb_MUTATION_TOKEN *ss = NULL;
+        lcb_respstore_mutation_token(sresp, ss);
         Json::Value vbucket;
         Json::Value mtInfoArr = Json::Value(Json::arrayValue);
-        mtInfoArr.append((unsigned int)LCB_MUTATION_TOKEN_SEQ(&ss));
-        mtInfoArr.append(std::to_string(LCB_MUTATION_TOKEN_ID(&ss)));
-        vbucket[std::to_string(LCB_MUTATION_TOKEN_VB(&ss))] = mtInfoArr;
         obj->tokens = vbucket;
     }
-    obj->insert_err = resp->rc;
+    obj->insert_err = lcb_respstore_status(sresp);
 }
 }
 
 bool
-N1QLQueryExecutor::insertDoc(lcb_t instance,
+N1QLQueryExecutor::insertDoc(lcb_INSTANCE *instance,
         std::vector<std::string> &params,
         std::vector<std::string> &paramValues,
-        lcb_error_t& err) {
+        lcb_STATUS& err) {
 
     std::vector<std::string>::iterator pit = params.begin();
     std::vector<std::string>::iterator vit = paramValues.begin();
@@ -41,14 +41,15 @@ N1QLQueryExecutor::insertDoc(lcb_t instance,
     std::string key = doc["id"].asString();
 
     lcb_install_callback3(instance, LCB_CALLBACK_STORE, (lcb_RESPCALLBACK)insert_cb);
-    lcb_CMDSTORE scmd = { 0 };
+    lcb_CMDSTORE *scmd;
 
-    LCB_CMD_SET_KEY(&scmd, key.c_str(), key.size());
-    LCB_CMD_SET_VALUE(&scmd, val.c_str(), val.size());
-    scmd.operation = LCB_SET;
+    lcb_cmdstore_create(&scmd, LCB_STORE_SET);
+    lcb_cmdstore_key(scmd, key.c_str(), key.size());
+    lcb_cmdstore_value(scmd, val.c_str(), val.size());
 
     lcb_sched_enter(instance);
-    err = lcb_store3(instance, (void *)this, &scmd);
+    err = lcb_store(instance, (void *)this, scmd);
+    lcb_cmdstore_destroy(scmd);
     if (err != LCB_SUCCESS) {
         this->insert_err = err;
         return false;
@@ -65,31 +66,31 @@ N1QLQueryExecutor::insertDoc(lcb_t instance,
 extern "C" {
 static void
 dump_http_error(const lcb_RESPN1QL *resp) {
-    char *row = (char *)resp->row;
-    int nrow = (int)resp->nrow;
+    const char *row = NULL;
+    size_t nrow;
+    lcb_respn1ql_row(resp, &row, &nrow);
 
-    for (int i = 0; i < nrow; i++) {
-        if (row[i] == '\n') {
-            row[i] = ' ';
-        }
-    }
-    fprintf(stderr, "Failed to execute query. lcb: %d, http: %d, %.*s\n",
-            (int)resp->rc, (int)resp->htresp->htstatus, nrow, row);
+    const lcb_RESPHTTP *htresp;
+    lcb_respn1ql_http_response(resp, &htresp);
+    fprintf(stderr, "Failed to execute query. lcb: %d, http: %d, %s\n",
+            lcb_respn1ql_status(resp), lcb_resphttp_status(htresp), row);
 }
 
 static void
-query_cb(lcb_t instance,
+query_cb(lcb_INSTANCE *instance,
         int cbtype,
         const lcb_RESPN1QL *resp) {
-    ResultSet *obj = reinterpret_cast<ResultSet *>(resp->cookie);
-    if (resp->rflags & LCB_RESP_F_FINAL) {
-        if (obj->scan_consistency == "request_plus" || obj->scan_consistency == "at_plus")          {
+    void *cookie;
+    lcb_respn1ql_cookie(resp, &cookie);
+    ResultSet *obj = reinterpret_cast<ResultSet *>(cookie);
+    if (lcb_respn1ql_is_final(resp)) {
+        if (obj->scan_consistency == "request_plus" || obj->scan_consistency == "at_plus") {
             if (obj->query_resp_count != 1) {
                 fprintf(stderr, "Query count mismatch for stale=false");
             }
         }
-        obj->setRescode(resp->rc , true);
-        if (resp->rc != LCB_SUCCESS) {
+        obj->setRescode(lcb_respn1ql_status(resp) , true);
+        if (lcb_respn1ql_status(resp) != LCB_SUCCESS) {
             dump_http_error(resp);
         }
         return;
@@ -109,7 +110,6 @@ N1QLQueryExecutor::execute(Command cmd,
     std::string indexType = req.payload[CBSDKD_MSGFLD_NQ_INDEX_TYPE].asString();
     std::string indexEngine = req.payload[CBSDKD_MSGFLD_NQ_INDEX_ENGINE].asString();
     std::string indexName = req.payload[CBSDKD_MSGFLD_NQ_DEFAULT_INDEX_NAME].asString();
-    bool isPrepared = req.payload[CBSDKD_MSGFLD_NQ_PREPARED].asBool();
 
     std::vector<std::string> params, paramValues;
     N1QL::split(req.payload[CBSDKD_MSGFLD_NQ_PARAM].asString(), ',', params);
@@ -131,7 +131,7 @@ N1QLQueryExecutor::execute(Command cmd,
         paramValues.pop_back();
         paramValues.push_back(std::to_string(ii));
 
-        lcb_error_t err;
+        lcb_STATUS err;
         if(!insertDoc(handle->getLcb(), params, paramValues, err)) {
             fprintf(stderr, "Inserting document returned error 0x%x %s\n",
                     err, lcb_strerror_short(err));
@@ -157,20 +157,20 @@ N1QLQueryExecutor::execute(Command cmd,
         }
 
         out.markBegin();
-        lcb_CMDN1QL qcmd = { 0 };
-        if (isPrepared) {
-            qcmd.cmdflags |= LCB_CMDN1QL_F_PREPCACHE;
-        }
+        lcb_CMDN1QL *qcmd;
+        lcb_cmdn1ql_create(&qcmd);
 
-        qcmd.callback = query_cb;
+        lcb_cmdn1ql_callback(qcmd, query_cb);
         Json::Value bucket_scan_vector;
         bucket_scan_vector[this->handle->options.bucket.c_str()] = tokens;
-        if(!N1QL::query(q.c_str(), &qcmd, LCB_N1P_QUERY_STATEMENT, &out, err, consistency, bucket_scan_vector)) {
+        if(!N1QL::query(q.c_str(), qcmd, &out, err, LCB_N1QL_CONSISTENCY_NONE)) {
+            lcb_cmdn1ql_destroy(qcmd);
             fprintf(stderr,"Scheduling query returned error 0x%x %s\n",
                     err, lcb_strerror_short(err));
             continue;
         }
 
+        lcb_cmdn1ql_destroy(qcmd);
         lcb_wait(handle->getLcb());
         if (iterdelay) {
             sdkd_millisleep(iterdelay);

@@ -2,7 +2,7 @@
 
 
 namespace CBSdkd {
-static void cb_store(lcb_t instance, int, const lcb_RESPBASE *resp) {
+static void cb_store(lcb_INSTANCE *instance, int, const lcb_RESPBASE *resp) {
 }
 
 bool
@@ -18,11 +18,12 @@ N1QLLoader::populate(const Dataset& ds)
         std::string k = iter->key();
         std::string v = iter->value();
 
-        lcb_CMDSTORE cmd = { 0 };
-        cmd.operation = LCB_SET;
-        LCB_CMD_SET_KEY(&cmd, k.data(), k.size());
-        LCB_CMD_SET_VALUE(&cmd, v.data(), v.size());
-        lcb_error_t err = lcb_store3(handle->getLcb(), NULL, &cmd);
+        lcb_CMDSTORE *cmd;
+        lcb_cmdstore_create(&cmd, LCB_STORE_SET);
+        lcb_cmdstore_key(cmd, k.c_str(), strlen(k.c_str()));
+        lcb_cmdstore_value(cmd, v.c_str(), strlen(v.c_str()));
+        lcb_STATUS err = lcb_store(handle->getLcb(), NULL, cmd);
+        lcb_cmdstore_destroy(cmd);
         if (err != LCB_SUCCESS) {
             return false;
         }

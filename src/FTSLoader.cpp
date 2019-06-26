@@ -2,7 +2,7 @@
 
 namespace CBSdkd {
 extern "C" {
-static void cb_store(lcb_t instance, int, const lcb_RESPBASE *resp) {
+static void cb_store(lcb_INSTANCE *instance, int, const lcb_RESPBASE *resp) {
 }
 }
 
@@ -18,14 +18,13 @@ FTSLoader::populate(const Dataset& ds) {
         std::string k = iter->key();
         std::string v = iter->value();
 
-        lcb_CMDSTORE cmd = { 0 };
-        cmd.operation = LCB_SET;
-        cmd.value.vtype = LCB_KV_COPY;
+        lcb_CMDSTORE *cmd;
+        lcb_cmdstore_create(&cmd, LCB_STORE_SET);
 
-        LCB_CMD_SET_KEY(&cmd, k.data(), k.size());
-        cmd.value.u_buf.contig.bytes = v.data();
-        cmd.value.u_buf.contig.nbytes = v.size();
-        lcb_error_t err = lcb_store3(handle->getLcb(), NULL, &cmd);
+        lcb_cmdstore_key(cmd, k.data(), k.size());
+        lcb_cmdstore_value(cmd, v.data(), v.size());
+        lcb_STATUS err = lcb_store(handle->getLcb(), NULL, cmd);
+        lcb_cmdstore_destroy(cmd);
         if (err != LCB_SUCCESS) {
             return false;
         }

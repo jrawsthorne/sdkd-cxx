@@ -94,24 +94,24 @@ public:
     // @param expect_value whether this operation should have returned a value
     // @param value the value (can be NULL)
     // @param n_value the size of the value
-    void setRescode(lcb_error_t err, const void* key, size_t nkey,
+    void setRescode(lcb_STATUS err, const void* key, size_t nkey,
                     bool expect_value, const void* value, size_t n_value);
 
-    void setRescode(lcb_error_t err) {
+    void setRescode(lcb_STATUS err) {
         setRescode(err, NULL, 0, false, NULL, 0);
     }
 
-    void setRescode(lcb_error_t err,
+    void setRescode(lcb_STATUS err,
                     const char *key, size_t nkey) {
         setRescode(err, key, nkey, false, NULL, 0);
     }
 
-    void setRescode(lcb_error_t err, const std::string key,
+    void setRescode(lcb_STATUS err, const std::string key,
                     bool expect_value) {
         setRescode(err, key.c_str(), key.length(), true, NULL, 0);
     }
 
-    void setRescode(lcb_error_t err, bool isFinal) {
+    void setRescode(lcb_STATUS err, bool isFinal) {
         vresp_complete = isFinal;
         setRescode(err, NULL, 0, false, NULL, 0);
     }
@@ -181,7 +181,7 @@ public:
     int remaining;
 
     static int
-    mapError(lcb_error_t err) {
+    mapError(lcb_STATUS err) {
         if (err == LCB_SUCCESS) {
             return 0;
         }

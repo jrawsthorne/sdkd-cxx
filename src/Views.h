@@ -46,7 +46,7 @@ public:
 
     // Should really be private, but hey, can't have everything
     void handleRowResult(const lcb_vrow_datum_t *dt);
-    bool handleHttpChunk(lcb_error_t err, const lcb_http_resp_t *resp);
+    bool handleHttpChunk(lcb_STATUS err, const lcb_RESPHTTP *resp);
 
     static set<string> ViewOptions;
     static void InitializeViewOptions();
@@ -54,7 +54,7 @@ public:
 
 private:
     bool genOptionsString(const Request& req, string& out, Error& err);
-    void runSingleView(lcb_CMDVIEWQUERY *cmd, ResultSet& out);
+    void runSingleView(lcb_CMDVIEW *cmd, ResultSet& out);
 
     Handle *handle;
     ResultSet *rs;

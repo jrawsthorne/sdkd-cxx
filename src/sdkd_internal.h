@@ -2,10 +2,7 @@
 #define SDKD_INTERNAL_H_
 
 #include <libcouchbase/couchbase.h>
-#include <libcouchbase/api3.h>
-#include <libcouchbase/views.h>
-#include <libcouchbase/n1ql.h>
-#include <libcouchbase/cbft.h>
+#include <libcouchbase/utils.h>
 #include "protocol_binary.h"
 
 #ifndef _WIN32
