@@ -18,14 +18,14 @@ ViewLoader::ViewLoader(Handle *handle)
 
 void ViewLoader::flushValues(ResultSet& rs)
 {
-    lcb_install_callback3(handle->getLcb(), LCB_CALLBACK_STORE, cb_store);
+    lcb_install_callback(handle->getLcb(), LCB_CALLBACK_STORE, cb_store);
 
     for (kvp_list::iterator iter = values.begin();
             iter != values.end();
             iter++) {
 
         lcb_CMDSTORE *cmd;
-        lcb_cmdstore_create(&cmd, LCB_STORE_SET);
+        lcb_cmdstore_create(&cmd, LCB_STORE_UPSERT);
         lcb_cmdstore_key(cmd, iter->key.c_str(), iter->key.size());
         lcb_cmdstore_value(cmd, iter->value.c_str(), iter->value.size());
 

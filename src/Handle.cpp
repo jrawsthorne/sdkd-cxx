@@ -133,21 +133,39 @@ static void cb_get(lcb_INSTANCE *instance, int, const lcb_RESPBASE *resp)
 
 static void cb_endure(lcb_INSTANCE *instance, int, const lcb_RESPBASE *resp)
 {
-    lcb_RESPENDURE* dresp = (lcb_RESPENDURE *)resp;
-    if (dresp->persisted_master == 0) {
-        reinterpret_cast<ResultSet*>(dresp->cookie)->setRescode(dresp->rc, (const char*)dresp->key, dresp->nkey);
+    lcb_RESPSTORE* dresp = (lcb_RESPSTORE *)resp;
+    void *cookie;
+    const char* key;
+    size_t nkey;
+    int persisted_master;
+    lcb_respstore_key(dresp, &key, &nkey);
+    lcb_respstore_cookie(dresp, &cookie);
+    lcb_respstore_observe_master_persisted(dresp, &persisted_master);
+    if (persisted_master == 0) {
+        reinterpret_cast<ResultSet*>(cookie)->setRescode(lcb_respstore_status(dresp), key, nkey);
     } else {
-        reinterpret_cast<ResultSet*>(dresp->cookie)->setRescode(LCB_ERROR, (const char*)dresp->key, dresp->nkey);
+        reinterpret_cast<ResultSet*>(cookie)->setRescode(LCB_ERROR, key, nkey);
     }
 }
 
 static void cb_observe(lcb_INSTANCE *instance, int, const lcb_RESPBASE *resp)
 {
-    lcb_RESPOBSERVE *obresp = (lcb_RESPOBSERVE *)resp;
-    ResultSet *out = reinterpret_cast<ResultSet*>(obresp->cookie);
+    lcb_RESPSTORE *obresp = (lcb_RESPSTORE *)resp;
+    void *cookie;
+    int rflags;
+    const char* key;
+    size_t nkey;
+    uint64_t cas;
+    lcb_respstore_cookie(obresp, &cookie);
+    rflags = lcb_respstore_observe_attached(obresp);
+    lcb_respstore_key(obresp, &key, &nkey);
+    lcb_respstore_cas(obresp, &cas);
+    int ismaster;
+    lcb_respstore_observe_master_exists(obresp, &ismaster);
+    ResultSet *out = reinterpret_cast<ResultSet*>(cookie);
 
-    if (obresp->rc == LCB_SUCCESS) {
-        if (obresp->rflags & LCB_RESP_F_FINAL) {
+    if (lcb_respstore_status(obresp) == LCB_SUCCESS) {
+        if (rflags & LCB_RESP_F_FINAL) {
             if (out->options.persist != out->obs_persist_count) {
                 fprintf(stderr, "Item persistence not matched Received %d Expected %d \n",
                          out->obs_persist_count, out->options.persist);
@@ -156,25 +174,25 @@ static void cb_observe(lcb_INSTANCE *instance, int, const lcb_RESPBASE *resp)
                 fprintf(stderr, "Item replication not matched Received %d Expected %d \n",
                         out->obs_replica_count, out->options.replicate);
             }
-            out->setRescode(obresp->rc, (const char *)obresp->key, obresp->nkey);
+            out->setRescode(lcb_respstore_status(obresp), key, nkey);
         }
-        if (obresp->ismaster == 1) {
+        if (ismaster == 1) {
             out->obs_persist_count++;
-            out->obs_master_cas = obresp->cas;
-            fprintf(stderr, "master cas %lu\n", (unsigned long)obresp->cas);
+            out->obs_master_cas = cas;
+            fprintf(stderr, "master cas %lu\n", (unsigned long)cas);
         }
 
-        else if (obresp->status == 1) {
-            if (obresp->cas == out->obs_master_cas) {
+        else if (lcb_respstore_status(obresp) == 1) {
+            if (cas == out->obs_master_cas) {
                 out->obs_persist_count++;
             } else {
                 fprintf(stderr, "cas not matched master cas %lu  replica %lu \n",
-                        (unsigned long)out->obs_master_cas, (unsigned long)obresp->cas);
+                        (unsigned long)out->obs_master_cas, (unsigned long)cas);
             }
             out->obs_replica_count++;
         }
     } else {
-        out->setRescode(obresp->rc, (const char *)obresp->key, obresp->nkey);
+        out->setRescode(lcb_respstore_status(obresp), key, nkey);
     }
 }
 
@@ -256,7 +274,7 @@ lcb_errmap_user(lcb_INSTANCE *instance, lcb_uint16_t in)
 static void wire_callbacks(lcb_INSTANCE *instance)
 {
 #define _setcb(t,cb) \
-    lcb_install_callback3(instance, t, cb)
+    lcb_install_callback(instance, t, cb)
     _setcb(LCB_CALLBACK_STORE, cb_storage);
     _setcb(LCB_CALLBACK_GET, cb_get);
     _setcb(LCB_CALLBACK_REMOVE, cb_remove);
@@ -279,7 +297,6 @@ Handle::Handle(const HandleOptions& opts) :
         options(opts),
         instance(NULL)
 {
-    create_opts.version = 3;
 }
 
 
@@ -289,12 +306,19 @@ Handle::~Handle() {
         lcb_destroy(instance);
     }
 
+    if (lcblogger != NULL) {
+        lcb_logger_destroy(lcblogger);
+    }
+
+    if (logger != NULL) {
+        delete logger;
+    }
+
     if (io != NULL) {
         lcb_destroy_io_ops(io);
         io = NULL;
     }
     instance = NULL;
-    delete logger;
 }
 
 #define cstr_ornull(s) \
@@ -306,31 +330,33 @@ Handle::connect(Error *errp)
 {
     // Gather parameters
     lcb_STATUS the_error;
+    lcb_CREATEOPTS *create_opts;
     instance = NULL;
     std::string connstr;
 
-    if (!create_opts.v.v3.connstr) {
-        if(options.useSSL) {
-            connstr += std::string("couchbases://") + options.hostname;
-            connstr += std::string("/") + options.bucket;
-            connstr += std::string("?certpath=");
-            connstr += std::string(options.certpath);
-            certpath = options.certpath;
-            connstr += std::string("&");
-        } else {
-            connstr += std::string("couchbase://") + options.hostname;
-            connstr +=  std::string("/") + options.bucket;
-            connstr += std::string("?");
-        }
-        connstr += "detailed_errcodes=1&";
-        create_opts.v.v3.connstr = cstr_ornull(connstr);
-        create_opts.v.v3.passwd = cstr_ornull(options.password);
+    if(options.useSSL) {
+        connstr += std::string("couchbases://") + options.hostname;
+        connstr += std::string("/") + options.bucket;
+        connstr += std::string("?certpath=");
+        connstr += std::string(options.certpath);
+        certpath = options.certpath;
+        connstr += std::string("&");
+    } else {
+        connstr += std::string("couchbase://") + options.hostname;
+        connstr +=  std::string("/") + options.bucket;
+        connstr += std::string("?");
     }
+    connstr += "detailed_errcodes=1&";
 
     io = Daemon::MainDaemon->createIO();
-    create_opts.v.v3.io = io;
 
-    the_error = lcb_create(&instance, &create_opts);
+    lcb_createopts_create(&create_opts, LCB_TYPE_CLUSTER);
+    lcb_createopts_connstr(create_opts, connstr.c_str(), connstr.size());
+    lcb_createopts_credentials(create_opts, options.username.c_str(), options.username.size(), options.password.c_str(), options.password.size());
+    lcb_createopts_io(create_opts, io);
+    lcb_createopts_logger(create_opts, lcblogger);
+
+    the_error = lcb_create(&instance, create_opts);
     if (the_error != LCB_SUCCESS) {
         errp->errstr = lcb_strerror_short(the_error);
         log_error("lcb_create failed: %s", errp->prettyPrint().c_str());
@@ -349,7 +375,7 @@ Handle::connect(Error *errp)
         the_error = lcb_cntl(instance, LCB_CNTL_SET, LCB_CNTL_CONFIGCACHE, path);
     }
     int val= 1;
-    the_error = lcb_cntl(instance, LCB_CNTL_SET, LCB_CNTL_FETCH_MUTATION_TOKENS, &val);
+    the_error = lcb_cntl(instance, LCB_CNTL_SET, LCB_CNTL_ENABLE_MUTATION_TOKENS, &val);
     if (the_error != LCB_SUCCESS) {
         errp->errstr = lcb_strerror_short(the_error);
         log_error("lcb instance control settings failed: %s", errp->prettyPrint().c_str());
@@ -363,7 +389,7 @@ Handle::connect(Error *errp)
     }
 
     //set the logger procs
-    logger = new Logger(Daemon::MainDaemon->getOptions().lcblogFile);
+    logger = new Logger(Daemon::MainDaemon->getOptions().lcblogFile, lcblogger);
     the_error = lcb_cntl(instance, LCB_CNTL_SET, LCB_CNTL_LOGGER, logger);
 
     if (options.timeout) {
@@ -405,6 +431,7 @@ Handle::connect(Error *errp)
         log_error("Got errors during connection");
         return false;
     }
+    lcb_createopts_destroy(create_opts);
     return true;
 }
 
@@ -510,9 +537,9 @@ Handle::dsMutate(Command cmd, const Dataset& ds, ResultSet& out,
     bool is_buffered = false;
 
     if (cmd == Command::MC_DS_MUTATE_ADD) {
-        storop = LCB_STORE_ADD;
+        storop = LCB_STORE_INSERT;
     } else if (cmd == Command::MC_DS_MUTATE_SET) {
-        storop = LCB_STORE_SET;
+        storop = LCB_STORE_UPSERT;
     } else if (cmd == Command::MC_DS_MUTATE_APPEND) {
         storop = LCB_STORE_APPEND;
     } else if (cmd == Command::MC_DS_MUTATE_PREPEND) {
@@ -621,7 +648,7 @@ Handle::dsEndure(Command cmd, Dataset const &ds, ResultSet& out,
         std::string k = iter->key(), v = iter->value();
 
         lcb_CMDSTORE *cmd;
-        lcb_cmdstore_create(&cmd, LCB_STORE_SET);
+        lcb_cmdstore_create(&cmd, LCB_STORE_UPSERT);
         lcb_cmdstore_key(cmd, k.data(), k.size());
         lcb_cmdstore_value(cmd, v.data(), v.size());
         lcb_cmdstore_durability_observe(cmd, options.persist, options.replicate);
@@ -661,15 +688,15 @@ Handle::dsObserve(Command cmd, Dataset const &ds, ResultSet& out,
 
         std::string k = iter->key();
 
-        lcb_CMDOBSERVE cmd = {0};
-        LCB_CMD_SET_KEY(&cmd, k.data(), k.size());
+        lcb_CMDSTORE *cmd;
+        lcb_cmdstore_create(&cmd, LCB_STORE_UPSERT);
+        lcb_cmdstore_key(cmd, k.c_str(), k.size());
 
         out.markBegin();
 
-        lcb_MULTICMD_CTX *mctx = lcb_observe3_ctxnew(instance);
         lcb_sched_enter(instance);
-        mctx->addcmd(mctx, (lcb_CMDBASE*)&cmd);
-        lcb_STATUS err =  mctx->done(mctx, &out);
+        lcb_STATUS err = lcb_store(instance, &out, cmd);
+        lcb_cmdstore_destroy(cmd);
         lcb_sched_leave(instance);
 
         out.obs_persist_count = 0;
@@ -783,8 +810,8 @@ Handle::dsSDSinglePath(Command c, const Dataset& ds, ResultSet& out,
     out.clear();
     DatasetIterator *iter = ds.getIter();
     do_cancel = false;
-    lcb_SUBDOCOPS *op;
-    lcb_subdocops_create(&op, 1);
+    lcb_SUBDOCSPECS *op;
+    lcb_subdocspecs_create(&op, 1);
 
     for (iter->start();
             iter->done() == false && do_cancel == false;
@@ -799,21 +826,21 @@ Handle::dsSDSinglePath(Command c, const Dataset& ds, ResultSet& out,
         lcb_cmdsubdoc_create(&cmd);
 
         if (command == "get") {
-            lcb_subdocops_get(op, 0, 0, path.c_str(), path.size());
+            lcb_subdocspecs_get(op, 0, 0, path.c_str(), path.size());
         } else if (command == "replace") {
-            lcb_subdocops_replace(op, 0, 0, path.c_str(), path.size(), value.c_str(), value.size());
+            lcb_subdocspecs_replace(op, 0, 0, path.c_str(), path.size(), value.c_str(), value.size());
         } else if (command == "dict_add") {
-            lcb_subdocops_dict_add(op, 0, 0, path.c_str(), path.size(), value.c_str(), value.size());
+            lcb_subdocspecs_dict_add(op, 0, 0, path.c_str(), path.size(), value.c_str(), value.size());
         } else if (command == "dict_upsert") {
-            lcb_subdocops_dict_upsert(op, 0, 0, path.c_str(), path.size(), value.c_str(), value.size());
+            lcb_subdocspecs_dict_upsert(op, 0, 0, path.c_str(), path.size(), value.c_str(), value.size());
         } else if (command == "array_add") {
-            lcb_subdocops_array_add_first(op, 0, 0, path.c_str(), path.size(), value.c_str(), value.size());
+            lcb_subdocspecs_array_add_first(op, 0, 0, path.c_str(), path.size(), value.c_str(), value.size());
         } else if (command == "array_add_last") {
-            lcb_subdocops_array_add_last(op, 0, 0, path.c_str(), path.size(), value.c_str(), value.size());
+            lcb_subdocspecs_array_add_last(op, 0, 0, path.c_str(), path.size(), value.c_str(), value.size());
         } else if (command == "counter") {
-            lcb_subdocops_counter(op, 0, 0, path.c_str(), path.size(), 0);
+            lcb_subdocspecs_counter(op, 0, 0, path.c_str(), path.size(), 0);
         }
-        lcb_cmdsubdoc_operations(cmd, op);
+        lcb_cmdsubdoc_specs(cmd, op);
 
         lcb_cmdsubdoc_key(cmd, key.c_str(), key.size());
 
@@ -831,7 +858,7 @@ Handle::dsSDSinglePath(Command c, const Dataset& ds, ResultSet& out,
         }
     }
 
-    lcb_subdocops_destroy(op);
+    lcb_subdocspecs_destroy(op);
     delete iter;
     collect_result(out);
     return true;

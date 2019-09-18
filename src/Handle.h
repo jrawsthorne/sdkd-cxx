@@ -12,7 +12,6 @@
 #error "include sdkd_internal.h first"
 #endif
 
-
 namespace CBSdkd {
 using std::map;
 
@@ -246,10 +245,9 @@ public:
     unsigned long int hid;
 
 private:
-    lcb_create_st create_opts;
-
     bool do_cancel;
-    lcb_logprocs *logger;
+    Logger *logger;
+    lcb_LOGGER *lcblogger;
 
     std::vector<ResultSet>pending_results;
     std::vector<Error>pending_errors;

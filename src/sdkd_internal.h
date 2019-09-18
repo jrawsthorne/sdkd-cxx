@@ -119,10 +119,10 @@ int gettimeofday(struct timeval *tv, void *tz);
 #include "Response.h"
 #include "Dataset.h"
 #include "ResultSet.h"
+#include "logging.h"
 #include "Handle.h"
 #include "IODispatch.h"
 #include "UsageCollector.h"
-#include "logging.h"
 
 #include "views/viewopts.h"
 #include "views/viewrow.h"

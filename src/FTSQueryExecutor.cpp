@@ -89,7 +89,7 @@ lcb_STATUS FTSQueryExecutor::runSearchUnderAtPlusConsistency(ResultSet &out,
     else
         curk += std::to_string(generator/2);
 
-    lcb_install_callback3(handle->getLcb(), LCB_CALLBACK_STORE, cb_store);
+    lcb_install_callback(handle->getLcb(), LCB_CALLBACK_STORE, cb_store);
 
     lcb_sched_enter(handle->getLcb());
 

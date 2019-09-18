@@ -40,10 +40,10 @@ N1QLQueryExecutor::insertDoc(lcb_INSTANCE *instance,
     std::string val = Json::FastWriter().write(doc);
     std::string key = doc["id"].asString();
 
-    lcb_install_callback3(instance, LCB_CALLBACK_STORE, (lcb_RESPCALLBACK)insert_cb);
+    lcb_install_callback(instance, LCB_CALLBACK_STORE, (lcb_RESPCALLBACK)insert_cb);
     lcb_CMDSTORE *scmd;
 
-    lcb_cmdstore_create(&scmd, LCB_STORE_SET);
+    lcb_cmdstore_create(&scmd, LCB_STORE_UPSERT);
     lcb_cmdstore_key(scmd, key.c_str(), key.size());
     lcb_cmdstore_value(scmd, val.c_str(), val.size());
 

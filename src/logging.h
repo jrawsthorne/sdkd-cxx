@@ -14,13 +14,13 @@
 namespace CBSdkd {
 
 extern "C" {
-    static void logcb(lcb_logprocs_st *procs, unsigned int iid, const char *subsys, int severity, const char *srcfile, int srcline, const char *fmt, va_list ap);
+    static void logcb(lcb_LOGGER *procs, uint64_t iid, const char *subsys, lcb_LOG_SEVERITY severity, const char *srcfile, int srcline, const char *fmt, va_list ap);
 
 }
 
-class Logger : public lcb_logprocs_st {
+class Logger {
     public:
-        Logger(const char *filename) :start_time(0), file(NULL)
+        Logger(const char *filename, lcb_LOGGER *lcblogger) :start_time(0), file(NULL)
         {
             fp = fopen(filename, "a");
             if (!fp) {
@@ -28,8 +28,8 @@ class Logger : public lcb_logprocs_st {
             } else {
                 file = filename;
             }
-            v.v0.callback = logcb;
-            version = 0;
+            lcb_logger_create(&lcblogger, this);
+            lcb_logger_callback(lcblogger, &logcb);
         }
         ~Logger()
         {
@@ -100,8 +100,9 @@ class Logger : public lcb_logprocs_st {
 };
 
 extern "C" {
-    static void logcb(lcb_logprocs_st *procs, unsigned int iid, const char *subsys, int severity, const char *srcfile, int srcline, const char *fmt, va_list ap) {
-        Logger *logger = static_cast<Logger*>(procs);
+    static void logcb(lcb_LOGGER *procs, uint64_t iid, const char *subsys, lcb_LOG_SEVERITY severity, const char *srcfile, int srcline, const char *fmt, va_list ap) {
+        Logger *logger;
+        lcb_logger_cookie(procs, reinterpret_cast<void **>(&logger));
         logger->log(iid, subsys, severity, srcfile, srcline, fmt, ap);
     }
 }

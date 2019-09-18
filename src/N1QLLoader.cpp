@@ -11,7 +11,7 @@ N1QLLoader::populate(const Dataset& ds)
     DatasetIterator *iter = ds.getIter();
     int batch = 100;
     int ii = 0, jj = 0;
-    lcb_install_callback3(handle->getLcb(), LCB_CALLBACK_STORE, cb_store);
+    lcb_install_callback(handle->getLcb(), LCB_CALLBACK_STORE, cb_store);
 
     lcb_sched_enter(handle->getLcb());
     for (ii=0, jj=0, iter->start(); iter->done() == false; iter->advance(), ii++, jj++) {
@@ -19,7 +19,7 @@ N1QLLoader::populate(const Dataset& ds)
         std::string v = iter->value();
 
         lcb_CMDSTORE *cmd;
-        lcb_cmdstore_create(&cmd, LCB_STORE_SET);
+        lcb_cmdstore_create(&cmd, LCB_STORE_UPSERT);
         lcb_cmdstore_key(cmd, k.c_str(), strlen(k.c_str()));
         lcb_cmdstore_value(cmd, v.c_str(), strlen(v.c_str()));
         lcb_STATUS err = lcb_store(handle->getLcb(), NULL, cmd);
