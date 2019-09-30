@@ -506,7 +506,7 @@ Handle::dsGet(Command cmd, Dataset const &ds, ResultSet& out,
         lcb_CMDGET *cmd;
         lcb_cmdget_create(&cmd);
         lcb_cmdget_key(cmd, k.data(), k.size());
-        lcb_cmdget_expiration(cmd, exp);
+        lcb_cmdget_expiry(cmd, exp);
 
         out.markBegin();
         lcb_STATUS err = lcb_get(instance, &out, cmd);
@@ -571,7 +571,7 @@ Handle::dsMutate(Command cmd, const Dataset& ds, ResultSet& out,
 
         lcb_cmdstore_key(cmd, k.data(), k.size());
         lcb_cmdstore_value(cmd, v.data(), v.size());
-        lcb_cmdstore_expiration(cmd, exp);
+        lcb_cmdstore_expiry(cmd, exp);
         lcb_cmdstore_flags(cmd, FLAGS);
 
 
