@@ -57,7 +57,7 @@ lcb_STATUS FTSQueryExecutor::runSearchOnPreloadedData(
 
     std::string query = Json::FastWriter().write(queryJson);
 
-    lcb_cmdfts_query(ftscmd, query.c_str(), query.size());
+    lcb_cmdfts_payload(ftscmd, query.c_str(), query.size());
     lcb_cmdfts_callback(ftscmd, query_cb);
 
     lcb_STATUS err = lcb_fts(instance, &out, ftscmd);
@@ -133,7 +133,7 @@ lcb_STATUS FTSQueryExecutor::runSearchUnderAtPlusConsistency(ResultSet &out,
 
     std::string query = Json::FastWriter().write(queryJson);
 
-    lcb_cmdfts_query(ftscmd, query.c_str(), query.size());
+    lcb_cmdfts_payload(ftscmd, query.c_str(), query.size());
     lcb_cmdfts_callback(ftscmd, query_cb);
 
     generator++;
