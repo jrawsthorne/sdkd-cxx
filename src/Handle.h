@@ -246,8 +246,8 @@ public:
 
 private:
     bool do_cancel;
-    Logger *logger;
-    lcb_LOGGER *lcblogger;
+    //Logger *logger;
+    //lcb_LOGGER *lcblogger;
 
     std::vector<ResultSet>pending_results;
     std::vector<Error>pending_errors;

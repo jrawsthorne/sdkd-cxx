@@ -306,13 +306,13 @@ Handle::~Handle() {
         lcb_destroy(instance);
     }
 
-    if (lcblogger != NULL) {
-        lcb_logger_destroy(lcblogger);
-    }
+    //if (lcblogger != NULL) {
+    //    lcb_logger_destroy(lcblogger);
+    //}
 
-    if (logger != NULL) {
-        delete logger;
-    }
+    //if (logger != NULL) {
+    //    delete logger;
+    //}
 
     if (io != NULL) {
         lcb_destroy_io_ops(io);
@@ -354,7 +354,7 @@ Handle::connect(Error *errp)
     lcb_createopts_connstr(create_opts, connstr.c_str(), connstr.size());
     lcb_createopts_credentials(create_opts, options.username.c_str(), options.username.size(), options.password.c_str(), options.password.size());
     lcb_createopts_io(create_opts, io);
-    lcb_createopts_logger(create_opts, lcblogger);
+    //lcb_createopts_logger(create_opts, lcblogger);
 
     the_error = lcb_create(&instance, create_opts);
     if (the_error != LCB_SUCCESS) {
@@ -389,8 +389,8 @@ Handle::connect(Error *errp)
     }
 
     //set the logger procs
-    logger = new Logger(Daemon::MainDaemon->getOptions().lcblogFile, lcblogger);
-    the_error = lcb_cntl(instance, LCB_CNTL_SET, LCB_CNTL_LOGGER, logger);
+    //logger = new Logger(Daemon::MainDaemon->getOptions().lcblogFile, lcblogger);
+    //the_error = lcb_cntl(instance, LCB_CNTL_SET, LCB_CNTL_LOGGER, logger);
 
     if (options.timeout) {
         unsigned long timeout = options.timeout * 1000000;
