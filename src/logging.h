@@ -14,7 +14,7 @@
 namespace CBSdkd {
 
 extern "C" {
-    static void logcb(lcb_LOGGER *procs, uint64_t iid, const char *subsys, lcb_LOG_SEVERITY severity, const char *srcfile, int srcline, const char *fmt, va_list ap);
+    static void logcb(const lcb_LOGGER *procs, uint64_t iid, const char *subsys, lcb_LOG_SEVERITY severity, const char *srcfile, int srcline, const char *fmt, va_list ap);
 
 }
 
@@ -100,7 +100,7 @@ class Logger {
 };
 
 extern "C" {
-    static void logcb(lcb_LOGGER *procs, uint64_t iid, const char *subsys, lcb_LOG_SEVERITY severity, const char *srcfile, int srcline, const char *fmt, va_list ap) {
+    static void logcb(const lcb_LOGGER *procs, uint64_t iid, const char *subsys, lcb_LOG_SEVERITY severity, const char *srcfile, int srcline, const char *fmt, va_list ap) {
         Logger *logger;
         lcb_logger_cookie(procs, reinterpret_cast<void **>(&logger));
         logger->log(iid, subsys, severity, srcfile, srcline, fmt, ap);
