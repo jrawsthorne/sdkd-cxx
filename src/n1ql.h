@@ -18,12 +18,10 @@ public:
     ~N1QL() {}
 
     bool query(const char *buf, lcb_CMDN1QL *qcmd, void *cookie, lcb_STATUS& err, lcb_N1QL_CONSISTENCY consistency) {
-        lcb_cmdn1ql_create(&qcmd);
         lcb_cmdn1ql_consistency(qcmd, consistency);
         lcb_cmdn1ql_statement(qcmd, buf, strlen(buf));
 
         err = lcb_n1ql(handle->getLcb(), cookie, qcmd);
-        lcb_cmdn1ql_destroy(qcmd);
         if (err != LCB_SUCCESS) return false;
         return true;
     };

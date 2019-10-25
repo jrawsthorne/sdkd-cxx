@@ -319,6 +319,10 @@ Handle::~Handle() {
 
 #define cstr_ornull(s) \
     ((s.size()) ? s.c_str() : NULL)
+    static void open_callback(lcb_INSTANCE *instance, lcb_STATUS the_error)
+    {
+        printf("open bucket: %s\n", lcb_strerror_short(the_error));
+    }
 
 
 bool
@@ -326,21 +330,19 @@ Handle::connect(Error *errp)
 {
     // Gather parameters
     lcb_STATUS the_error;
-    lcb_CREATEOPTS *create_opts;
+    lcb_CREATEOPTS *create_opts = NULL;
     instance = NULL;
     std::string connstr;
     logger = new Logger(Daemon::MainDaemon->getOptions().lcblogFile);
 
     if(options.useSSL) {
         connstr += std::string("couchbases://") + options.hostname;
-        connstr += std::string("/") + options.bucket;
         connstr += std::string("?certpath=");
         connstr += std::string(options.certpath);
         certpath = options.certpath;
         connstr += std::string("&");
     } else {
         connstr += std::string("couchbase://") + options.hostname;
-        connstr +=  std::string("/") + options.bucket;
         connstr += std::string("?");
     }
     connstr += "detailed_errcodes=1&";
@@ -385,9 +387,6 @@ Handle::connect(Error *errp)
         return false;
     }
 
-    //set the logger procs
-    the_error = lcb_cntl(instance, LCB_CNTL_SET, LCB_CNTL_LOGGER, logger->lcblogger);
-
     if (options.timeout) {
         unsigned long timeout = options.timeout * 1000000;
         the_error =lcb_cntl(instance, LCB_CNTL_SET, LCB_CNTL_OP_TIMEOUT, &timeout);
@@ -398,11 +397,6 @@ Handle::connect(Error *errp)
         log_error("lcb instance control settings failed: %s", errp->prettyPrint().c_str());
         return false;
     }
-
-    lcb_set_bootstrap_callback(instance, cb_config);
-    lcb_set_cookie(instance, this);
-    wire_callbacks(instance);
-
     the_error = lcb_connect(instance);
     if (the_error != LCB_SUCCESS) {
         errp->errstr = lcb_strerror_short(the_error);
@@ -411,6 +405,10 @@ Handle::connect(Error *errp)
         return false;
     }
     lcb_wait3(instance, LCB_WAIT_NOCHECK);
+
+    lcb_set_bootstrap_callback(instance, cb_config);
+    lcb_set_cookie(instance, this);
+    wire_callbacks(instance);
 
     the_error = lcb_get_bootstrap_status(instance);
     if (the_error != LCB_SUCCESS) {
@@ -428,6 +426,16 @@ Handle::connect(Error *errp)
         return false;
     }
     lcb_createopts_destroy(create_opts);
+
+    lcb_set_open_callback(instance, open_callback);
+    the_error = lcb_open(instance, options.bucket.c_str(), strlen(options.bucket.c_str()));
+    lcb_wait(instance);
+    if(the_error != LCB_SUCCESS){
+        errp->errstr = lcb_strerror_short(the_error);
+        log_error("Failed to open bucket: %s 0x%X", errp->prettyPrint().c_str(), the_error);
+        return false;
+    }
+
     return true;
 }
 
@@ -449,7 +457,6 @@ Handle::collect_result(ResultSet& rs)
 bool
 Handle::postsubmit(ResultSet& rs, unsigned int nsubmit)
 {
-
     rs.remaining += nsubmit;
 
     if (!rs.options.iterwait) {
@@ -478,6 +485,45 @@ Handle::postsubmit(ResultSet& rs, unsigned int nsubmit)
     return false;
 }
 
+    static void store_callback(lcb_INSTANCE *instance, int cbtype, const lcb_RESPSTORE *resp)
+    {
+        const char *key;
+        size_t nkey;
+        uint64_t cas;
+        lcb_respstore_key(resp, &key, &nkey);
+        lcb_respstore_cas(resp, &cas);
+        lcb_strerror_short(lcb_respstore_status(resp));
+    }
+
+    static void get_callback(lcb_INSTANCE *instance, int cbtype, const lcb_RESPGET *resp)
+    {
+        const char *key, *value;
+        size_t nkey, nvalue;
+        uint64_t cas;
+        lcb_respget_key(resp, &key, &nkey);
+        lcb_respget_value(resp, &value, &nvalue);
+        lcb_respget_cas(resp, &cas);
+        lcb_strerror_short(lcb_respget_status(resp));
+    }
+
+    static void subdoc_callback(lcb_INSTANCE *, int cbtype, const lcb_RESPSUBDOC *resp)
+    {
+        lcb_STATUS rc = lcb_respsubdoc_status(resp);
+
+        fprintf(stderr, "Got callback for %s.. ", lcb_strcbtype(cbtype));
+        if (rc != LCB_SUCCESS && rc != LCB_SUBDOC_MULTI_FAILURE) {
+            return;
+        }
+
+        if (lcb_respsubdoc_result_size(resp) > 0) {
+            const char *value;
+            size_t nvalue;
+            lcb_respsubdoc_result_value(resp, 0, &value, &nvalue);
+            rc = lcb_respsubdoc_result_status(resp, 0);
+        }
+    }
+
+
 bool
 Handle::dsGet(Command cmd, Dataset const &ds, ResultSet& out,
               const ResultOptions& options)
@@ -486,6 +532,7 @@ Handle::dsGet(Command cmd, Dataset const &ds, ResultSet& out,
     out.clear();
     do_cancel = false;
     bool is_buffered = false;
+    lcb_install_callback(instance, LCB_CALLBACK_GET, (lcb_RESPCALLBACK)get_callback);
 
     lcb_time_t exp = out.options.expiry;
 
@@ -499,6 +546,7 @@ Handle::dsGet(Command cmd, Dataset const &ds, ResultSet& out,
         if (!is_buffered) {
             lcb_sched_enter(instance);
         }
+
         lcb_CMDGET *cmd;
         lcb_cmdget_create(&cmd);
         lcb_cmdget_key(cmd, k.data(), k.size());
@@ -512,9 +560,9 @@ Handle::dsGet(Command cmd, Dataset const &ds, ResultSet& out,
         if (err == LCB_SUCCESS) {
             is_buffered = postsubmit(out);
         } else {
-            out.setRescode(err, k, true);
             is_buffered = false;
         }
+        out.setRescode(err, k, true);
     }
 
     delete iter;
@@ -531,6 +579,7 @@ Handle::dsMutate(Command cmd, const Dataset& ds, ResultSet& out,
     lcb_STORE_OPERATION storop;
     do_cancel = false;
     bool is_buffered = false;
+    lcb_install_callback(instance, LCB_CALLBACK_STORE, (lcb_RESPCALLBACK)store_callback);
 
     if (cmd == Command::MC_DS_MUTATE_ADD) {
         storop = LCB_STORE_INSERT;
@@ -562,6 +611,7 @@ Handle::dsMutate(Command cmd, const Dataset& ds, ResultSet& out,
         if (!is_buffered) {
             lcb_sched_enter(instance);
         }
+
         lcb_CMDSTORE *cmd;
         lcb_cmdstore_create(&cmd, storop);
 
@@ -579,9 +629,9 @@ Handle::dsMutate(Command cmd, const Dataset& ds, ResultSet& out,
         if (err == LCB_SUCCESS) {
             is_buffered = postsubmit(out);
         } else {
-            out.setRescode(err, k, false);
             is_buffered = false;
         }
+        out.setRescode(err, k, false);
     }
     delete iter;
     collect_result(out);
@@ -809,6 +859,9 @@ Handle::dsSDSinglePath(Command c, const Dataset& ds, ResultSet& out,
     lcb_SUBDOCSPECS *op;
     lcb_subdocspecs_create(&op, 1);
 
+    lcb_install_callback(instance, LCB_CALLBACK_SDLOOKUP, (lcb_RESPCALLBACK)subdoc_callback);
+    lcb_install_callback(instance, LCB_CALLBACK_SDMUTATE, (lcb_RESPCALLBACK)subdoc_callback);
+
     for (iter->start();
             iter->done() == false && do_cancel == false;
             iter->advance()) {
@@ -836,9 +889,9 @@ Handle::dsSDSinglePath(Command c, const Dataset& ds, ResultSet& out,
         } else if (command == "counter") {
             lcb_subdocspecs_counter(op, 0, 0, path.c_str(), path.size(), 0);
         }
-        lcb_cmdsubdoc_specs(cmd, op);
-
         lcb_cmdsubdoc_key(cmd, key.c_str(), key.size());
+
+        lcb_cmdsubdoc_specs(cmd, op);
 
         lcb_sched_enter(instance);
         out.markBegin();
@@ -849,9 +902,8 @@ Handle::dsSDSinglePath(Command c, const Dataset& ds, ResultSet& out,
 
         if (err == LCB_SUCCESS) {
             postsubmit(out);
-        } else {
-            out.setRescode(err, key, true);
         }
+        out.setRescode(err, key, true);
     }
 
     lcb_subdocspecs_destroy(op);
