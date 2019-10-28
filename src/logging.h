@@ -20,7 +20,8 @@ extern "C" {
 
 class Logger {
     public:
-        Logger(const char *filename, lcb_LOGGER *lcblogger) :start_time(0), file(NULL)
+    lcb_LOGGER *lcblogger = 0;
+        Logger(const char *filename) :start_time(0), file(NULL)
         {
             fp = fopen(filename, "a");
             if (!fp) {
@@ -35,6 +36,9 @@ class Logger {
         {
             if (file) {
                 fclose(fp);
+            }
+            if (lcblogger != NULL) {
+                lcb_logger_destroy(lcblogger);
             }
         }
 
