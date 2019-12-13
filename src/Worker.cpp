@@ -193,10 +193,6 @@ WorkerDispatch::processRequest(const Request& req)
         h.dsObserve(req.command, *ds, rs, opts);
         break;
 
-    case Command::MC_DS_STATS:
-        h.dsVerifyStats(req.command, *ds, rs, opts);
-        break;
-
     case Command::MC_DS_SD_RUN:
     {
         h.dsSDSinglePath(req.command, *ds, rs, opts);

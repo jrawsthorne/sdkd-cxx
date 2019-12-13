@@ -93,10 +93,10 @@ public:
     }
 
     int getSDKDErrorCode(int lcberr) {
-        if (lcberr == LCB_KEY_ENOENT) {
+        if (lcberr == LCB_ERR_DOCUMENT_NOT_FOUND) {
 
             return (int)(SUBSYSf_MEMD | MEMD_ENOENT);
-        } else if (lcberr == LCB_ETIMEDOUT) {
+        } else if (lcberr == LCB_ERR_TIMEOUT) {
             return (int)(SUBSYSf_NETWORK | ERROR_GENERIC);
         }
 

@@ -144,7 +144,7 @@ static void cb_endure(lcb_INSTANCE *instance, int, const lcb_RESPBASE *resp)
     if (persisted_master == 0) {
         reinterpret_cast<ResultSet*>(cookie)->setRescode(lcb_respstore_status(dresp), key, nkey);
     } else {
-        reinterpret_cast<ResultSet*>(cookie)->setRescode(LCB_ERROR, key, nkey);
+        reinterpret_cast<ResultSet*>(cookie)->setRescode(LCB_ERR_GENERIC, key, nkey);
     }
 }
 
@@ -196,50 +196,6 @@ static void cb_observe(lcb_INSTANCE *instance, int, const lcb_RESPBASE *resp)
     }
 }
 
-static void cb_stats(lcb_INSTANCE *instance, int, const lcb_RESPBASE *resp)
-{
-    lcb_RESPSTATS *sresp = (lcb_RESPSTATS *)resp;
-    ResultSet *out = reinterpret_cast<ResultSet*>(sresp->cookie);
-
-    if (sresp->rc == LCB_SUCCESS) {
-        if (sresp->key != NULL) {
-            if (strncmp((const char *)sresp->key, "key_exptime", sresp->nkey) == 0) {
-                char buf[sresp->nvalue];
-                memcpy(buf, sresp->value, sresp->nvalue);
-                buf[sresp->nvalue] = '\0';
-
-                int exp_expiry = out->options.expiry;
-                int expiry = atoi(buf);
-                if(exp_expiry  != expiry) {
-                    fprintf(stderr,
-                            "TTL not matched Received %d Expected %d key %s\n",
-                            expiry, exp_expiry, (char *)sresp->key);
-                    exit(1);
-                }
-            }
-            if (strncmp((const char *)sresp->key, "key_flags", sresp->nkey) == 0) {
-                char buf[sresp->nvalue];
-                memcpy(buf, sresp->value, sresp->nvalue);
-                buf[sresp->nvalue] = '\0';
-
-                int exp_flags = FLAGS;
-                int flags = ntohl(atoi(buf));
-
-                if(exp_flags != flags) {
-                    fprintf(stderr,
-                            "Flags not matched Received %d Expected %d Key %s\n",
-                            flags, exp_flags, (char *) sresp->key);
-                    exit(1);
-                }
-            }
-        }
-        if (sresp->rflags & LCB_RESP_F_FINAL) {
-            out->setRescode(sresp->rc, (const char *)sresp->key, sresp->nkey);
-        }
-    } else {
-        out->setRescode(sresp->rc, (const char *)sresp->key, sresp->nkey);
-    }
-}
 
 static void cb_sd(lcb_INSTANCE *instance, int, const lcb_RESPBASE *resp)
 {
@@ -256,18 +212,18 @@ lcb_errmap_user(lcb_INSTANCE *instance, lcb_uint16_t in)
 
     switch (in) {
         case PROTOCOL_BINARY_RESPONSE_NOT_MY_VBUCKET:
-            return LCB_ETIMEDOUT;
+            return LCB_ERR_TIMEOUT;
         case PROTOCOL_BINARY_RESPONSE_AUTH_CONTINUE:
-            return LCB_AUTH_CONTINUE;
+            return LCB_ERR_AUTH_CONTINUE;
         case PROTOCOL_BINARY_RESPONSE_EBUSY:
-            return LCB_EBUSY;
+            return LCB_ERR_BUSY;
         case PROTOCOL_BINARY_RESPONSE_ETMPFAIL:
-            return LCB_ETMPFAIL;
+            return LCB_ERR_TEMPORARY_FAILURE;
         case PROTOCOL_BINARY_RESPONSE_EINTERNAL:
-            return LCB_EINTERNAL;
+            return LCB_ERR_SDK_INTERNAL;
         default:
             fprintf(stderr, "Got unknown error code %d \n", in);
-            return LCB_ERROR;
+            return LCB_ERR_GENERIC;
     }
 }
 
@@ -281,7 +237,6 @@ static void wire_callbacks(lcb_INSTANCE *instance)
     _setcb(LCB_CALLBACK_TOUCH, cb_touch);
     _setcb(LCB_CALLBACK_ENDURE, cb_endure);
     _setcb(LCB_CALLBACK_OBSERVE, cb_observe);
-    _setcb(LCB_CALLBACK_STATS, cb_stats);
     _setcb(LCB_CALLBACK_GETREPLICA, cb_get);
     _setcb(LCB_CALLBACK_STOREDUR, cb_storedur);
     _setcb(LCB_CALLBACK_SDMUTATE, cb_sd);
@@ -510,8 +465,7 @@ Handle::postsubmit(ResultSet& rs, unsigned int nsubmit)
     {
         lcb_STATUS rc = lcb_respsubdoc_status(resp);
 
-        fprintf(stderr, "Got callback for %s.. ", lcb_strcbtype(cbtype));
-        if (rc != LCB_SUCCESS && rc != LCB_SUBDOC_MULTI_FAILURE) {
+        if (rc != LCB_SUCCESS && rc != LCB_ERR_SUBDOC_GENERIC) {
             return;
         }
 
@@ -809,44 +763,6 @@ Handle::dsKeyop(Command cmd, const Dataset& ds, ResultSet& out,
 }
 
 
-bool
-Handle::dsVerifyStats(Command cmd, const Dataset& ds, ResultSet& out,
-        const ResultOptions& options) {
-
-    out.options = options;
-    out.clear();
-    DatasetIterator *iter = ds.getIter();
-    do_cancel = false;
-
-    for (iter->start();
-            iter->done() == false && do_cancel == false;
-            iter->advance()) {
-
-        std::string k = iter->key();
-
-        lcb_sched_enter(instance);
-        lcb_CMDSTATS cmd = { 0 };
-        memset(&cmd, 0, sizeof(cmd));
-
-        LCB_KREQ_SIMPLE(&cmd.key, k.data(), k.size());
-        cmd.cmdflags = LCB_CMDSTATS_F_KV;
-
-        out.markBegin();
-
-        lcb_STATUS err =  lcb_stats3(instance, &out, &cmd);
-        lcb_sched_leave(instance);
-
-        if (err == LCB_SUCCESS) {
-            postsubmit(out);
-        } else {
-            out.setRescode(err, k, true);
-        }
-    }
-    delete iter;
-    collect_result(out);
-    return true;
-
-}
 
 bool
 Handle::dsSDSinglePath(Command c, const Dataset& ds, ResultSet& out,

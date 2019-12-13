@@ -125,7 +125,7 @@ bool_param_handler(view_param *param,
             bval = 0;
         } else {
             *error = "String must be either 'true' or 'false'";
-            return LCB_EINVAL;
+            return LCB_ERR_INVALID_ARGUMENT;
         }
     }
 
@@ -170,13 +170,13 @@ num_param_handler(view_param *param,
             unsigned int ii;
             if (!nvalue) {
                 *error = "Received an empty string";
-                return LCB_EINVAL;
+                return LCB_ERR_INVALID_ARGUMENT;
             }
 
             for (ii = 0; ii < nvalue; ii++) {
                 if (!isdigit(istr[ii])) {
                     *error = "String must consist entirely of digits";
-                    return LCB_EINVAL;
+                    return LCB_ERR_INVALID_ARGUMENT;
                     break;
                 }
             }
@@ -247,7 +247,7 @@ string_param_handler(view_param *p,
 {
     if (flags & LCB_VOPT_F_OPTVAL_NUMERIC) {
         *error = "Option requires a string value";
-        return LCB_EINVAL;
+        return LCB_ERR_INVALID_ARGUMENT;
     }
 
     if ( (flags & LCB_VOPT_F_PCTENCODE) == 0 ) {
@@ -314,7 +314,7 @@ stale_param_handler(view_param *p,
     }
 
     *error = "stale must be a boolean or the string 'update_after'";
-    return LCB_EINVAL;
+    return LCB_ERR_INVALID_ARGUMENT;
 }
 
 static lcb_STATUS
@@ -385,18 +385,18 @@ lcb_vopt_assign(struct lcb_vopt_st *optobj,
 
     if ((flags & LCB_VOPT_F_OPTVAL_NUMERIC) == 0 && nvalue == 0) {
         *error_string = "Missing value length";
-        return LCB_EINVAL;
+        return LCB_ERR_INVALID_ARGUMENT;
     }
 
     if ((flags & LCB_VOPT_F_OPTNAME_NUMERIC) == 0 && noption == 0) {
         *error_string = "Missing option name length";
-        return LCB_EINVAL;
+        return LCB_ERR_INVALID_ARGUMENT;
     }
 
     if (flags & LCB_VOPT_F_PASSTHROUGH) {
         if (flags & LCB_VOPT_F_OPTNAME_NUMERIC) {
             *error_string = "Can't use passthrough with option constants";
-            return LCB_EINVAL;
+            return LCB_ERR_INVALID_ARGUMENT;
         }
         optobj->optname = my_strndup((const char*)option, noption);
         optobj->noptname = noption;
@@ -415,7 +415,7 @@ lcb_vopt_assign(struct lcb_vopt_st *optobj,
     vparam = find_view_param(option, noption, flags);
     if (!vparam) {
         *error_string = "Unrecognized option";
-        return LCB_EINVAL;
+        return LCB_ERR_INVALID_ARGUMENT;
     }
 
     if (flags & LCB_VOPT_F_OPTNAME_NUMERIC) {
@@ -553,7 +553,7 @@ lcb_vopt_createv(lcb_vopt_t *optarray[], size_t *noptions, char **errstr, ...)
 
     if (*noptions % 2 || noptions == 0) {
         *errstr = "Got zero or odd number of arguments";
-        return LCB_EINVAL;
+        return LCB_ERR_INVALID_ARGUMENT;
     }
 
 

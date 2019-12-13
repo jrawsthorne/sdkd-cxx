@@ -3,7 +3,7 @@
 
 namespace CBSdkd {
 extern "C" {
-static const lcb_MUTATION_TOKEN* mut;
+lcb_MUTATION_TOKEN* mut;
 
 static void
 query_cb(lcb_INSTANCE *instance, int cbtype, const lcb_RESPFTS *resp) {
@@ -28,7 +28,7 @@ static void cb_store(lcb_INSTANCE *instance, int cbType, const lcb_RESPBASE *res
 	{
         fprintf(stderr, "FTS error while insert %d\n", lcb_respstore_status(rb));
 	}
-    mut = lcb_resp_get_mutation_token(cbType, resp);
+    lcb_respstore_mutation_token(rb, mut);
 }
 }
 
