@@ -465,7 +465,7 @@ Handle::postsubmit(ResultSet& rs, unsigned int nsubmit)
     {
         lcb_STATUS rc = lcb_respsubdoc_status(resp);
 
-        if (rc != LCB_SUCCESS && rc != LCB_ERR_SUBDOC_GENERIC) {
+        if (rc != LCB_SUCCESS) {
             return;
         }
 
