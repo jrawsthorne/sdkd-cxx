@@ -65,32 +65,32 @@ N1QLQueryExecutor::insertDoc(lcb_INSTANCE *instance,
 
 extern "C" {
 static void
-dump_http_error(const lcb_RESPN1QL *resp) {
+dump_http_error(const lcb_RESPQUERY *resp) {
     const char *row = NULL;
     size_t nrow;
-    lcb_respn1ql_row(resp, &row, &nrow);
+    lcb_respquery_row(resp, &row, &nrow);
 
     const lcb_RESPHTTP *htresp;
-    lcb_respn1ql_http_response(resp, &htresp);
+    lcb_respquery_http_response(resp, &htresp);
     fprintf(stderr, "Failed to execute query. lcb: %d, http: %d, %s\n",
-            lcb_respn1ql_status(resp), lcb_resphttp_status(htresp), row);
+            lcb_respquery_status(resp), lcb_resphttp_status(htresp), row);
 }
 
 static void
 query_cb(lcb_INSTANCE *instance,
         int cbtype,
-        const lcb_RESPN1QL *resp) {
+        const lcb_RESPQUERY *resp) {
     void *cookie;
-    lcb_respn1ql_cookie(resp, &cookie);
+    lcb_respquery_cookie(resp, &cookie);
     ResultSet *obj = reinterpret_cast<ResultSet *>(cookie);
-    if (lcb_respn1ql_is_final(resp)) {
+    if (lcb_respquery_is_final(resp)) {
         if (obj->scan_consistency == "request_plus" || obj->scan_consistency == "at_plus") {
             if (obj->query_resp_count != 1) {
                 fprintf(stderr, "Query count mismatch for stale=false");
             }
         }
-        obj->setRescode(lcb_respn1ql_status(resp) , true);
-        if (lcb_respn1ql_status(resp) != LCB_SUCCESS) {
+        obj->setRescode(lcb_respquery_status(resp) , true);
+        if (lcb_respquery_status(resp) != LCB_SUCCESS) {
             dump_http_error(resp);
         }
         return;
@@ -157,20 +157,20 @@ N1QLQueryExecutor::execute(Command cmd,
         }
 
         out.markBegin();
-        lcb_CMDN1QL *qcmd;
-        lcb_cmdn1ql_create(&qcmd);
+        lcb_CMDQUERY *qcmd;
+        lcb_cmdquery_create(&qcmd);
 
-        lcb_cmdn1ql_callback(qcmd, query_cb);
+        lcb_cmdquery_callback(qcmd, query_cb);
         Json::Value bucket_scan_vector;
         bucket_scan_vector[this->handle->options.bucket.c_str()] = tokens;
-        if(!N1QL::query(q.c_str(), qcmd, &out, err, LCB_N1QL_CONSISTENCY_NONE)) {
-            lcb_cmdn1ql_destroy(qcmd);
+        if(!N1QL::query(q.c_str(), qcmd, &out, err, LCB_QUERY_CONSISTENCY_NONE)) {
+            lcb_cmdquery_destroy(qcmd);
             fprintf(stderr,"Scheduling query returned error 0x%x %s\n",
                     err, lcb_strerror_short(err));
             continue;
         }
 
-        lcb_cmdn1ql_destroy(qcmd);
+        lcb_cmdquery_destroy(qcmd);
         lcb_wait(handle->getLcb());
         if (iterdelay) {
             sdkd_millisleep(iterdelay);

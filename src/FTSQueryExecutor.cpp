@@ -6,16 +6,16 @@ extern "C" {
 lcb_MUTATION_TOKEN* mut;
 
 static void
-query_cb(lcb_INSTANCE *instance, int cbtype, const lcb_RESPFTS *resp) {
+query_cb(lcb_INSTANCE *instance, int cbtype, const lcb_RESPSEARCH *resp) {
     void *cookie;
-    lcb_respfts_cookie(resp, &cookie);
+    lcb_respsearch_cookie(resp, &cookie);
     ResultSet *obj = reinterpret_cast<ResultSet *>(cookie);
-    if (lcb_respfts_is_final(resp)) {
-        if (lcb_respfts_status(resp) == LCB_SUCCESS && obj->fts_query_resp_count != 1) {
+    if (lcb_respsearch_is_final(resp)) {
+        if (lcb_respsearch_status(resp) == LCB_SUCCESS && obj->fts_query_resp_count != 1) {
             fprintf(stderr, "FTS response does not match expected number of documents %d\n", obj->fts_query_resp_count);
         }
-        fprintf(stderr, "Query completed with status code = %d\n", lcb_respfts_status(resp));
-        obj->setRescode(lcb_respfts_status(resp) , true);
+        fprintf(stderr, "Query completed with status code = %d\n", lcb_respsearch_status(resp));
+        obj->setRescode(lcb_respsearch_status(resp) , true);
         return;
     }
 
@@ -42,8 +42,8 @@ lcb_STATUS FTSQueryExecutor::runSearchOnPreloadedData(
     out.markBegin();
     out.fts_query_resp_count = 0;
 
-    lcb_CMDFTS *ftscmd;
-    lcb_cmdfts_create(&ftscmd);
+    lcb_CMDSEARCH *ftscmd;
+    lcb_cmdsearch_create(&ftscmd);
 	generator = (generator + 1) % (2 * kvCount);
 
     Json::Value queryJson;
@@ -57,11 +57,11 @@ lcb_STATUS FTSQueryExecutor::runSearchOnPreloadedData(
 
     std::string query = Json::FastWriter().write(queryJson);
 
-    lcb_cmdfts_payload(ftscmd, query.c_str(), query.size());
-    lcb_cmdfts_callback(ftscmd, query_cb);
+    lcb_cmdsearch_payload(ftscmd, query.c_str(), query.size());
+    lcb_cmdsearch_callback(ftscmd, query_cb);
 
-    lcb_STATUS err = lcb_fts(instance, &out, ftscmd);
-    lcb_cmdfts_destroy(ftscmd);
+    lcb_STATUS err = lcb_search(instance, &out, ftscmd);
+    lcb_cmdsearch_destroy(ftscmd);
     return err;
 }
 
@@ -72,8 +72,8 @@ lcb_STATUS FTSQueryExecutor::runSearchUnderAtPlusConsistency(ResultSet &out,
     out.markBegin();
     out.fts_query_resp_count = 0;
 
-    lcb_CMDFTS *ftscmd;
-    lcb_cmdfts_create(&ftscmd);
+    lcb_CMDSEARCH *ftscmd;
+    lcb_cmdsearch_create(&ftscmd);
     std::stringstream sv;
     sv << "SampleValue:" << std::this_thread::get_id() << ":" << std::to_string(generator);
     std::string match_term = sv.str();
@@ -133,12 +133,12 @@ lcb_STATUS FTSQueryExecutor::runSearchUnderAtPlusConsistency(ResultSet &out,
 
     std::string query = Json::FastWriter().write(queryJson);
 
-    lcb_cmdfts_payload(ftscmd, query.c_str(), query.size());
-    lcb_cmdfts_callback(ftscmd, query_cb);
+    lcb_cmdsearch_payload(ftscmd, query.c_str(), query.size());
+    lcb_cmdsearch_callback(ftscmd, query_cb);
 
     generator++;
-    err = lcb_fts(instance, &out, ftscmd);
-    lcb_cmdfts_destroy(ftscmd);
+    err = lcb_search(instance, &out, ftscmd);
+    lcb_cmdsearch_destroy(ftscmd);
     return err;
 }
 

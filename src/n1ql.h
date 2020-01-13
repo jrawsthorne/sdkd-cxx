@@ -17,11 +17,11 @@ public:
     }
     ~N1QL() {}
 
-    bool query(const char *buf, lcb_CMDN1QL *qcmd, void *cookie, lcb_STATUS& err, lcb_N1QL_CONSISTENCY consistency) {
-        lcb_cmdn1ql_consistency(qcmd, consistency);
-        lcb_cmdn1ql_statement(qcmd, buf, strlen(buf));
+    bool query(const char *buf, lcb_CMDQUERY *qcmd, void *cookie, lcb_STATUS& err, lcb_QUERY_CONSISTENCY consistency) {
+        lcb_cmdquery_consistency(qcmd, consistency);
+        lcb_cmdquery_statement(qcmd, buf, strlen(buf));
 
-        err = lcb_n1ql(handle->getLcb(), cookie, qcmd);
+        err = lcb_query(handle->getLcb(), cookie, qcmd);
         if (err != LCB_SUCCESS) return false;
         return true;
     };
