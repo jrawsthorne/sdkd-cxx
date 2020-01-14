@@ -30,12 +30,12 @@ FTSLoader::populate(const Dataset& ds) {
         }
         if (jj % batch == 0) {
             lcb_sched_leave(handle->getLcb());
-            lcb_wait(handle->getLcb());
+            lcb_wait(handle->getLcb(), LCB_WAIT_DEFAULT);
             lcb_sched_enter(handle->getLcb());
         }
     }
     lcb_sched_leave(handle->getLcb());
-    lcb_wait(handle->getLcb());
+    lcb_wait(handle->getLcb(), LCB_WAIT_DEFAULT);
 
     delete iter;
     return true;

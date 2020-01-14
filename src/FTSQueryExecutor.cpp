@@ -106,7 +106,7 @@ lcb_STATUS FTSQueryExecutor::runSearchUnderAtPlusConsistency(ResultSet &out,
     }
 
     lcb_sched_leave(handle->getLcb());
-    lcb_wait(handle->getLcb());
+    lcb_wait(handle->getLcb(), LCB_WAIT_DEFAULT);
 
     Json::Value queryJson;
     Json::Value matchJson;
@@ -173,7 +173,7 @@ FTSQueryExecutor::execute(ResultSet& out,
             fprintf(stderr, "Error scheduling fts query 0x%x %s\n",
                     err, lcb_strerror_short(err));
         }
-        lcb_wait(handle->getLcb());
+        lcb_wait(handle->getLcb(), LCB_WAIT_DEFAULT);
     }
     handle->externalLeave();
     return true;

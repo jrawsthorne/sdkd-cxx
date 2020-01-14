@@ -359,7 +359,7 @@ Handle::connect(Error *errp)
         log_error("lcb_connect failed: %s", errp->prettyPrint().c_str());
         return false;
     }
-    lcb_wait3(instance, LCB_WAIT_NOCHECK);
+    lcb_wait(instance, LCB_WAIT_NOCHECK);
 
     lcb_set_bootstrap_callback(instance, cb_config);
     lcb_set_cookie(instance, this);
@@ -384,7 +384,7 @@ Handle::connect(Error *errp)
 
     lcb_set_open_callback(instance, open_callback);
     the_error = lcb_open(instance, options.bucket.c_str(), strlen(options.bucket.c_str()));
-    lcb_wait(instance);
+    lcb_wait(instance, LCB_WAIT_DEFAULT);
     if(the_error != LCB_SUCCESS){
         errp->errstr = lcb_strerror_short(the_error);
         log_error("Failed to open bucket: %s 0x%X", errp->prettyPrint().c_str(), the_error);
@@ -406,7 +406,7 @@ Handle::collect_result(ResultSet& rs)
     if (!rs.remaining) {
         return;
     }
-    lcb_wait3(instance, LCB_WAIT_DEFAULT);
+    lcb_wait(instance, LCB_WAIT_DEFAULT);
 }
 
 bool
@@ -424,7 +424,7 @@ Handle::postsubmit(ResultSet& rs, unsigned int nsubmit)
     }
 
     lcb_sched_leave(instance);
-    lcb_wait(instance);
+    lcb_wait(instance, LCB_WAIT_DEFAULT);
 
     unsigned int wait_msec = rs.options.getDelay();
 

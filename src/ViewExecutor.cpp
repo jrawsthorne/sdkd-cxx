@@ -154,7 +154,7 @@ ViewExecutor::runSingleView(lcb_CMDVIEW *cmd, ResultSet& out)
         goto GT_ERR;
     }
 
-    lcb_wait3(handle->getLcb(), LCB_WAIT_NOCHECK);
+    lcb_wait(handle->getLcb(), LCB_WAIT_NOCHECK);
     if (!out.vresp_complete) {
         fprintf(stderr, "Final view response not received..aborting");
         abort();

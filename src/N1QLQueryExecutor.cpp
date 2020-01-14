@@ -55,7 +55,7 @@ N1QLQueryExecutor::insertDoc(lcb_INSTANCE *instance,
         return false;
     }
     lcb_sched_leave(instance);
-    lcb_wait(instance);
+    lcb_wait(instance, LCB_WAIT_DEFAULT);
     err = this->insert_err;
     if (err != LCB_SUCCESS) {
         return false;
@@ -171,7 +171,7 @@ N1QLQueryExecutor::execute(Command cmd,
         }
 
         lcb_cmdquery_destroy(qcmd);
-        lcb_wait(handle->getLcb());
+        lcb_wait(handle->getLcb(), LCB_WAIT_DEFAULT);
         if (iterdelay) {
             sdkd_millisleep(iterdelay);
         }
