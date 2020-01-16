@@ -53,7 +53,7 @@ class Logger {
             return ret;
         }
 
-        void log(unsigned int iid,
+        void log(uint64_t iid,
                 const char *subsys,
                 int severity,
                 const char *srcfile,
@@ -66,10 +66,10 @@ class Logger {
                 start_time = now;
             }
             flockfile(fp);
-            fprintf(fp, "%lums %s [I%d] (%s - L:%d) ",
+            fprintf(fp, "%lums %s [I%llx] (%s - L:%d) ",
                     (unsigned long)(now - start_time) /1000000,
                     severity_str(severity),
-                    iid,
+                    (unsigned long long)iid,
                     subsys,
                     srcline);
             vfprintf(fp, fmt, ap);
