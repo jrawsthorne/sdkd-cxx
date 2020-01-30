@@ -773,7 +773,6 @@ Handle::dsSDSinglePath(Command c, const Dataset& ds, ResultSet& out,
     DatasetIterator *iter = ds.getIter();
     do_cancel = false;
     lcb_SUBDOCSPECS *op;
-    lcb_subdocspecs_create(&op, 1);
 
     lcb_install_callback(instance, LCB_CALLBACK_SDLOOKUP, (lcb_RESPCALLBACK)subdoc_callback);
     lcb_install_callback(instance, LCB_CALLBACK_SDMUTATE, (lcb_RESPCALLBACK)subdoc_callback);
@@ -787,12 +786,21 @@ Handle::dsSDSinglePath(Command c, const Dataset& ds, ResultSet& out,
         std::string value = iter->value();
         std::string command = iter->command();
 
+        if(command == "get_multi"){
+            lcb_subdocspecs_create(&op, 2);
+        }else{
+            lcb_subdocspecs_create(&op, 1);
+        }
+
         lcb_CMDSUBDOC *cmd;
         lcb_cmdsubdoc_create(&cmd);
 
         if (command == "get") {
             lcb_subdocspecs_get(op, 0, 0, path.c_str(), path.size());
-        } else if (command == "replace") {
+        } else if (command == "get_multi") {
+            lcb_subdocspecs_get(op, 0, 0, path.c_str(), path.size());
+            lcb_subdocspecs_exists(op, 1, 0, path.c_str(), path.size());
+        }else if (command == "replace") {
             lcb_subdocspecs_replace(op, 0, 0, path.c_str(), path.size(), value.c_str(), value.size());
         } else if (command == "dict_add") {
             lcb_subdocspecs_dict_add(op, 0, 0, path.c_str(), path.size(), value.c_str(), value.size());
