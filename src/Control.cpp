@@ -330,7 +330,7 @@ MainDispatch::uploadLogs(std::string scriptpath) {
     char command[1024], urlbuf[1024];
 
     memset(command, '\0', sizeof command);
-    sprintf(command, "python %s --file=%s",
+    sprintf(command, "python3 %s --file=%s --sdk=cpp",
                     scriptpath.c_str(),
                     Daemon::MainDaemon->getOptions().lcblogFile);
     FILE *fp = popen(command, "r");

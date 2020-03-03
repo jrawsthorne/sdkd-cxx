@@ -7,9 +7,9 @@ from warnings import warn
 
 sys.path.append(os.path.dirname(__file__))
 
-import sdkd_cpp.lcbpkg as lcbpkg
-from sdkd_cpp.lcbpkg import Deb, VERSION_INFO
-from sdkd_cpp.builder import Builder
+from . import sdkd_cpp.lcbpkg as lcbpkg
+from .sdkd_cpp.lcbpkg import Deb, VERSION_INFO
+from .sdkd_cpp.builder import Builder
 from cbsdk.driver import DriverInet
 from cbsdk.sdkdfactory.driver2 import Driver2Config
 from cbsdk.testconfig import ConfigOptionCollection, ConfigOption

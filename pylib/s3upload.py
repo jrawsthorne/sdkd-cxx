@@ -7,7 +7,8 @@
 
 import os
 import os.path
-import tinys3
+import boto3
+from botocore.exceptions import ClientError
 import argparse
 import gzip
 import sys
@@ -18,26 +19,24 @@ S3_SECRET = "PRnYRzepuMBHNTJ5MRRsfL6kxCoJ/VYSb5XQMvZ9"
 S3_ACCESS = "AKIAJIAHNTVSCR4PWVAQ"
 S3_DIR = "sdkd"
 
-
-def _upload_data(file):
-    conn = tinys3.Connection(S3_ACCESS, S3_SECRET, tls=True)
-    f = open(file, 'rb')
-    conn.upload(file, f, S3_BUCKET)
-    return "http://{0}.s3.amazonaws.com/{1}".format(S3_BUCKET, file)
-
-
-def s3_upload(fname, dstname = None):
-    data = open(fname, "r").read()
-    if not dstname:
-        dstname = os.path.basename(fname)
-
-    return _upload_data(data, dstname)
+def upload_to_aws(file, sdk):
+    s3 = boto3.client('s3', aws_access_key_id=S3_ACCESS,
+                      aws_secret_access_key=S3_SECRET)
+    try:
+        with open(file, "rb") as f:
+            response = s3.upload_fileobj(f, S3_BUCKET, S3_DIR+"-"+sdk+"/"+file, ExtraArgs={
+                'ACL': 'public-read'})
+    except ClientError as e:
+        print(e)
+        return False
+    return True
 
 if __name__ == "__main__":
     ap = argparse.ArgumentParser()
     ap.add_argument("-f", "--file", help = "Filename to upload",
                     required = True)
-
+    ap.add_argument("-s", "--sdk", help="SDK used",
+                    required=True)
 
     opts = ap.parse_args()
     today = datetime.utcnow().timetuple()
@@ -46,14 +45,18 @@ if __name__ == "__main__":
     for i in today:
         compressed_log += "{0}".format(i)
 
-    log_file = opts.file
+    log_file = opts.file.lstrip()
+    sdk = opts.sdk.lstrip()
 
     with open(log_file, 'rb') as f_in, gzip.open('{0}.gz'.format(compressed_log), 'wb') as f_out:
         f_out.writelines(f_in)
         f_out.close()
         f_in.close()
-
-    url = _upload_data('{0}.gz'.format(compressed_log))
-    print "{0}".format(url)
+    compressed_file = '{0}.gz'.format(compressed_log)
+    upload = upload_to_aws(compressed_file, sdk)
+    if upload:
+        print("http://{0}.s3.amazonaws.com/{1}-{2}/{3}".format(S3_BUCKET, S3_DIR, sdk, compressed_file))
+    else:
+        print("Failed to upload logs")
     os.remove("{0}.gz".format(compressed_log))
     os.remove(log_file)

@@ -5,7 +5,7 @@ import os
 import imp
 import shutil
 import platform
-import urlparse
+import urllib.parse
 import json
 import warnings
 import multiprocessing
@@ -27,7 +27,7 @@ VERSION_INFO = json.load(_versions_json)
 
 def get_version_option_strings(self):
     strs = []
-    for k,v in VERSION_INFO['debs'].items():
+    for k,v in list(VERSION_INFO['debs'].items()):
         strs.append(v)
 
     return strs
@@ -58,13 +58,13 @@ _CMD_VERBOSE = os.environ.get('SDKD_BUILD_VERBOSE', False)
 
 def run_command(cmd, assert_ok = False):
     if _CMD_VERBOSE:
-        print "== RUN (START): " + cmd
+        print("== RUN (START): " + cmd)
 
     rv = os.system(cmd)
 
     if _CMD_VERBOSE:
-        print "== RUN (EC={0})".format(rv)
-        print ""
+        print("== RUN (EC={0})".format(rv))
+        print("")
 
     if assert_ok and rv != 0:
         assert rv == 0, "Command failed to execute"
@@ -231,7 +231,7 @@ class Deb(Common):
         ARCHSTR_32 = 'i386'
 
     versions = {}
-    for k, v in VERSION_INFO['debian'].items():
+    for k, v in list(VERSION_INFO['debian'].items()):
         versions[k] = DebPkgCollection(v['urlbase'], v['debs'])
 
     def __init__(self, version):
@@ -299,7 +299,7 @@ class RPM(Common):
             return pkg
 
     versions = {}
-    for k, v in VERSION_INFO['redhat'].items():
+    for k, v in list(VERSION_INFO['redhat'].items()):
         versions[k] = RpmPkgCollection(v['urlbase'], v['rpms'])
 
     def __init__(self, version):
@@ -384,7 +384,7 @@ class Source(Common):
                 VERSION_INFO['tarball']['urlbase'], self.srcpath)
 
         if (self.srcpath.lower().startswith("http")):
-            url = urlparse.urlparse(self.srcpath)
+            url = urllib.parse.urlparse(self.srcpath)
             path = url[2]
 
             tarball = os.path.basename(path)
@@ -406,7 +406,7 @@ class Source(Common):
             os.mkdir(basepath)
             cmd = "tar xf {0} --strip-components=1 -C {1}".format(
                 tarball, basepath)
-            print cmd
+            print(cmd)
             run_command(cmd)
 
         self.srcpath = basepath

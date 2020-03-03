@@ -48,7 +48,7 @@ class Builder(object):
         fp.write("exec '{0}' $@\n".format(
             self.instance.get_sdkd_dest()))
 
-        os.chmod(fname, 0755)
+        os.chmod(fname, 0o755)
 
         fp.close()
 
