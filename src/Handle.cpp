@@ -423,7 +423,6 @@ Handle::postsubmit(ResultSet& rs, unsigned int nsubmit)
         return true;
     }
 
-    lcb_sched_leave(instance);
     lcb_wait(instance, LCB_WAIT_DEFAULT);
 
     unsigned int wait_msec = rs.options.getDelay();
@@ -509,11 +508,11 @@ Handle::dsGet(Command cmd, Dataset const &ds, ResultSet& out,
         out.markBegin();
         lcb_STATUS err = lcb_get(instance, &out, cmd);
         lcb_cmdget_destroy(cmd);
-        lcb_sched_leave(instance);
 
         if (err == LCB_SUCCESS) {
             is_buffered = postsubmit(out);
         } else {
+            lcb_sched_fail(instance);
             is_buffered = false;
         }
         out.setRescode(err, k, true);
@@ -578,11 +577,11 @@ Handle::dsMutate(Command cmd, const Dataset& ds, ResultSet& out,
         out.markBegin();
         lcb_STATUS err = lcb_store(instance, &out, cmd);
         lcb_cmdstore_destroy(cmd);
-        lcb_sched_leave(instance);
 
         if (err == LCB_SUCCESS) {
             is_buffered = postsubmit(out);
         } else {
+            lcb_sched_fail(instance);
             is_buffered = false;
         }
         out.setRescode(err, k, false);
@@ -617,11 +616,11 @@ Handle::dsGetReplica(Command cmd, Dataset const &ds, ResultSet& out,
         out.markBegin();
         lcb_STATUS err = lcb_getreplica(instance, &out, cmd);
         lcb_cmdgetreplica_destroy(cmd);
-        lcb_sched_leave(instance);
 
         if (err == LCB_SUCCESS) {
             postsubmit(out);
         } else {
+            lcb_sched_fail(instance);
             out.setRescode(err, k, true);
         }
     }
@@ -658,11 +657,11 @@ Handle::dsEndure(Command cmd, Dataset const &ds, ResultSet& out,
         lcb_sched_enter(instance);
         lcb_STATUS err = lcb_store(instance, &out, cmd);
         lcb_cmdstore_destroy(cmd);
-        lcb_sched_leave(instance);
 
         if (err == LCB_SUCCESS) {
             postsubmit(out);
         } else {
+            lcb_sched_fail(instance);
             out.setRescode(err, k, true);
         }
     }
@@ -697,13 +696,13 @@ Handle::dsObserve(Command cmd, Dataset const &ds, ResultSet& out,
         lcb_sched_enter(instance);
         lcb_STATUS err = lcb_store(instance, &out, cmd);
         lcb_cmdstore_destroy(cmd);
-        lcb_sched_leave(instance);
 
         out.obs_persist_count = 0;
         out.obs_replica_count = 0;
         if (err == LCB_SUCCESS) {
             postsubmit(out);
         } else {
+            lcb_sched_fail(instance);
             out.setRescode(err, k, true);
         }
     }
@@ -733,27 +732,25 @@ Handle::dsKeyop(Command cmd, const Dataset& ds, ResultSet& out,
 
         out.markBegin();
 
+        lcb_sched_enter(instance);
         if (cmd == Command::MC_DS_DELETE) {
-            lcb_sched_enter(instance);
             lcb_CMDREMOVE *cmd;
             lcb_cmdremove_create(&cmd);
             lcb_cmdremove_key(cmd, k.data(), k.size());
             err = lcb_remove(instance, &out, cmd);
             lcb_cmdremove_destroy(cmd);
-            lcb_sched_leave(instance);
         } else {
-            lcb_sched_enter(instance);
             lcb_CMDTOUCH *cmd;
             lcb_cmdtouch_create(&cmd);
             lcb_cmdtouch_key(cmd, k.data(), k.size());
             err = lcb_touch(instance, &out, cmd);
             lcb_cmdtouch_destroy(cmd);
-            lcb_sched_leave(instance);
         }
 
         if (err == LCB_SUCCESS) {
             postsubmit(out);
         } else {
+            lcb_sched_fail(instance);
             out.setRescode(err, k, false);
         }
     }
@@ -822,10 +819,11 @@ Handle::dsSDSinglePath(Command c, const Dataset& ds, ResultSet& out,
 
         lcb_STATUS err =  lcb_subdoc(instance, &out, cmd);
         lcb_cmdsubdoc_destroy(cmd);
-        lcb_sched_leave(instance);
 
         if (err == LCB_SUCCESS) {
             postsubmit(out);
+        } else {
+            lcb_sched_fail(instance);
         }
         out.setRescode(err, key, true);
     }
