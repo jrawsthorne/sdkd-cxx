@@ -93,9 +93,12 @@ lcb_STATUS FTSQueryExecutor::runSearchUnderAtPlusConsistency(ResultSet &out,
 
     lcb_sched_enter(handle->getLcb());
 
+    pair<string, string> collection = handle->getCollection(curk);
+
     lcb_CMDSTORE *cmd;
     lcb_STATUS err;
     lcb_cmdstore_create(&cmd, LCB_STORE_UPSERT);
+    lcb_cmdstore_collection(cmd, collection.first.c_str(), collection.first.size(), collection.second.c_str(), collection.second.size());
     lcb_cmdstore_key(cmd, curk.data(), curk.size());
     lcb_cmdstore_value(cmd, curv.data(), curv.size());
     err = lcb_store(handle->getLcb(), NULL, cmd);

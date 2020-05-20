@@ -39,22 +39,23 @@ N1QLQueryExecutor::insertDoc(lcb_INSTANCE *instance,
 
     std::string val = Json::FastWriter().write(doc);
     std::string key = doc["id"].asString();
+    pair<string, string> collection = handle->getCollection(key);
 
     lcb_install_callback(instance, LCB_CALLBACK_STORE, (lcb_RESPCALLBACK)insert_cb);
     lcb_CMDSTORE *scmd;
 
     lcb_cmdstore_create(&scmd, LCB_STORE_UPSERT);
+    lcb_cmdstore_collection(scmd, collection.first.c_str(), collection.first.size(), collection.second.c_str(), collection.second.size());
     lcb_cmdstore_key(scmd, key.c_str(), key.size());
     lcb_cmdstore_value(scmd, val.c_str(), val.size());
 
-    lcb_sched_enter(instance);
     err = lcb_store(instance, (void *)this, scmd);
     lcb_cmdstore_destroy(scmd);
     if (err != LCB_SUCCESS) {
         this->insert_err = err;
         return false;
     }
-    lcb_sched_leave(instance);
+
     lcb_wait(instance, LCB_WAIT_DEFAULT);
     err = this->insert_err;
     if (err != LCB_SUCCESS) {

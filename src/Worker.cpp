@@ -54,6 +54,9 @@ WorkerDispatch::initializeHandle(const Request &req)
     if (!cur_handle->connect(&err)) {
         log_error("Couldn't establish initial LCB connection");
     }
+    if(!cur_handle->generateCollections()) {
+        log_info("Didn't create collections"); //Not a collections test || Already created collections || Creation failed
+    }
 
     GT_ERR:
     if (err == 0) {

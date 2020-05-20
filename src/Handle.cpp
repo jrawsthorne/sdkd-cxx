@@ -5,6 +5,7 @@
  *      Author: mnunberg
  */
 
+#include <regex>
 #include "sdkd_internal.h"
 
 namespace CBSdkd {
@@ -201,8 +202,8 @@ static void cb_sd(lcb_INSTANCE *instance, int, const lcb_RESPBASE *resp)
 {
     lcb_RESPSUBDOC *sdresp = (lcb_RESPSUBDOC *)(resp);
     void *cookie;
-    ResultSet *out = reinterpret_cast<ResultSet*>(lcb_respsubdoc_cookie(sdresp, &cookie));
-    out->setRescode(lcb_respsubdoc_status(sdresp));
+    lcb_respsubdoc_cookie(sdresp, &cookie);
+    reinterpret_cast<ResultSet*>(cookie)->setRescode(lcb_respsubdoc_status(sdresp));
 }
 
 lcb_STATUS
@@ -394,6 +395,14 @@ Handle::connect(Error *errp)
     return true;
 }
 
+bool Handle::generateCollections() {
+    if(options.useCollections){
+        log_info("Creating collections.\n");
+        return collections->getInstance().generateCollections(instance, options.scopes, options.collections);
+    }
+    return false;
+}
+
 void
 Handle::collect_result(ResultSet& rs)
 {
@@ -439,44 +448,6 @@ Handle::postsubmit(ResultSet& rs, unsigned int nsubmit)
     return false;
 }
 
-    static void store_callback(lcb_INSTANCE *instance, int cbtype, const lcb_RESPSTORE *resp)
-    {
-        const char *key;
-        size_t nkey;
-        uint64_t cas;
-        lcb_respstore_key(resp, &key, &nkey);
-        lcb_respstore_cas(resp, &cas);
-        lcb_strerror_short(lcb_respstore_status(resp));
-    }
-
-    static void get_callback(lcb_INSTANCE *instance, int cbtype, const lcb_RESPGET *resp)
-    {
-        const char *key, *value;
-        size_t nkey, nvalue;
-        uint64_t cas;
-        lcb_respget_key(resp, &key, &nkey);
-        lcb_respget_value(resp, &value, &nvalue);
-        lcb_respget_cas(resp, &cas);
-        lcb_strerror_short(lcb_respget_status(resp));
-    }
-
-    static void subdoc_callback(lcb_INSTANCE *, int cbtype, const lcb_RESPSUBDOC *resp)
-    {
-        lcb_STATUS rc = lcb_respsubdoc_status(resp);
-
-        if (rc != LCB_SUCCESS) {
-            return;
-        }
-
-        if (lcb_respsubdoc_result_size(resp) > 0) {
-            const char *value;
-            size_t nvalue;
-            lcb_respsubdoc_result_value(resp, 0, &value, &nvalue);
-            rc = lcb_respsubdoc_result_status(resp, 0);
-        }
-    }
-
-
 bool
 Handle::dsGet(Command cmd, Dataset const &ds, ResultSet& out,
               const ResultOptions& options)
@@ -484,8 +455,6 @@ Handle::dsGet(Command cmd, Dataset const &ds, ResultSet& out,
     out.options = options;
     out.clear();
     do_cancel = false;
-    bool is_buffered = false;
-    lcb_install_callback(instance, LCB_CALLBACK_GET, (lcb_RESPCALLBACK)get_callback);
 
     lcb_time_t exp = out.options.expiry;
 
@@ -496,12 +465,11 @@ Handle::dsGet(Command cmd, Dataset const &ds, ResultSet& out,
 
         std::string k = iter->key();
 
-        if (!is_buffered) {
-            lcb_sched_enter(instance);
-        }
+        std::pair<string,string> collection = getCollection(k);
 
         lcb_CMDGET *cmd;
         lcb_cmdget_create(&cmd);
+        lcb_cmdget_collection(cmd, collection.first.c_str(), collection.first.size(), collection.second.c_str(), collection.second.size());
         lcb_cmdget_key(cmd, k.data(), k.size());
         lcb_cmdget_expiry(cmd, exp);
 
@@ -510,12 +478,10 @@ Handle::dsGet(Command cmd, Dataset const &ds, ResultSet& out,
         lcb_cmdget_destroy(cmd);
 
         if (err == LCB_SUCCESS) {
-            is_buffered = postsubmit(out);
+            postsubmit(out);
         } else {
-            lcb_sched_fail(instance);
-            is_buffered = false;
+            out.setRescode(err, k, true);
         }
-        out.setRescode(err, k, true);
     }
 
     delete iter;
@@ -531,8 +497,6 @@ Handle::dsMutate(Command cmd, const Dataset& ds, ResultSet& out,
     out.clear();
     lcb_STORE_OPERATION storop;
     do_cancel = false;
-    bool is_buffered = false;
-    lcb_install_callback(instance, LCB_CALLBACK_STORE, (lcb_RESPCALLBACK)store_callback);
 
     if (cmd == Command::MC_DS_MUTATE_ADD) {
         storop = LCB_STORE_INSERT;
@@ -561,13 +525,11 @@ Handle::dsMutate(Command cmd, const Dataset& ds, ResultSet& out,
         std::string k = iter->key();
         std::string v = iter->value();
 
-        if (!is_buffered) {
-            lcb_sched_enter(instance);
-        }
+        std::pair<string,string> collection = getCollection(k);
 
         lcb_CMDSTORE *cmd;
         lcb_cmdstore_create(&cmd, storop);
-
+        lcb_cmdstore_collection(cmd, collection.first.c_str(), collection.first.size(), collection.second.c_str(), collection.second.size());
         lcb_cmdstore_key(cmd, k.data(), k.size());
         lcb_cmdstore_value(cmd, v.data(), v.size());
         lcb_cmdstore_expiry(cmd, exp);
@@ -579,12 +541,10 @@ Handle::dsMutate(Command cmd, const Dataset& ds, ResultSet& out,
         lcb_cmdstore_destroy(cmd);
 
         if (err == LCB_SUCCESS) {
-            is_buffered = postsubmit(out);
+            postsubmit(out);
         } else {
-            lcb_sched_fail(instance);
-            is_buffered = false;
+            out.setRescode(err, k, false);
         }
-        out.setRescode(err, k, false);
     }
     delete iter;
     collect_result(out);
@@ -606,11 +566,12 @@ Handle::dsGetReplica(Command cmd, Dataset const &ds, ResultSet& out,
             iter->advance()) {
 
         std::string k = iter->key();
+        std::pair<string,string> collection = getCollection(k);
         log_trace("GET REPLICA : %s", k.c_str());
 
-        lcb_sched_enter(instance);
         lcb_CMDGETREPLICA *cmd;
         lcb_cmdgetreplica_create(&cmd, LCB_REPLICA_MODE_ANY);
+        lcb_cmdgetreplica_collection(cmd, collection.first.c_str(), collection.first.size(), collection.second.c_str(), collection.second.size());;
         lcb_cmdgetreplica_key(cmd, k.data(), k.size());
 
         out.markBegin();
@@ -620,7 +581,6 @@ Handle::dsGetReplica(Command cmd, Dataset const &ds, ResultSet& out,
         if (err == LCB_SUCCESS) {
             postsubmit(out);
         } else {
-            lcb_sched_fail(instance);
             out.setRescode(err, k, true);
         }
     }
@@ -645,23 +605,23 @@ Handle::dsEndure(Command cmd, Dataset const &ds, ResultSet& out,
             iter->advance()) {
 
         std::string k = iter->key(), v = iter->value();
+        std::pair<string,string> collection = getCollection(k);
 
         lcb_CMDSTORE *cmd;
         lcb_cmdstore_create(&cmd, LCB_STORE_UPSERT);
+        lcb_cmdstore_collection(cmd, collection.first.c_str(), collection.first.size(), collection.second.c_str(), collection.second.size());
         lcb_cmdstore_key(cmd, k.data(), k.size());
         lcb_cmdstore_value(cmd, v.data(), v.size());
         lcb_cmdstore_durability_observe(cmd, options.persist, options.replicate);
 
         out.markBegin();
 
-        lcb_sched_enter(instance);
         lcb_STATUS err = lcb_store(instance, &out, cmd);
         lcb_cmdstore_destroy(cmd);
 
         if (err == LCB_SUCCESS) {
             postsubmit(out);
         } else {
-            lcb_sched_fail(instance);
             out.setRescode(err, k, true);
         }
     }
@@ -686,14 +646,15 @@ Handle::dsObserve(Command cmd, Dataset const &ds, ResultSet& out,
             iter->advance()) {
 
         std::string k = iter->key();
+        std::pair<string,string> collection = getCollection(k);
 
         lcb_CMDSTORE *cmd;
         lcb_cmdstore_create(&cmd, LCB_STORE_UPSERT);
+        lcb_cmdstore_collection(cmd, collection.first.c_str(), collection.first.size(), collection.second.c_str(), collection.second.size());
         lcb_cmdstore_key(cmd, k.c_str(), k.size());
 
         out.markBegin();
 
-        lcb_sched_enter(instance);
         lcb_STATUS err = lcb_store(instance, &out, cmd);
         lcb_cmdstore_destroy(cmd);
 
@@ -702,7 +663,6 @@ Handle::dsObserve(Command cmd, Dataset const &ds, ResultSet& out,
         if (err == LCB_SUCCESS) {
             postsubmit(out);
         } else {
-            lcb_sched_fail(instance);
             out.setRescode(err, k, true);
         }
     }
@@ -728,11 +688,11 @@ Handle::dsKeyop(Command cmd, const Dataset& ds, ResultSet& out,
             iter->advance()) {
 
         std::string k = iter->key();
+        std::pair<string,string> collection = getCollection(k);
         lcb_STATUS err;
 
         out.markBegin();
 
-        lcb_sched_enter(instance);
         if (cmd == Command::MC_DS_DELETE) {
             lcb_CMDREMOVE *cmd;
             lcb_cmdremove_create(&cmd);
@@ -750,7 +710,6 @@ Handle::dsKeyop(Command cmd, const Dataset& ds, ResultSet& out,
         if (err == LCB_SUCCESS) {
             postsubmit(out);
         } else {
-            lcb_sched_fail(instance);
             out.setRescode(err, k, false);
         }
     }
@@ -771,9 +730,6 @@ Handle::dsSDSinglePath(Command c, const Dataset& ds, ResultSet& out,
     do_cancel = false;
     lcb_SUBDOCSPECS *op;
 
-    lcb_install_callback(instance, LCB_CALLBACK_SDLOOKUP, (lcb_RESPCALLBACK)subdoc_callback);
-    lcb_install_callback(instance, LCB_CALLBACK_SDMUTATE, (lcb_RESPCALLBACK)subdoc_callback);
-
     for (iter->start();
             iter->done() == false && do_cancel == false;
             iter->advance()) {
@@ -782,6 +738,7 @@ Handle::dsSDSinglePath(Command c, const Dataset& ds, ResultSet& out,
         std::string path = iter->path();
         std::string value = iter->value();
         std::string command = iter->command();
+        std::pair<string,string> collection = getCollection(key);
 
         if(command == "get_multi"){
             lcb_subdocspecs_create(&op, 2);
@@ -791,6 +748,7 @@ Handle::dsSDSinglePath(Command c, const Dataset& ds, ResultSet& out,
 
         lcb_CMDSUBDOC *cmd;
         lcb_cmdsubdoc_create(&cmd);
+        lcb_cmdsubdoc_collection(cmd, collection.first.c_str(), collection.first.size(), collection.second.c_str(), collection.second.size());
 
         if (command == "get") {
             lcb_subdocspecs_get(op, 0, 0, path.c_str(), path.size());
@@ -814,7 +772,6 @@ Handle::dsSDSinglePath(Command c, const Dataset& ds, ResultSet& out,
 
         lcb_cmdsubdoc_specs(cmd, op);
 
-        lcb_sched_enter(instance);
         out.markBegin();
 
         lcb_STATUS err =  lcb_subdoc(instance, &out, cmd);
@@ -823,9 +780,8 @@ Handle::dsSDSinglePath(Command c, const Dataset& ds, ResultSet& out,
         if (err == LCB_SUCCESS) {
             postsubmit(out);
         } else {
-            lcb_sched_fail(instance);
+            out.setRescode(err, key, true);
         }
-        out.setRescode(err, key, true);
     }
 
     lcb_subdocspecs_destroy(op);
@@ -843,4 +799,24 @@ Handle::cancelCurrent()
         remove(certpath.c_str());
     }
 }
+
+//Get scope name and collection name to use from the key
+//We expect keys with a trailing numeric part "SimpleKeyREP11155REP11155REP11155", "key5", "24", etc.
+std::pair<string, string> Handle::getCollection(const std::string key) {
+    std::pair<string, string> coll("", "");//Converts to default collection
+    if(options.useCollections && !key.empty()){
+        //Defaults
+        coll.first = "0";
+        coll.second = "0";
+        std::string last_n = key.substr(max(0, (int)key.length() - 3));//Last 3 chars or whole string
+        int key_num = std::stoi(std::regex_replace(last_n, std::regex(R"([\D])"), ""));//Remove any remaining non-numeric chars
+        int collection_num  = key_num % (options.collections * options.scopes);
+        int scope_num = floor((float)collection_num / (float)options.collections);
+
+        coll.first  = to_string(scope_num);
+        coll.second = to_string(collection_num);
+    }
+    return coll;
+}
+
 } /* namespace CBSdkd */

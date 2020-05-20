@@ -8,6 +8,8 @@
 #ifndef HANDLE_H_
 #define HANDLE_H_
 
+#include "Collections.h"
+
 #ifndef SDKD_INTERNAL_H_
 #error "include sdkd_internal.h first"
 #endif
@@ -69,6 +71,12 @@ public:
             password = opts[CBSDKD_MSGFLD_HANDLE_PASSWORD].asString();
             useSSL = opts[CBSDKD_MSGFLD_HANDLE_OPT_SSL].asBool();
 
+            std::string collectionsType = json[CBSDKD_MSGFLD_HANDLE_COLLECTIONS_TYPE].asString();
+            useCollections = collectionsType.compare("many") == 0;
+            scopes = json[CBSDKD_MSGFLD_HANDLE_SCOPES].asUInt();
+            collections = json[CBSDKD_MSGFLD_HANDLE_COLLECTIONS].asUInt();
+
+
             if (useSSL == true) {
                 std::string clusterCert = opts[CBSDKD_MSGFLD_HANDLE_OPT_CLUSTERCERT].asString();
 
@@ -109,10 +117,10 @@ public:
                 username,
                 password,
                 bucket;
-    bool useSSL;
+    bool useSSL, useCollections;
     std::string certpath;
 
-    unsigned long timeout;
+    unsigned long timeout, scopes, collections;
 
 private:
 
@@ -244,6 +252,9 @@ public:
     HandleOptions options;
     unsigned long int hid;
 
+    bool generateCollections();
+    std::pair<string, string> getCollection(std::string key);
+
 private:
     bool do_cancel;
     Logger *logger;
@@ -253,6 +264,7 @@ private:
 
     lcb_INSTANCE *instance;
     lcb_io_opt_t io;
+    Collections *collections;
 
     std::string certpath;
     void collect_result(ResultSet& rs);

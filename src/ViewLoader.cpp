@@ -24,8 +24,10 @@ void ViewLoader::flushValues(ResultSet& rs)
             iter != values.end();
             iter++) {
 
+        pair<string, string> collection = handle->getCollection(iter->key);
         lcb_CMDSTORE *cmd;
         lcb_cmdstore_create(&cmd, LCB_STORE_UPSERT);
+        lcb_cmdstore_collection(cmd, collection.first.c_str(), collection.first.size(), collection.second.c_str(), collection.second.size());
         lcb_cmdstore_key(cmd, iter->key.c_str(), iter->key.size());
         lcb_cmdstore_value(cmd, iter->value.c_str(), iter->value.size());
 
@@ -35,6 +37,7 @@ void ViewLoader::flushValues(ResultSet& rs)
             rs.setRescode(err);
         }
     }
+    lcb_wait(handle->getLcb(), LCB_WAIT_DEFAULT);
 }
 
 bool ViewLoader::populateViewData(Command cmd,

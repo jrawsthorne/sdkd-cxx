@@ -123,6 +123,7 @@ int gettimeofday(struct timeval *tv, void *tz);
 #include "Handle.h"
 #include "IODispatch.h"
 #include "UsageCollector.h"
+#include "Collections.h"
 
 #include "views/viewopts.h"
 #include "views/viewrow.h"
