@@ -9,6 +9,7 @@
 #error "include sdkd_internal.h first"
 #endif
 
+#include <atomic>
 
 class Collections {
 public:
