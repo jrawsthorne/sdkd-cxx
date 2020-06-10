@@ -103,7 +103,7 @@ public:
     void unregisterWDHandle(cbsdk_hid_t);
 
     const Dataset* getDatasetById(const std::string& dsid);
-    std::string uploadLogs(std::string path);
+    std::string uploadLogs(Json::Value payload);
 
 private:
     sdkd_socket_t acceptfd;

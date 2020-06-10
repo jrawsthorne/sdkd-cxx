@@ -14,9 +14,7 @@ import gzip
 import sys
 from datetime import datetime
 
-S3_BUCKET = "sdk-testresults.couchbase.com"
-S3_SECRET = "PRnYRzepuMBHNTJ5MRRsfL6kxCoJ/VYSb5XQMvZ9"
-S3_ACCESS = "AKIAJIAHNTVSCR4PWVAQ"
+
 S3_DIR = "sdkd"
 
 def upload_to_aws(file, sdk):
@@ -32,21 +30,18 @@ def upload_to_aws(file, sdk):
     return True
 
 if __name__ == "__main__":
-    ap = argparse.ArgumentParser()
-    ap.add_argument("-f", "--file", help = "Filename to upload",
-                    required = True)
-    ap.add_argument("-s", "--sdk", help="SDK used",
-                    required=True)
 
-    opts = ap.parse_args()
     today = datetime.utcnow().timetuple()
     compressed_log = ""
 
     for i in today:
         compressed_log += "{0}".format(i)
 
-    log_file = opts.file.lstrip()
-    sdk = opts.sdk.lstrip()
+    S3_BUCKET = sys.argv[1]
+    S3_ACCESS =  sys.argv[2]
+    S3_SECRET =  sys.argv[3]
+    log_file = sys.argv[4]
+    sdk = sys.argv[5]
 
     with open(log_file, 'rb') as f_in, gzip.open('{0}.gz'.format(compressed_log), 'wb') as f_out:
         f_out.writelines(f_in)

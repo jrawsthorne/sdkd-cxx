@@ -150,7 +150,7 @@ MainDispatch::dispatchCommand(Request *reqp)
         coll->Start();
         isCollectingStats = true;
     } else if (reqp->command == Command::UPLOADLOGS) {
-        std::string url = uploadLogs("pylib/s3upload.py");
+        std::string url = uploadLogs(reqp->payload);
         Response res = Response(reqp);
         Json::Value val;
         val["url"] = url;
@@ -326,13 +326,15 @@ MainDispatch::getDatasetById(const std::string& dsid)
 }
 
 std::string
-MainDispatch::uploadLogs(std::string scriptpath) {
+MainDispatch::uploadLogs(Json::Value payload) {
     char command[1024], urlbuf[1024];
-
     memset(command, '\0', sizeof command);
-    sprintf(command, "python3 %s --file=%s --sdk=cpp",
-                    scriptpath.c_str(),
-                    Daemon::MainDaemon->getOptions().lcblogFile);
+    sprintf(command, (std::string("python3 pylib/s3upload.py")
+                    + " " + payload[CBSDKD_MSGFLD_S3_BUCKET].asString()
+                    + " " + payload[CBSDKD_MSGFLD_S3_ACCESSS].asString()
+                    + " " + payload[CBSDKD_MSGFLD_S3_SECRET].asString()
+                    + " " + Daemon::MainDaemon->getOptions().lcblogFile
+                    + " "+ "cpp").c_str());
     FILE *fp = popen(command, "r");
     memset(command, '\0', sizeof urlbuf);
     fgets(urlbuf, sizeof urlbuf, fp);

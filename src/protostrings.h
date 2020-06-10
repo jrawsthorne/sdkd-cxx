@@ -146,4 +146,9 @@
 #define CBSDKD_MSGFLD_FTS_COUNT "Count"
 #define CBSDKD_MSGFLD_FTS_CONSISTENCY "FTSConsistency"
 
+/** S3 Bucket Creds */
+#define CBSDKD_MSGFLD_S3_BUCKET "S3_BUCKET"
+#define CBSDKD_MSGFLD_S3_ACCESSS "access_key"
+#define CBSDKD_MSGFLD_S3_SECRET "secret_key"
+
 #endif /* CBSDKD_H_ */
