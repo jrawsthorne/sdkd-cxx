@@ -115,6 +115,9 @@ N1QLQueryExecutor::execute(Command cmd,
     bool prepared;
     istringstream(preparedStr) >> std::boolalpha >> prepared;
 
+    std::string scope = "0";
+    std::string collection = "0";
+
     std::vector<std::string> params, paramValues;
     N1QL::split(req.payload[CBSDKD_MSGFLD_NQ_PARAM].asString(), ',', params);
     N1QL::split(req.payload[CBSDKD_MSGFLD_NQ_PARAMVALUES].asString(), ',', paramValues);
@@ -143,6 +146,9 @@ N1QLQueryExecutor::execute(Command cmd,
         out.scan_consistency = scanConsistency;
 
         std::string q = std::string("select * from `") + this->handle->options.bucket.c_str() + "`";
+        if(handle->options.useCollections){
+            q = std::string("select * from `") + collection + "`";
+        }
 
         if (indexType == "secondary")  {
             q += std::string(" where ");
@@ -165,6 +171,9 @@ N1QLQueryExecutor::execute(Command cmd,
         lcb_cmdquery_create(&qcmd);
         lcb_cmdquery_callback(qcmd, query_cb);
         lcb_cmdquery_adhoc(qcmd, !prepared);
+        if(handle->options.useCollections){
+            lcb_cmdquery_scope_name(qcmd, scope.c_str(), scope.size());
+        }
 
         Json::Value bucket_scan_vector;
         bucket_scan_vector[this->handle->options.bucket.c_str()] = tokens;
