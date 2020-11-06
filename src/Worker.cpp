@@ -79,7 +79,7 @@ WorkerDispatch::processRequest(const Request& req)
     Dataset::Type dstype;
     std::string refid;
     bool needs_ds = true;
-    auto_ptr<const Dataset> ds_scopedel;
+    unique_ptr<const Dataset> ds_scopedel;
     ds_scopedel.reset();
 
     if (!req.isValid()) {

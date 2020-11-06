@@ -125,8 +125,8 @@ lcb_STATUS FTSQueryExecutor::runSearchUnderAtPlusConsistency(ResultSet &out,
 
     char tokenValue[128];
     char tokenKey[128];
-    sprintf(tokenKey, "%u/%llu", mut->vbid_, mut->uuid_);
-    sprintf(tokenValue, "%llu", mut->seqno_);
+    sprintf(tokenKey, "%u/%llu", mut->vbid_, static_cast<long long int>(mut->uuid_));
+    sprintf(tokenValue, "%llu", static_cast<long long int>(mut->seqno_));
     mutTokJson[tokenKey] = tokenValue;
     vectorFtsIndexJson[indexName] = mutTokJson;
     levelJson["level"] = "at_plus";
