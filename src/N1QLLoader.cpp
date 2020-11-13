@@ -21,7 +21,9 @@ N1QLLoader::populate(const Dataset& ds)
 
         lcb_CMDSTORE *cmd;
         lcb_cmdstore_create(&cmd, LCB_STORE_UPSERT);
-        lcb_cmdstore_collection(cmd, collection.first.c_str(), collection.first.size(), collection.second.c_str(), collection.second.size());
+        if(collection.first.length() != 0) {
+            lcb_cmdstore_collection(cmd, collection.first.c_str(), collection.first.size(), collection.second.c_str(), collection.second.size());
+        }
         lcb_cmdstore_key(cmd, k.c_str(), strlen(k.c_str()));
         lcb_cmdstore_value(cmd, v.c_str(), strlen(v.c_str()));
         lcb_STATUS err = lcb_store(handle->getLcb(), NULL, cmd);

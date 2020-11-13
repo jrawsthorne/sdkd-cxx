@@ -24,8 +24,9 @@ SDLoader::populate(const Dataset& ds, ResultSet& out, const ResultOptions& opts)
 
         lcb_CMDSTORE *cmd;
         lcb_cmdstore_create(&cmd, LCB_STORE_UPSERT);
-
-        lcb_cmdstore_collection(cmd, collection.first.c_str(), collection.first.size(), collection.second.c_str(), collection.second.size());
+        if(collection.first.length() != 0) {
+            lcb_cmdstore_collection(cmd, collection.first.c_str(), collection.first.size(), collection.second.c_str(), collection.second.size());
+        }
         lcb_cmdstore_key(cmd, k.data(), k.size());
         lcb_cmdstore_value(cmd, v.data(), v.size());
         lcb_STATUS err = lcb_store(handle->getLcb(), NULL, cmd);

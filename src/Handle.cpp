@@ -469,7 +469,9 @@ Handle::dsGet(Command cmd, Dataset const &ds, ResultSet& out,
 
         lcb_CMDGET *cmd;
         lcb_cmdget_create(&cmd);
-        lcb_cmdget_collection(cmd, collection.first.c_str(), collection.first.size(), collection.second.c_str(), collection.second.size());
+        if(collection.first.length() != 0) {
+            lcb_cmdget_collection(cmd, collection.first.c_str(), collection.first.size(), collection.second.c_str(), collection.second.size());
+        }
         lcb_cmdget_key(cmd, k.data(), k.size());
         lcb_cmdget_expiry(cmd, exp);
 
@@ -529,7 +531,9 @@ Handle::dsMutate(Command cmd, const Dataset& ds, ResultSet& out,
 
         lcb_CMDSTORE *cmd;
         lcb_cmdstore_create(&cmd, storop);
-        lcb_cmdstore_collection(cmd, collection.first.c_str(), collection.first.size(), collection.second.c_str(), collection.second.size());
+        if(collection.first.length() != 0) {
+            lcb_cmdstore_collection(cmd, collection.first.c_str(), collection.first.size(), collection.second.c_str(), collection.second.size());
+        }
         lcb_cmdstore_key(cmd, k.data(), k.size());
         lcb_cmdstore_value(cmd, v.data(), v.size());
         lcb_cmdstore_expiry(cmd, exp);
@@ -571,7 +575,9 @@ Handle::dsGetReplica(Command cmd, Dataset const &ds, ResultSet& out,
 
         lcb_CMDGETREPLICA *cmd;
         lcb_cmdgetreplica_create(&cmd, LCB_REPLICA_MODE_ANY);
-        lcb_cmdgetreplica_collection(cmd, collection.first.c_str(), collection.first.size(), collection.second.c_str(), collection.second.size());;
+        if(collection.first.length() != 0) {
+            lcb_cmdgetreplica_collection(cmd, collection.first.c_str(), collection.first.size(), collection.second.c_str(), collection.second.size());;
+        }
         lcb_cmdgetreplica_key(cmd, k.data(), k.size());
 
         out.markBegin();
@@ -609,7 +615,9 @@ Handle::dsEndure(Command cmd, Dataset const &ds, ResultSet& out,
 
         lcb_CMDSTORE *cmd;
         lcb_cmdstore_create(&cmd, LCB_STORE_UPSERT);
-        lcb_cmdstore_collection(cmd, collection.first.c_str(), collection.first.size(), collection.second.c_str(), collection.second.size());
+        if(collection.first.length() != 0) {
+            lcb_cmdstore_collection(cmd, collection.first.c_str(), collection.first.size(), collection.second.c_str(), collection.second.size());
+        }
         lcb_cmdstore_key(cmd, k.data(), k.size());
         lcb_cmdstore_value(cmd, v.data(), v.size());
         lcb_cmdstore_durability_observe(cmd, options.persist, options.replicate);
@@ -650,7 +658,9 @@ Handle::dsObserve(Command cmd, Dataset const &ds, ResultSet& out,
 
         lcb_CMDSTORE *cmd;
         lcb_cmdstore_create(&cmd, LCB_STORE_UPSERT);
-        lcb_cmdstore_collection(cmd, collection.first.c_str(), collection.first.size(), collection.second.c_str(), collection.second.size());
+        if(collection.first.length() != 0) {
+            lcb_cmdstore_collection(cmd, collection.first.c_str(), collection.first.size(), collection.second.c_str(), collection.second.size());
+        }
         lcb_cmdstore_key(cmd, k.c_str(), k.size());
 
         out.markBegin();
@@ -748,7 +758,9 @@ Handle::dsSDSinglePath(Command c, const Dataset& ds, ResultSet& out,
 
         lcb_CMDSUBDOC *cmd;
         lcb_cmdsubdoc_create(&cmd);
-        lcb_cmdsubdoc_collection(cmd, collection.first.c_str(), collection.first.size(), collection.second.c_str(), collection.second.size());
+        if(collection.first.length() != 0) {
+            lcb_cmdsubdoc_collection(cmd, collection.first.c_str(), collection.first.size(), collection.second.c_str(), collection.second.size());
+        }
 
         if (command == "get") {
             lcb_subdocspecs_get(op, 0, 0, path.c_str(), path.size());
