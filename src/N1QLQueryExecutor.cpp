@@ -67,14 +67,36 @@ N1QLQueryExecutor::insertDoc(lcb_INSTANCE *instance,
 extern "C" {
 static void
 dump_http_error(const lcb_RESPQUERY *resp) {
-    const char *row = NULL;
-    size_t nrow;
-    lcb_respquery_row(resp, &row, &nrow);
+    const lcb_QUERY_ERROR_CONTEXT *ctx;
+    lcb_respquery_error_context(resp, &ctx);
 
-    const lcb_RESPHTTP *htresp;
-    lcb_respquery_http_response(resp, &htresp);
-    fprintf(stderr, "Failed to execute query. lcb: %d, http: %d, %s\n",
-            lcb_respquery_status(resp), lcb_resphttp_status(htresp), row);
+    const char *endpoint = nullptr;
+    size_t endpoint_len = 0;
+    lcb_errctx_query_endpoint(ctx, &endpoint, &endpoint_len);
+
+    uint32_t http_code = 0;
+    lcb_errctx_query_http_response_code(ctx, &http_code);
+
+    uint32_t err_code = 0;
+    lcb_errctx_query_first_error_code(ctx, &err_code);
+    const char *err_msg = nullptr;
+    size_t err_msg_len = 0;
+    lcb_errctx_query_first_error_message(ctx, &err_msg, &err_msg_len);
+
+    const char *context_id = nullptr;
+    size_t context_id_len = 0;
+    lcb_errctx_query_client_context_id(ctx, &context_id, &context_id_len);
+
+    const char *statement = nullptr;
+    size_t statement_len = 0;
+    lcb_errctx_query_statement(ctx, &statement, &statement_len);
+
+    fprintf(stderr,
+            "Failed to execute query. lcb: %s, endpoint: %.*s, http_code: %d, "
+            "query_code: %d (%.*s), context_id: %.*s, statement: %.*s",
+            lcb_strerror_short(lcb_respquery_status(resp)), (int)endpoint_len,
+            endpoint, http_code, err_code, (int)err_msg_len, err_msg,
+            (int)context_id_len, context_id, (int)statement_len, statement);
 }
 
 static void
