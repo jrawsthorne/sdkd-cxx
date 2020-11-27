@@ -59,6 +59,7 @@ public:
     bool is_isuccess;
     bool query;
     lcb_STATUS insert_err;
+    std::string insert_err_message{};
     Json::Value tokens;
 private:
     bool insertDoc(lcb_INSTANCE *instance,

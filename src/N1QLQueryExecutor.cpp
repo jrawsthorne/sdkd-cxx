@@ -4,20 +4,69 @@
 namespace CBSdkd {
 extern "C" {
 static void
-insert_cb(lcb_INSTANCE *instance, int type, lcb_RESPBASE *resp) {
-    const lcb_RESPSTORE *sresp = (lcb_RESPSTORE *)resp;
+insert_cb(lcb_INSTANCE *instance, int type, lcb_RESPSTORE *resp) {
     void *cookie;
-    lcb_respstore_cookie(sresp, &cookie);
+    lcb_respstore_cookie(resp, &cookie);
     N1QLQueryExecutor *obj = reinterpret_cast<N1QLQueryExecutor*>(cookie);
-    if (lcb_respstore_status(sresp) == LCB_SUCCESS) {
+    if (lcb_respstore_status(resp) == LCB_SUCCESS) {
         obj->is_isuccess = true;
         lcb_MUTATION_TOKEN *ss = NULL;
-        lcb_respstore_mutation_token(sresp, ss);
+        lcb_respstore_mutation_token(resp, ss);
         Json::Value vbucket;
         Json::Value mtInfoArr = Json::Value(Json::arrayValue);
         obj->tokens = vbucket;
     }
-    obj->insert_err = lcb_respstore_status(sresp);
+    obj->insert_err = lcb_respstore_status(resp);
+    if (obj->insert_err != LCB_SUCCESS) {
+      const lcb_KEY_VALUE_ERROR_CONTEXT *ctx;
+      lcb_respstore_error_context(resp, &ctx);
+
+      const char *endpoint = nullptr;
+      size_t endpoint_len = 0;
+      lcb_errctx_kv_endpoint(ctx, &endpoint, &endpoint_len);
+
+      std::uint16_t status = 0;
+      lcb_errctx_kv_status_code(ctx, &status);
+
+      std::uint32_t opaque = 0;
+      lcb_errctx_kv_opaque(ctx, &opaque);
+
+      const char *bucket = nullptr;
+      size_t bucket_len = 0;
+      lcb_errctx_kv_bucket(ctx, &bucket, &bucket_len);
+
+      const char *scope = nullptr;
+      size_t scope_len = 0;
+      lcb_errctx_kv_scope(ctx, &scope, &scope_len);
+
+      const char *collection = nullptr;
+      size_t collection_len = 0;
+      lcb_errctx_kv_collection(ctx, &collection, &collection_len);
+
+      const char *key = nullptr;
+      size_t key_len = 0;
+      lcb_errctx_kv_key(ctx, &key, &key_len);
+
+      const char *err_ref = nullptr;
+      size_t err_ref_len = 0;
+      lcb_errctx_kv_ref(ctx, &err_ref, &err_ref_len);
+
+      const char *err_ctx = nullptr;
+      size_t err_ctx_len = 0;
+      lcb_errctx_kv_context(ctx, &err_ctx, &err_ctx_len);
+
+      std::stringstream ss;
+      ss << lcb_strerror_short(obj->insert_err) << ", status=" << status
+         << ", ctx=\"" << std::string(err_ctx, err_ctx_len) << "\""
+         << ", ref=\"" << std::string(err_ref, err_ref_len) << "\""
+         << ", endpoint=\"" << std::string(endpoint, endpoint_len) << "\""
+         << ", opaque=" << opaque
+         << ", bucket=\"" << std::string(bucket, bucket_len) << "\""
+         << ", scope=\"" << std::string(scope, scope_len) << "\""
+         << ", collection=\"" << std::string(collection, collection_len) << "\""
+         << ", key=\"" << std::string(key, key_len) << "\"";
+      obj->insert_err_message = ss.str();
+    }
 }
 }
 
@@ -53,6 +102,13 @@ N1QLQueryExecutor::insertDoc(lcb_INSTANCE *instance,
     lcb_cmdstore_destroy(scmd);
     if (err != LCB_SUCCESS) {
         this->insert_err = err;
+        std::stringstream ss;
+        ss << lcb_strerror_short(this->insert_err)
+           << ", ctx=\"failed to schedule STORE command\""
+           << ", scope=\"" << collection.first << "\""
+           << ", collection=\"" << collection.second << "\""
+           << ", key=\"" << key << "\"";
+        this->insert_err_message = ss.str();
         return false;
     }
 
@@ -93,7 +149,7 @@ dump_http_error(const lcb_RESPQUERY *resp) {
 
     fprintf(stderr,
             "Failed to execute query. lcb: %s, endpoint: %.*s, http_code: %d, "
-            "query_code: %d (%.*s), context_id: %.*s, statement: %.*s",
+            "query_code: %d (%.*s), context_id: %.*s, statement: %.*s\n",
             lcb_strerror_short(lcb_respquery_status(resp)), (int)endpoint_len,
             endpoint, http_code, err_code, (int)err_msg_len, err_msg,
             (int)context_id_len, context_id, (int)statement_len, statement);
@@ -109,7 +165,7 @@ query_cb(lcb_INSTANCE *instance,
     if (lcb_respquery_is_final(resp)) {
         if (obj->scan_consistency == "request_plus" || obj->scan_consistency == "at_plus") {
             if (obj->query_resp_count != 1) {
-                fprintf(stderr, "Query count mismatch for stale=false");
+                fprintf(stderr, "Query count mismatch for stale=false\n");
             }
         }
         obj->setRescode(lcb_respquery_status(resp) , true);
@@ -162,8 +218,7 @@ N1QLQueryExecutor::execute(Command cmd,
 
         lcb_STATUS err;
         if(!insertDoc(handle->getLcb(), params, paramValues, err)) {
-            fprintf(stderr, "Inserting document returned error 0x%x %s\n",
-                    err, lcb_strerror_short(err));
+            fprintf(stderr, "Inserting document failed %s\n", insert_err_message.c_str());
         }
         out.scan_consistency = scanConsistency;
 

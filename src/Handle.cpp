@@ -37,7 +37,7 @@ void Handle::VersionInfoJson(Json::Value &res) {
 #define STRINGIFY_(X) #X
 #define STRINGIFY(X) STRINGIFY_(X)
     hdrComponents["CHANGESET"] = LCB_VERSION_CHANGESET;
-    fprintf(stderr, " SDK version changeset %s", hdrComponents["CHANGESET"].asString().c_str());
+    fprintf(stderr, " SDK version changeset %s\n", hdrComponents["CHANGESET"].asString().c_str());
 #undef STRINGIFY
 #undef STRINGIFY_
 
@@ -277,7 +277,11 @@ Handle::~Handle() {
     ((s.size()) ? s.c_str() : NULL)
     static void open_callback(lcb_INSTANCE *instance, lcb_STATUS the_error)
     {
-        printf("open bucket: %s\n", lcb_strerror_short(the_error));
+      if (the_error != LCB_SUCCESS) {
+        char *bucketname = nullptr;
+        lcb_cntl(instance, LCB_CNTL_GET, LCB_CNTL_BUCKETNAME, &bucketname);
+        printf("open bucket \"%s\": %s\n", bucketname, lcb_strerror_short(the_error));
+      }
     }
 
 
