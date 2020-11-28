@@ -197,10 +197,11 @@ IOProtoHandler::flushBuffer()
 
             } else {
                 fprintf(stderr,
-                        "fd=%d: Got unrecognized error [%d] on send (%s)\n",
+                        "fd=%d, remaining=%d: Got unrecognized error [%d] on send (%s)\n",
                         sockfd,
+                        (int)remaining,
                         errno_save,
-                        strerror(errno));
+                        strerror(errno_save));
                 fbret = -1;
                 break;
             }

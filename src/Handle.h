@@ -28,6 +28,10 @@ public:
 };
 
 
+extern "C" {
+const char *mc_code_to_str(uint16_t code);
+}
+
 class Handle;
 
 

@@ -57,6 +57,7 @@ insert_cb(lcb_INSTANCE *instance, int type, lcb_RESPSTORE *resp) {
 
       std::stringstream ss;
       ss << lcb_strerror_short(obj->insert_err) << ", status=" << status
+         << ", " << mc_code_to_str(status)
          << ", ctx=\"" << std::string(err_ctx, err_ctx_len) << "\""
          << ", ref=\"" << std::string(err_ref, err_ref_len) << "\""
          << ", endpoint=\"" << std::string(endpoint, endpoint_len) << "\""
