@@ -34,6 +34,10 @@ if __name__ == "__main__":
     today = datetime.utcnow().timetuple()
     compressed_log = ""
 
+    build_number = os.getenv("BUILD_NUMBER")
+    if build_number:
+        compressed_log += "build_{0}-".format(build_number)
+
     for i in today:
         compressed_log += "{0}".format(i)
 
