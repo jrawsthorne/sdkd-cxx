@@ -17,8 +17,7 @@ public:
     }
     ~N1QL() {}
 
-    bool query(const char *buf, lcb_CMDQUERY *qcmd, void *cookie, lcb_STATUS& err, lcb_QUERY_CONSISTENCY consistency) {
-        lcb_cmdquery_consistency(qcmd, consistency);
+    bool query(const char *buf, lcb_CMDQUERY *qcmd, void *cookie, lcb_STATUS& err) {
         lcb_cmdquery_statement(qcmd, buf, strlen(buf));
 
         err = lcb_query(handle->getLcb(), cookie, qcmd);
@@ -60,7 +59,7 @@ public:
     bool query;
     lcb_STATUS insert_err;
     std::string insert_err_message{};
-    Json::Value tokens;
+    std::vector<lcb_MUTATION_TOKEN> mutation_tokens{};
 private:
     bool insertDoc(lcb_INSTANCE *instance,
             std::vector<std::string>& params,

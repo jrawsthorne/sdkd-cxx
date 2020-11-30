@@ -10,11 +10,11 @@ insert_cb(lcb_INSTANCE *instance, int type, lcb_RESPSTORE *resp) {
     N1QLQueryExecutor *obj = reinterpret_cast<N1QLQueryExecutor*>(cookie);
     if (lcb_respstore_status(resp) == LCB_SUCCESS) {
         obj->is_isuccess = true;
-        lcb_MUTATION_TOKEN *ss = NULL;
-        lcb_respstore_mutation_token(resp, ss);
-        Json::Value vbucket;
-        Json::Value mtInfoArr = Json::Value(Json::arrayValue);
-        obj->tokens = vbucket;
+        lcb_MUTATION_TOKEN ss{};
+        lcb_respstore_mutation_token(resp, &ss);
+        if (lcb_mutation_token_is_valid(&ss)) {
+          obj->mutation_tokens.emplace_back(ss);
+        }
     }
     obj->insert_err = lcb_respstore_status(resp);
     if (obj->insert_err != LCB_SUCCESS) {
@@ -157,20 +157,23 @@ dump_http_error(const lcb_RESPQUERY *resp) {
 }
 
 static void
-query_cb(lcb_INSTANCE *instance,
-        int cbtype,
+query_cb(lcb_INSTANCE *,
+        int,
         const lcb_RESPQUERY *resp) {
     void *cookie;
     lcb_respquery_cookie(resp, &cookie);
     ResultSet *obj = reinterpret_cast<ResultSet *>(cookie);
     if (lcb_respquery_is_final(resp)) {
+        lcb_STATUS rc = lcb_respquery_status(resp);
         if (obj->scan_consistency == "request_plus" || obj->scan_consistency == "at_plus") {
-            if (obj->query_resp_count != 1) {
-                fprintf(stderr, "Query count mismatch for stale=false\n");
+            int expected = 1;
+            if (obj->query_resp_count != expected) {
+                fprintf(stderr, "Query count mismatch for scan_consistency=%s, expected %d, but found %d, rc=%s\n",
+                        obj->scan_consistency.c_str(), expected, obj->query_resp_count, lcb_strerror_short(rc));
             }
         }
-        obj->setRescode(lcb_respquery_status(resp) , true);
-        if (lcb_respquery_status(resp) != LCB_SUCCESS) {
+        obj->setRescode(rc, true);
+        if (rc != LCB_SUCCESS) {
             dump_http_error(resp);
         }
         return;
@@ -253,9 +256,18 @@ N1QLQueryExecutor::execute(Command cmd,
             lcb_cmdquery_scope_name(qcmd, scope.c_str(), scope.size());
         }
 
-        Json::Value bucket_scan_vector;
-        bucket_scan_vector[this->handle->options.bucket.c_str()] = tokens;
-        if(!N1QL::query(q.c_str(), qcmd, &out, err, LCB_QUERY_CONSISTENCY_NONE)) {
+        if (scanConsistency ==  "request_plus") {
+          lcb_cmdquery_consistency(qcmd, LCB_QUERY_CONSISTENCY_REQUEST);
+        } else if (scanConsistency == "at_plus") {
+          for (const auto &token : mutation_tokens) {
+            lcb_cmdquery_consistency_token_for_keyspace(
+                qcmd, handle->options.bucket.c_str(),
+                handle->options.bucket.size(), &token);
+          }
+        } else {
+          lcb_cmdquery_consistency(qcmd, LCB_QUERY_CONSISTENCY_NONE);
+        }
+        if(!N1QL::query(q.c_str(), qcmd, &out, err)) {
             lcb_cmdquery_destroy(qcmd);
             fprintf(stderr,"Scheduling query returned error 0x%x %s\n",
                     err, lcb_strerror_short(err));
