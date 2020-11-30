@@ -1053,7 +1053,7 @@ Handle::dsSDSinglePath(Command c, const Dataset& ds, ResultSet& out,
         } else if (command == "array_add_last") {
             lcb_subdocspecs_array_add_last(op, 0, 0, path.c_str(), path.size(), value.c_str(), value.size());
         } else if (command == "counter") {
-            lcb_subdocspecs_counter(op, 0, 0, path.c_str(), path.size(), 0);
+            lcb_subdocspecs_counter(op, 0, 0, path.c_str(), path.size(), std::stoul(value));
         }
         lcb_cmdsubdoc_key(cmd, key.c_str(), key.size());
 
@@ -1063,6 +1063,7 @@ Handle::dsSDSinglePath(Command c, const Dataset& ds, ResultSet& out,
 
         lcb_STATUS err =  lcb_subdoc(instance, &out, cmd);
         lcb_cmdsubdoc_destroy(cmd);
+        lcb_subdocspecs_destroy(op);
 
         if (err == LCB_SUCCESS) {
             postsubmit(out);
@@ -1071,7 +1072,6 @@ Handle::dsSDSinglePath(Command c, const Dataset& ds, ResultSet& out,
         }
     }
 
-    lcb_subdocspecs_destroy(op);
     delete iter;
     collect_result(out);
     return true;
