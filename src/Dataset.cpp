@@ -265,10 +265,10 @@ _fill_repeat(const std::string base,
 void
 DatasetSeededIterator::advance()
 {
-    DatasetIterator::advance();
-    if (spec->continuous && curidx > spec->count) {
+    if (spec->continuous && curidx >= spec->count) {
         curidx = 0;
     }
+    DatasetIterator::advance();
 }
 
 void

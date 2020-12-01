@@ -1064,10 +1064,7 @@ Handle::dsSDSinglePath(Command c, const Dataset& ds, ResultSet& out,
     do_cancel = false;
     lcb_SUBDOCSPECS *op;
 
-    for (iter->start();
-            iter->done() == false && do_cancel == false;
-            iter->advance()) {
-
+    for (iter->start(); !iter->done() && !do_cancel; iter->advance()) {
         std::string key = iter->key();
         std::string path = iter->path();
         std::string value = iter->value();

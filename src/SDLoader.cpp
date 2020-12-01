@@ -43,12 +43,12 @@ SDLoader::populate(const Dataset& ds, ResultSet& out, const ResultOptions& opts)
 
     DatasetIterator *iter = ds.getIter();
     int batch = 100;
-    int ii = 0, jj = 0;
+    int jj = 0;
     lcb_install_callback(handle->getLcb(), LCB_CALLBACK_STORE,
                          reinterpret_cast<lcb_RESPCALLBACK>(cb_store));
 
     lcb_sched_enter(handle->getLcb());
-    for (ii=0, jj=0, iter->start(); iter->done() == false; iter->advance(), ii++, jj++) {
+    for (jj=0, iter->start(); !iter->done(); iter->advance(), jj++) {
         auto *op = new store_op(iter->key(), iter->value(), handle->getCollection(iter->key()));
         lcb_STATUS err = lcb_store(handle->getLcb(), op, op->cmd_);
         if (err != LCB_SUCCESS) {
