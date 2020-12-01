@@ -27,9 +27,33 @@ public:
     unsigned int expiry;
 };
 
+struct store_op {
+  std::string key_{};
+  std::string value_{};
+  std::string scope_{};
+  std::string collection_{};
+  lcb_CMDSTORE *cmd_{};
+
+  store_op(const std::string &key, const std::string &value,
+           const std::pair<std::string, std::string> &collection)
+      : key_(key), value_(value),
+        scope_(collection.first), collection_(collection.second) {
+    lcb_cmdstore_create(&cmd_, LCB_STORE_UPSERT);
+
+    if (collection_.length() != 0) {
+      lcb_cmdstore_collection(cmd_, scope_.c_str(), scope_.size(),
+                              collection_.c_str(), collection_.size());
+    }
+    lcb_cmdstore_key(cmd_, key_.data(), key_.size());
+    lcb_cmdstore_value(cmd_, value_.data(), value_.size());
+  }
+
+  ~store_op() { lcb_cmdstore_destroy(cmd_); }
+};
 
 extern "C" {
 const char *mc_code_to_str(uint16_t code);
+void dump_key_value_error(const char *message, const lcb_KEY_VALUE_ERROR_CONTEXT *ctx);
 }
 
 class Handle;

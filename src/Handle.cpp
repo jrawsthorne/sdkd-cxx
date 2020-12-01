@@ -476,6 +476,55 @@ const char *mc_code_to_str(uint16_t code)
   return binary_status_codes[code];
 }
 
+void dump_key_value_error(const char *message,
+                          const lcb_KEY_VALUE_ERROR_CONTEXT *ctx) {
+    lcb_STATUS rc = lcb_errctx_kv_rc(ctx);
+
+    const char *endpoint = nullptr;
+    size_t endpoint_len = 0;
+    lcb_errctx_kv_endpoint(ctx, &endpoint, &endpoint_len);
+
+    std::uint16_t status = 0;
+    lcb_errctx_kv_status_code(ctx, &status);
+
+    std::uint32_t opaque = 0;
+    lcb_errctx_kv_opaque(ctx, &opaque);
+
+    const char *bucket = nullptr;
+    size_t bucket_len = 0;
+    lcb_errctx_kv_bucket(ctx, &bucket, &bucket_len);
+
+    const char *scope = nullptr;
+    size_t scope_len = 0;
+    lcb_errctx_kv_scope(ctx, &scope, &scope_len);
+
+    const char *collection = nullptr;
+    size_t collection_len = 0;
+    lcb_errctx_kv_collection(ctx, &collection, &collection_len);
+
+    const char *key = nullptr;
+    size_t key_len = 0;
+    lcb_errctx_kv_key(ctx, &key, &key_len);
+
+    const char *err_ref = nullptr;
+    size_t err_ref_len = 0;
+    lcb_errctx_kv_ref(ctx, &err_ref, &err_ref_len);
+
+    const char *err_ctx = nullptr;
+    size_t err_ctx_len = 0;
+    lcb_errctx_kv_context(ctx, &err_ctx, &err_ctx_len);
+
+    fprintf(
+            stderr,
+            "%s. rc=%s, status=%d %s, "
+            "ctx=\"%.*s\", ref=\"%.*s\", endpoint=\"%.*s\", opaque=%d, "
+            "bucket=\"%.*s\", scope=\"%.*s\", collection=\"%.*s\", key=\"%.*s\"\n",
+            message, lcb_strerror_short(rc), status, mc_code_to_str(status),
+            (int)err_ctx_len, err_ctx, (int)err_ref_len, err_ref, (int)endpoint_len,
+            endpoint, opaque, (int)bucket_len, bucket, (int)scope_len, scope,
+            (int)collection_len, collection, (int)key_len, key);
+}
+
 lcb_STATUS
 lcb_errmap_user(lcb_INSTANCE *instance, uint16_t in)
 {

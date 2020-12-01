@@ -7,7 +7,36 @@ using namespace std;
 
 extern "C"
 {
-static void cb_store(lcb_INSTANCE *instance, int, const lcb_RESPBASE *resp) {
+static void cb_store(lcb_INSTANCE *instance, int, const lcb_RESPSTORE *resp) {
+  lcb_STATUS rc = lcb_respstore_status(resp);
+  store_op *op = nullptr;
+  lcb_respstore_cookie(resp, reinterpret_cast<void **>(&op));
+  if (rc == LCB_SUCCESS) {
+    delete op;
+  } else {
+    const lcb_KEY_VALUE_ERROR_CONTEXT *ctx;
+    lcb_respstore_error_context(resp, &ctx);
+
+    if (rc == LCB_ERR_TIMEOUT || rc == LCB_ERR_BUCKET_NOT_FOUND) {
+      lcb_STATUS err = lcb_store(instance, op, op->cmd_);
+      if (err != LCB_SUCCESS) {
+        fprintf(stderr,
+                "Failed to retry store operation %p in ViewLoader: key=\"%.*s\" "
+                "rc=%s, err=%s\n",
+                (void *)op, (int)op->key_.size(), op->key_.c_str(),
+                lcb_strerror_short(rc), lcb_strerror_short(err));
+        delete op;
+        return;
+      }
+      fprintf(stderr,
+              "Retrying store operation %p in SDLoader: key=\"%.*s\", rc=%s\n",
+              (void *)op, (int)op->key_.size(), op->key_.c_str(),
+              lcb_strerror_short(rc));
+    } else {
+      dump_key_value_error("Failed to load document in ViewLoader", ctx);
+      delete op;
+    }
+  }
 }
 }
 
@@ -18,23 +47,12 @@ ViewLoader::ViewLoader(Handle *handle)
 
 void ViewLoader::flushValues(ResultSet& rs)
 {
-    lcb_install_callback(handle->getLcb(), LCB_CALLBACK_STORE, cb_store);
+    lcb_install_callback(handle->getLcb(), LCB_CALLBACK_STORE,
+                       reinterpret_cast<lcb_RESPCALLBACK>(cb_store));
 
-    for (kvp_list::iterator iter = values.begin();
-            iter != values.end();
-            iter++) {
-
-        pair<string, string> collection = handle->getCollection(iter->key);
-        lcb_CMDSTORE *cmd;
-        lcb_cmdstore_create(&cmd, LCB_STORE_UPSERT);
-        if(collection.first.length() != 0) {
-            lcb_cmdstore_collection(cmd, collection.first.c_str(), collection.first.size(), collection.second.c_str(), collection.second.size());
-        }
-        lcb_cmdstore_key(cmd, iter->key.c_str(), iter->key.size());
-        lcb_cmdstore_value(cmd, iter->value.c_str(), iter->value.size());
-
-        lcb_STATUS err = lcb_store(handle->getLcb(), NULL, cmd);
-        lcb_cmdstore_destroy(cmd);
+    for (auto & value : values) {
+        auto *op = new store_op(value.key, value.value, handle->getCollection(value.key));
+        lcb_STATUS err = lcb_store(handle->getLcb(), op, op->cmd_);
         if (err != LCB_SUCCESS) {
             rs.setRescode(err);
         }
