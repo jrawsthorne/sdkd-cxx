@@ -80,10 +80,11 @@ N1QLDatasetIterator::N1QLDatasetIterator(
 void
 N1QLDatasetIterator::advance()
 {
+    curidx++;
     if (spec->continuous && curidx >= spec->count) {
         curidx = 0;
     }
-    DatasetIterator::advance();
+    init_data(curidx);
 }
 
 void

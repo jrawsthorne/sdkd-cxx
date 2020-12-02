@@ -65,10 +65,11 @@ SDDatasetIterator::SDDatasetIterator(
 void
 SDDatasetIterator::advance()
 {
+    curidx++;
     if (spec->continuous && curidx >= spec->count) {
       curidx = 0;
     }
-    DatasetIterator::advance();
+    init_data(curidx);
 }
 
 void
