@@ -166,7 +166,7 @@ query_cb(lcb_INSTANCE *,
     if (lcb_respquery_is_final(resp)) {
         lcb_STATUS rc = lcb_respquery_status(resp);
         if (obj->scan_consistency == "request_plus" || obj->scan_consistency == "at_plus") {
-            int expected = 1;
+            unsigned int expected = 1;
             if (obj->query_resp_count != expected) {
                 fprintf(stderr, "Query count mismatch for scan_consistency=%s, expected %d, but found %d, rc=%s\n",
                         obj->scan_consistency.c_str(), expected, obj->query_resp_count, lcb_strerror_short(rc));

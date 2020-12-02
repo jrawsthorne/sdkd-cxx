@@ -752,7 +752,7 @@ Handle::postsubmit(ResultSet& rs, unsigned int nsubmit)
         return true;
     }
 
-    if (rs.remaining < rs.options.iterwait) {
+    if (rs.remaining > 0 && static_cast<unsigned int>(rs.remaining) < rs.options.iterwait) {
         return true;
     }
 
