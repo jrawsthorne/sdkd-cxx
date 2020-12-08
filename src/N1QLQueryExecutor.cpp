@@ -194,8 +194,10 @@ N1QLQueryExecutor::execute(Command cmd,
     std::string indexEngine = req.payload[CBSDKD_MSGFLD_NQ_INDEX_ENGINE].asString();
     std::string indexName = req.payload[CBSDKD_MSGFLD_NQ_DEFAULT_INDEX_NAME].asString();
     std::string preparedStr = req.payload[CBSDKD_MSGFLD_NQ_PREPARED].asString();
-    bool prepared;
+    std::string flexStr = req.payload[CBSDKD_MSGFLD_NQ_FLEX].asString();
+    bool prepared, flex;
     istringstream(preparedStr) >> std::boolalpha >> prepared;
+    istringstream(flexStr) >> std:: boolalpha >> flex;
 
     std::string scope = "0";
     std::string collection = "0";
@@ -252,6 +254,8 @@ N1QLQueryExecutor::execute(Command cmd,
         lcb_cmdquery_create(&qcmd);
         lcb_cmdquery_callback(qcmd, query_cb);
         lcb_cmdquery_adhoc(qcmd, !prepared);
+        lcb_cmdquery_flex_index(qcmd, flex);
+
         if(handle->options.useCollections){
             lcb_cmdquery_scope_name(qcmd, scope.c_str(), scope.size());
         }
