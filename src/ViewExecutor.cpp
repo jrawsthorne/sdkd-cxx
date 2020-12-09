@@ -103,8 +103,8 @@ ViewExecutor::genOptionsString(const Request& req, string& out, Error& eo)
         view_options.push_back(vopt);
     }
 
-    for (unsigned int ii = 0; ii < view_options.size(); ii++) {
-        view_options_pointers.push_back(&view_options[ii]);
+    for (auto &view_option : view_options) {
+        view_options_pointers.push_back(&view_option);
     }
 
 
@@ -118,11 +118,8 @@ ViewExecutor::genOptionsString(const Request& req, string& out, Error& eo)
 
 
     GT_DONE:
-    for (vector<lcb_vopt_t*>::iterator iter = view_options_pointers.begin();
-            iter != view_options_pointers.end();
-            iter++) {
-
-        lcb_vopt_cleanup(*iter);
+    for (auto &view_options_pointer : view_options_pointers) {
+        lcb_vopt_cleanup(view_options_pointer);
     }
 
     return ret;
@@ -131,10 +128,49 @@ ViewExecutor::genOptionsString(const Request& req, string& out, Error& eo)
 
 
 extern "C" {
+void
+dump_http_error(const lcb_RESPVIEW *resp) {
+  const lcb_VIEW_ERROR_CONTEXT *ctx;
+  lcb_respview_error_context(resp, &ctx);
+
+  const char *endpoint = nullptr;
+  size_t endpoint_len = 0;
+  lcb_errctx_view_endpoint(ctx, &endpoint, &endpoint_len);
+
+  uint32_t http_code = 0;
+  lcb_errctx_view_http_response_code(ctx, &http_code);
+
+  const char *err_code = nullptr;
+  size_t err_code_len = 0;
+  lcb_errctx_view_first_error_code(ctx, &err_code, &err_code_len);
+  const char *err_msg = nullptr;
+  size_t err_msg_len = 0;
+  lcb_errctx_view_first_error_message(ctx, &err_msg, &err_msg_len);
+
+  const char *design_document = nullptr;
+  size_t design_document_len = 0;
+  lcb_errctx_view_design_document(ctx, &design_document, &design_document_len);
+
+  const char *view_name = nullptr;
+  size_t view_name_len = 0;
+  lcb_errctx_view_view(ctx, &view_name, &view_name_len);
+
+  fprintf(stderr,
+          "Failed to execute view. lcb: %s, endpoint: %.*s, http_code: %d, "
+          "view_code: %.*s (%.*s), design_document: %.*s, view_name: %.*s\n",
+          lcb_strerror_short(lcb_respview_status(resp)), (int)endpoint_len,
+          endpoint, http_code, (int)err_code_len, err_code, (int)err_msg_len, err_msg,
+          (int)design_document_len, design_document, (int)view_name_len, view_name);
+}
+
+
 static void rowCallback(lcb_INSTANCE *instance, int, const lcb_RESPVIEW *response) {
     void *cookie;
     lcb_respview_cookie(response, &cookie);
     if (lcb_respview_is_final(response)) {
+        if (lcb_respview_status(response) != LCB_SUCCESS) {
+            dump_http_error(response);
+        }
         reinterpret_cast<ResultSet*>(cookie)->setRescode(lcb_respview_status(response), true);
         return;
     }
