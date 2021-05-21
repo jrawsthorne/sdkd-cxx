@@ -146,6 +146,8 @@
 #define CBSDKD_MSGFLD_FTS_LIMIT "FTSLimit"
 #define CBSDKD_MSGFLD_FTS_COUNT "Count"
 #define CBSDKD_MSGFLD_FTS_CONSISTENCY "FTSConsistency"
+#define CBSDKD_MSGFLD_FTS_COLLECTIONS "FTSCollections"
+
 
 /** S3 Bucket Creds */
 #define CBSDKD_MSGFLD_S3_BUCKET "S3_BUCKET"

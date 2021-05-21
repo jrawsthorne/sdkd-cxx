@@ -48,6 +48,7 @@ private:
     Handle* handle;
     int limit;
     int generator;
+    int numOfCollections;
 
     lcb_STATUS runSearchOnPreloadedData(ResultSet& out,
             std::string &indexName,

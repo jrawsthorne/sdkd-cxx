@@ -32,6 +32,14 @@ static void cb_store(lcb_INSTANCE *instance, int cbType, const lcb_RESPBASE *res
 }
 }
 
+    Json::Value collectionsForSearch(int numOfCollections) {
+        Json::Value collections;
+        for(int i = 0; i < numOfCollections; i++) {
+            collections[i] = std::to_string(i);
+        }
+        return collections;
+    }
+
 
 lcb_STATUS FTSQueryExecutor::runSearchOnPreloadedData(
 		ResultSet& out,
@@ -54,6 +62,9 @@ lcb_STATUS FTSQueryExecutor::runSearchOnPreloadedData(
         "SampleSubvalue" + std::to_string(generator / 2);
     matchJson["match"] = searchField;
     queryJson["query"] = matchJson;
+    if(numOfCollections != 0 ) {
+        queryJson["collections"] = collectionsForSearch(numOfCollections);
+    }
 
     std::string query = Json::FastWriter().write(queryJson);
 
@@ -133,6 +144,9 @@ lcb_STATUS FTSQueryExecutor::runSearchUnderAtPlusConsistency(ResultSet &out,
     levelJson["vectors"] = vectorFtsIndexJson;
     consistencyJson["consistency"] = levelJson;
     queryJson["ctl"] = consistencyJson;
+    if(numOfCollections != 0 ) {
+        queryJson["collections"] = collectionsForSearch(numOfCollections);
+    }
 
     std::string query = Json::FastWriter().write(queryJson);
 
@@ -154,6 +168,7 @@ FTSQueryExecutor::execute(ResultSet& out,
     handle->externalEnter();
     std::string indexName = req.payload[CBSDKD_MSGFLD_FTS_INDEXNAME].asString();
     unsigned int kvCount = req.payload[CBSDKD_MSGFLD_FTS_COUNT].asInt64();
+    numOfCollections = req.payload[CBSDKD_MSGFLD_FTS_COLLECTIONS].asInt64();
 
     // Check consistency level of fts query
     bool not_bounded = true;
