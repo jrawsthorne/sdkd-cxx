@@ -49,6 +49,7 @@ SET(COMMON_SOURCES
     src/N1QLDataset.cpp
     src/SDDataset.cpp
     src/FTSDataset.cpp
+    src/CBASDataset.cpp
     src/Response.cpp
     src/Handle.cpp
     src/ResultSet.cpp
@@ -60,6 +61,8 @@ SET(COMMON_SOURCES
     src/N1QLLoader.cpp
     src/FTSLoader.cpp
     src/FTSQueryExecutor.cpp
+    src/CBASLoader.cpp
+    src/CBASQueryExecutor.cpp
 
     src/ViewExecutor.cpp
     src/ViewLoader.cpp

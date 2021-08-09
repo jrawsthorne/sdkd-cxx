@@ -18,7 +18,8 @@
     X(DSTYPE_SEEDED) \
     X(DSTYPE_N1QL) \
     X(DSTYPE_SD) \
-    X(DSTYPE_FTS)
+    X(DSTYPE_FTS) \
+    X(DSTYPE_CBAS)
 
 namespace CBSdkd {
 
@@ -241,6 +242,34 @@ public:
 
 private:
     struct FTSDatasetSpecification spec;
+    bool verify_spec();
+};
+
+struct CBASDatasetSpecification {
+    unsigned int count;
+};
+
+class CBASDatasetIterator : public DatasetIterator
+{
+public:
+    CBASDatasetIterator(const struct CBASDatasetSpecification *spec);
+    bool done();
+    virtual void advance();
+
+private:
+    void init_data(int idx);
+    const CBASDatasetSpecification *spec;
+};
+
+class CBASDataset : public Dataset {
+public:
+    CBASDataset(const Json::Value& spec);
+    CBASDataset(const struct CBASDatasetSpecification& spec);
+    CBASDatasetIterator* getIter() const;
+    unsigned int getCount() const;
+
+private:
+    struct CBASDatasetSpecification spec;
     bool verify_spec();
 };
 

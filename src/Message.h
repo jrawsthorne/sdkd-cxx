@@ -35,6 +35,8 @@
     XX(CB_N1QL_LOAD) \
     XX(CB_FTS_LOAD) \
     XX(CB_FTS_QUERY) \
+    XX(CB_AS_LOAD) \
+    XX(CB_AS_QUERY) \
     XX(NEWHANDLE) \
     XX(CLOSEHANDLE) \
     XX(NEWDATASET) \
