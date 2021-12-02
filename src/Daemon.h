@@ -17,16 +17,6 @@ struct DaemonOptions {
     int initialTTL;
     unsigned portNumber;
 
-    // IO Plugin name/symbol to pass to libcouchbase
-    char *ioPluginName;
-    char *ioPluginSymbol;
-    // A short name. Expect to find a 'libcouchbase_<this>' and a
-    // lcb_create_<this>_opts
-    char *ioPluginBase;
-
-    // Configuration cache
-    char *conncachePath;
-
     // Re-create lcb_t after each operation
     int noPersist;
 };
@@ -46,8 +36,6 @@ public:
         return myOptions;
     }
 
-    lcb_io_opt_t createIO();
-
     static Daemon* MainDaemon;
 
 private:
@@ -60,10 +48,6 @@ private:
     bool verifyIoPlugin();
 
     bool hasCreateOptions;
-    lcb_create_io_ops_st ioCreationOptions;
-
-    std::string s_ioSymbol;
-    std::string s_ioDLL;
 };
 
 }

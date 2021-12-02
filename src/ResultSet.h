@@ -8,14 +8,14 @@
 #include <algorithm>
 #include <cmath>
 
-#define CBSDKD_XERRMAP(X) \
-X(LCB_BUCKET_ENOENT,    Error::SUBSYSf_CLUSTER|Error::MEMD_ENOENT) \
-X(LCB_AUTH_ERROR,       Error::SUBSYSf_CLUSTER|Error::CLUSTER_EAUTH) \
-X(LCB_CONNECT_ERROR,    Error::SUBSYSf_NETWORK|Error::ERROR_GENERIC) \
-X(LCB_NETWORK_ERROR,    Error::SUBSYSf_NETWORK|Error::ERROR_GENERIC) \
-X(LCB_ENOMEM,           Error::SUBSYSf_MEMD|Error::ERROR_GENERIC) \
-X(LCB_KEY_ENOENT,       Error::SUBSYSf_MEMD|Error::MEMD_ENOENT) \
-X(LCB_ERR_TIMEOUT,        Error::SUBSYSf_CLIENT|Error::CLIENT_ETMO)
+// #define CBSDKD_XERRMAP(X) \
+// X(LCB_BUCKET_ENOENT,    Error::SUBSYSf_CLUSTER|Error::MEMD_ENOENT) \
+// X(LCB_AUTH_ERROR,       Error::SUBSYSf_CLUSTER|Error::CLUSTER_EAUTH) \
+// X(LCB_CONNECT_ERROR,    Error::SUBSYSf_NETWORK|Error::ERROR_GENERIC) \
+// X(LCB_NETWORK_ERROR,    Error::SUBSYSf_NETWORK|Error::ERROR_GENERIC) \
+// X(LCB_ENOMEM,           Error::SUBSYSf_MEMD|Error::ERROR_GENERIC) \
+// X(LCB_KEY_ENOENT,       Error::SUBSYSf_MEMD|Error::MEMD_ENOENT) \
+// X(LCB_ERR_TIMEOUT,        Error::SUBSYSf_CLIENT|Error::CLIENT_ETMO)
 
 
 
@@ -94,24 +94,24 @@ public:
     // @param expect_value whether this operation should have returned a value
     // @param value the value (can be NULL)
     // @param n_value the size of the value
-    void setRescode(lcb_STATUS err, const void* key, size_t nkey,
+    void setRescode(std::error_code err, const void* key, size_t nkey,
                     bool expect_value, const void* value, size_t n_value);
 
-    void setRescode(lcb_STATUS err) {
+    void setRescode(std::error_code err) {
         setRescode(err, NULL, 0, false, NULL, 0);
     }
 
-    void setRescode(lcb_STATUS err,
+    void setRescode(std::error_code err,
                     const char *key, size_t nkey) {
         setRescode(err, key, nkey, false, NULL, 0);
     }
 
-    void setRescode(lcb_STATUS err, const std::string key,
+    void setRescode(std::error_code err, const std::string key,
                     bool expect_value) {
         setRescode(err, key.c_str(), key.length(), true, NULL, 0);
     }
 
-    void setRescode(lcb_STATUS err, bool isFinal) {
+    void setRescode(std::error_code err, bool isFinal) {
         vresp_complete = isFinal;
         setRescode(err, NULL, 0, false, NULL, 0);
     }
@@ -179,18 +179,6 @@ public:
 
     Error oper_error;
     int remaining;
-
-    static int
-    mapError(lcb_STATUS err) {
-        if (err == LCB_SUCCESS) {
-            return 0;
-        }
-
-
-        int ret = Error::SUBSYSf_SDK;
-        ret |= err << 8;
-        return ret;
-    }
 
     unsigned int obs_persist_count;
     unsigned int obs_replica_count;

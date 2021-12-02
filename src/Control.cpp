@@ -329,12 +329,7 @@ std::string
 MainDispatch::uploadLogs(Json::Value payload) {
     char command[1024], urlbuf[1024];
     memset(command, '\0', sizeof command);
-    sprintf(command, (std::string("python3 pylib/s3upload.py")
-                    + " " + payload[CBSDKD_MSGFLD_S3_BUCKET].asString()
-                    + " " + payload[CBSDKD_MSGFLD_S3_ACCESSS].asString()
-                    + " " + payload[CBSDKD_MSGFLD_S3_SECRET].asString()
-                    + " " + Daemon::MainDaemon->getOptions().lcblogFile
-                    + " "+ "cpp").c_str());
+    sprintf(command, "python3 pylib/s3upload.py %s %s %s %s cpp", payload[CBSDKD_MSGFLD_S3_BUCKET].asCString(), payload[CBSDKD_MSGFLD_S3_ACCESSS].asCString(), payload[CBSDKD_MSGFLD_S3_SECRET].asCString(), Daemon::MainDaemon->getOptions().lcblogFile);
     FILE *fp = popen(command, "r");
     memset(command, '\0', sizeof urlbuf);
     fgets(urlbuf, sizeof urlbuf, fp);

@@ -93,26 +93,6 @@ Program::parseCliOptions(int argc, char **argv)
             "Print versions and exit"
         },
 
-        { 0, "conncache", CLIOPTS_ARGT_STRING, &userOptions.conncachePath,
-            "Path to cached configuration"
-        },
-
-        { 0, "no-persist", CLIOPTS_ARGT_NONE, &userOptions.noPersist,
-            "Reset LCB Handle after each operation"
-        },
-
-        { 0, "io-plugin-name", CLIOPTS_ARGT_STRING, &userOptions.ioPluginName,
-            "Name of IO Plugin to use. Must be in linker search path"
-        },
-
-        { 0, "io-plugin-symbol", CLIOPTS_ARGT_STRING, &userOptions.ioPluginSymbol,
-            "Symbol within the IO plugin which contains the initializer"
-        },
-
-        { 0, "io-plugin-base", CLIOPTS_ARGT_STRING, &userOptions.ioPluginBase,
-            "Base name for a built-in IO options structure. You "
-                "may prefix the name with '@' to use a built-in plugin"
-        },
 
         { 0 }
     };

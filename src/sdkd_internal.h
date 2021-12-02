@@ -1,8 +1,6 @@
 #ifndef SDKD_INTERNAL_H_
 #define SDKD_INTERNAL_H_
 
-#include <libcouchbase/couchbase.h>
-#include <libcouchbase/utils.h>
 #include "protocol_binary.h"
 
 #ifndef _WIN32
@@ -20,7 +18,7 @@
 #define sdkd_strdup strdup
 #define SDKD_SOCK_EWOULDBLOCK EWOULDBLOCK
 #define SDKD_SOCK_EINTR EINTR
-#define PID_FILE "/var/run/sdkd-cpp.pid"
+#define PID_FILE "sdkd-cpp.pid"
 typedef int sdkd_socket_t;
 
 #ifndef INVALID_SOCKET
@@ -84,7 +82,6 @@ sdkd_socket_t sdkd_accept_socket(sdkd_socket_t acceptfd,
                                  struct sockaddr_in *saddr);
 int sdkd_socket_errno(void);
 
-lcb_io_opt_t sdkd_create_iops(void);
 
 #ifdef _WIN32
 int gettimeofday(struct timeval *tv, void *tz);
@@ -97,7 +94,8 @@ int gettimeofday(struct timeval *tv, void *tz);
 
 
 #ifndef SDKD_NO_CXX
-
+#include <couchbase/cluster.hxx>
+#include <couchbase/logger/logger.hxx>
 #include <cstring>
 #include <cstdio>
 #include <cstdlib>
@@ -119,19 +117,19 @@ int gettimeofday(struct timeval *tv, void *tz);
 #include "Response.h"
 #include "Dataset.h"
 #include "ResultSet.h"
-#include "logging.h"
+// #include "logging.h"
 #include "Handle.h"
 #include "IODispatch.h"
 #include "UsageCollector.h"
-#include "Collections.h"
+// #include "Collections.h"
 
-#include "views/viewopts.h"
-#include "views/viewrow.h"
-#include "Views.h"
-#include "n1ql.h"
-#include "subdoc.h"
-#include "fts.h"
-#include "cbas.h"
+// #include "views/viewopts.h"
+// #include "views/viewrow.h"
+// #include "Views.h"
+// #include "n1ql.h"
+// #include "subdoc.h"
+// #include "fts.h"
+// #include "cbas.h"
 
 #endif /* SDKD_NO_CXX */
 

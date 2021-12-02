@@ -97,9 +97,9 @@ void UsageCollector::Loop(void) {
         double mem = usage.ru_maxrss;
         samplingtime.append(current_span);
         memusages.append(mem);
-        get_fdstats(&stats);
-        cnt_files.append(stats.files);
-        cnt_connections.append(stats.socks);
+        // get_fdstats(&stats);
+        // cnt_files.append(stats.files);
+        // cnt_connections.append(stats.socks);
         sleep(interval);
         current_span += interval;
     }

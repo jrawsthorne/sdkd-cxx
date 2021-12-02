@@ -61,17 +61,16 @@ ResultOptions::_determine_delay() {
     }
 }
 void
-ResultSet::setRescode(lcb_STATUS err,
+ResultSet::setRescode(std::error_code err,
                       const void *key,
                       size_t nkey,
                       bool expect_value,
                       const void *value,
                       size_t nvalue)
 {
-    const char *strerr = lcb_strerror_short(err);
-    std::string myerr(strerr);
-    if (err == LCB_SUCCESS) {
-        myerr = "SUCCESS";
+    std::string myerr{"success"};
+    if (err) {
+        myerr = err.message();
     }
     stats[myerr]++;
     remaining--;

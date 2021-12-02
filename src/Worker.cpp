@@ -168,10 +168,10 @@ WorkerDispatch::processRequest(const Request& req)
     }
 
     switch (req.command) {
-    case Command::MC_DS_DELETE:
-    case Command::MC_DS_TOUCH:
-        h.dsKeyop(req.command, *ds, rs, opts);
-        break;
+    // case Command::MC_DS_DELETE:
+    // case Command::MC_DS_TOUCH:
+    //     h.dsKeyop(req.command, *ds, rs, opts);
+    //     break;
 
     case Command::MC_DS_MUTATE_ADD:
     case Command::MC_DS_MUTATE_REPLACE:
@@ -185,85 +185,85 @@ WorkerDispatch::processRequest(const Request& req)
         h.dsGet(req.command, *ds, rs, opts);
         break;
 
-    case Command::MC_DS_GETREPLICA:
-        h.dsGetReplica(req.command, *ds, rs, opts);
-        break;
+    // case Command::MC_DS_GETREPLICA:
+    //     h.dsGetReplica(req.command, *ds, rs, opts);
+    //     break;
 
-    case Command::MC_DS_ENDURE:
-        h.dsEndure(req.command, *ds, rs, opts);
-        break;
+    // case Command::MC_DS_ENDURE:
+    //     h.dsEndure(req.command, *ds, rs, opts);
+    //     break;
 
-    case Command::MC_DS_OBSERVE:
-        h.dsObserve(req.command, *ds, rs, opts);
-        break;
+    // case Command::MC_DS_OBSERVE:
+    //     h.dsObserve(req.command, *ds, rs, opts);
+    //     break;
 
-    case Command::MC_DS_SD_RUN:
-    {
-        h.dsSDSinglePath(req.command, *ds, rs, opts);
-        break;
-    }
-    case Command::MC_DS_SD_LOAD:
-    {
-        SDLoader sdLoader = SDLoader(cur_handle);
-        sdLoader.populate(*ds, rs, opts);
-        break;
-    }
+    // case Command::MC_DS_SD_RUN:
+    // {
+    //     h.dsSDSinglePath(req.command, *ds, rs, opts);
+    //     break;
+    // }
+    // case Command::MC_DS_SD_LOAD:
+    // {
+    //     SDLoader sdLoader = SDLoader(cur_handle);
+    //     sdLoader.populate(*ds, rs, opts);
+    //     break;
+    // }
 
-    case Command::CB_VIEW_LOAD:
-    {
-        ViewLoader vl = ViewLoader(cur_handle);
-        vl.populateViewData(req.command, *ds, rs, opts, req);
-        break;
-    }
+    // case Command::CB_VIEW_LOAD:
+    // {
+    //     ViewLoader vl = ViewLoader(cur_handle);
+    //     vl.populateViewData(req.command, *ds, rs, opts, req);
+    //     break;
+    // }
 
-    case Command::CB_VIEW_QUERY:
-    {
-        ViewExecutor ve = ViewExecutor(cur_handle);
-        ve.executeView(req.command, rs, opts, req);
-        break;
-    }
+    // case Command::CB_VIEW_QUERY:
+    // {
+    //     ViewExecutor ve = ViewExecutor(cur_handle);
+    //     ve.executeView(req.command, rs, opts, req);
+    //     break;
+    // }
 
-    case Command::CB_N1QL_LOAD:
-    {
-        N1QLLoader nl = N1QLLoader(cur_handle);
-        nl.populate(*ds);
-        break;
-    }
+    // case Command::CB_N1QL_LOAD:
+    // {
+    //     N1QLLoader nl = N1QLLoader(cur_handle);
+    //     nl.populate(*ds);
+    //     break;
+    // }
 
-    case Command::CB_N1QL_QUERY:
-    {
-        N1QLQueryExecutor qe = N1QLQueryExecutor(cur_handle);
-        qe.execute(req.command, rs, opts, req);
-        break;
-    }
+    // case Command::CB_N1QL_QUERY:
+    // {
+    //     N1QLQueryExecutor qe = N1QLQueryExecutor(cur_handle);
+    //     qe.execute(req.command, rs, opts, req);
+    //     break;
+    // }
 
-    case Command::CB_FTS_LOAD:
-    {
-        FTSLoader fl = FTSLoader(cur_handle);
-        fl.populate(*ds);
-        break;
-    }
+    // case Command::CB_FTS_LOAD:
+    // {
+    //     FTSLoader fl = FTSLoader(cur_handle);
+    //     fl.populate(*ds);
+    //     break;
+    // }
 
-    case Command::CB_FTS_QUERY:
-    {
-        FTSQueryExecutor fe = FTSQueryExecutor(cur_handle);
-        fe.execute(rs, opts, req);
-        break;
-    }
+    // case Command::CB_FTS_QUERY:
+    // {
+    //     FTSQueryExecutor fe = FTSQueryExecutor(cur_handle);
+    //     fe.execute(rs, opts, req);
+    //     break;
+    // }
 
-    case Command::CB_AS_LOAD:
-    {
-        CBASLoader cbas_l = CBASLoader(cur_handle);
-        cbas_l.populate(*ds);
-        break;
-    }
+    // case Command::CB_AS_LOAD:
+    // {
+    //     CBASLoader cbas_l = CBASLoader(cur_handle);
+    //     cbas_l.populate(*ds);
+    //     break;
+    // }
 
-    case Command::CB_AS_QUERY:
-    {
-        CBASQueryExecutor cbas_e = CBASQueryExecutor(cur_handle);
-        cbas_e.execute(rs, opts, req);
-        break;
-    }
+    // case Command::CB_AS_QUERY:
+    // {
+    //     CBASQueryExecutor cbas_e = CBASQueryExecutor(cur_handle);
+    //     cbas_e.execute(rs, opts, req);
+    //     break;
+    // }
 
     default:
         log_warn("Command '%s' not implemented",

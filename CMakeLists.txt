@@ -19,29 +19,19 @@ INCLUDE_DIRECTORIES(
     ${JSONSL_ROOT}
     ${JSONCPP_ROOT}/dist
     ${CLIOPTS_ROOT}
-    ${LCB_ROOT}/include)
+    ${CXX_ROOT})
 
-LINK_DIRECTORIES(${LCB_ROOT}/lib64 ${LCB_ROOT}/lib ${LCB_ROOT}/bin)
+set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-IF(NOT LCB_LIBNAME)
-    IF(${WIN32})
-        SET(LCB_LIBNAME "libcouchbase")
-    ELSE()
-        SET(LCB_LIBNAME "couchbase")
-    ENDIF(${WIN32})
+add_subdirectory(${CXX_ROOT} couchbase-cxx-client)
 
-ENDIF(NOT LCB_LIBNAME)
-
-IF(LCB_USE_ASAN)
-    SET(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fno-omit-frame-pointer -fsanitize=address")
-    SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fno-omit-frame-pointer -fsanitize=address")
-    SET(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} -fsanitize=address")
-    SET(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -fsanitize=address")
-ENDIF()
+LIST(APPEND LD_DEPS
+            couchbase_cxx_client)
 
 SET(COMMON_SOURCES
     src/Control.cpp
-    src/Collections.cpp
+    #src/Collections.cpp
     src/Daemon.cpp
     src/Message.cpp
     src/Request.cpp
@@ -55,19 +45,19 @@ SET(COMMON_SOURCES
     src/ResultSet.cpp
     src/IODispatch.cpp
     src/Worker.cpp
-    src/SDLoader.cpp
+    #src/SDLoader.cpp
     src/UsageCollector.cpp
-    src/N1QLQueryExecutor.cpp
-    src/N1QLLoader.cpp
-    src/FTSLoader.cpp
-    src/FTSQueryExecutor.cpp
-    src/CBASLoader.cpp
-    src/CBASQueryExecutor.cpp
+    #src/N1QLQueryExecutor.cpp
+    #src/N1QLLoader.cpp
+    #src/FTSLoader.cpp
+    #src/FTSQueryExecutor.cpp
+    #src/CBASLoader.cpp
+    #src/CBASQueryExecutor.cpp
 
-    src/ViewExecutor.cpp
-    src/ViewLoader.cpp
-    src/views/viewrow.c
-    src/views/viewopts.c
+    #src/ViewExecutor.cpp
+    #src/ViewLoader.cpp
+    #src/views/viewrow.c
+    #src/views/viewopts.c
 
     src/sockutil.c
 
@@ -106,12 +96,12 @@ ELSEIF(${UNIX})
         LIST(APPEND LD_DEPS
             profiler)
     ENDIF(GPROF)
-    SET(COMMON_FLAGS "-Wall ${SDKD_PERF}")
-    SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11")
+    #SET(COMMON_FLAGS "-Wall ${SDKD_PERF}")
+    #SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++17")
 ENDIF()
 
-SET(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${COMMON_FLAGS}")
-SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${COMMON_FLAGS}")
+#SET(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${COMMON_FLAGS}")
+#SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${COMMON_FLAGS}")
 
 ADD_EXECUTABLE(sdkd_lcb ${COMMON_SOURCES} src/Main.cpp)
 ADD_EXECUTABLE(ds_test ${COMMON_SOURCES} src/DSTest.cpp)
