@@ -89,7 +89,7 @@ public:
 
             if (host_extra.size()) {
                 if (hostname.size()) {
-                    hostname += ";";
+                    hostname += ",";
                 }
                 hostname += host_extra;
             }
