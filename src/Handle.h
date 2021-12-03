@@ -197,15 +197,27 @@ public:
 
     bool connect(Error *errp);
 
+    template<class Request>
+    auto
+    execute(Request request)
+    {
+        using response_type = typename Request::response_type;
+        auto barrier = std::make_shared<std::promise<response_type>>();
+        auto f = barrier->get_future();
+        cluster.execute(request, [barrier](response_type resp) { barrier->set_value(std::move(resp)); });
+        auto resp = f.get();
+        return resp;
+    }
+
     bool
     dsGet(Command cmd,
           Dataset const& ds, ResultSet& out,
           ResultOptions const& options = ResultOptions());
 
-    // bool
-    // dsKeyop(Command cmd,
-    //         Dataset const& ds, ResultSet& out,
-    //         ResultOptions const& options = ResultOptions());
+    bool
+    dsKeyop(Command cmd,
+            Dataset const& ds, ResultSet& out,
+            ResultOptions const& options = ResultOptions());
 
     bool
     dsMutate(Command cmd,

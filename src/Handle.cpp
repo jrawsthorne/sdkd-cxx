@@ -68,41 +68,6 @@ void Handle::VersionInfoJson(Json::Value &res) {
 // }
 
 
-// static void cb_remove(lcb_INSTANCE *instance, int, const lcb_RESPBASE *resp)
-// {
-//     const lcb_RESPREMOVE *rb = (const lcb_RESPREMOVE *)resp;
-//     void *cookie;
-//     const char* key;
-//     size_t nkey;
-//     lcb_respremove_key(rb, &key, &nkey);
-//     lcb_respremove_cookie(rb, &cookie);
-//     reinterpret_cast<ResultSet*>(cookie)->setRescode(lcb_respremove_status(rb),
-//             key, nkey);
-// }
-
-// static void cb_touch(lcb_INSTANCE *instance, int, const lcb_RESPBASE *resp)
-// {
-//     const lcb_RESPTOUCH *rb = (const lcb_RESPTOUCH *)resp;
-//     void *cookie;
-//     const char* key;
-//     size_t nkey;
-//     lcb_resptouch_key(rb, &key, &nkey);
-//     lcb_resptouch_cookie(rb, &cookie);
-//     reinterpret_cast<ResultSet*>(cookie)->setRescode(lcb_resptouch_status(rb),
-//             key, nkey);
-// }
-
-// static void cb_storage(lcb_INSTANCE *instance, int, const lcb_RESPBASE *resp)
-// {
-//     const lcb_RESPSTORE *rb = (const lcb_RESPSTORE *)resp;
-//     void *cookie;
-//     const char* key;
-//     size_t nkey;
-//     lcb_respstore_key(rb, &key, &nkey);
-//     lcb_respstore_cookie(rb, &cookie);
-//     reinterpret_cast<ResultSet*>(cookie)->setRescode(lcb_respstore_status(rb),
-//             key, nkey);
-// }
 
 // static void cb_storedur(lcb_INSTANCE *instance, int, const lcb_RESPBASE *resp)
 // {
@@ -116,20 +81,6 @@ void Handle::VersionInfoJson(Json::Value &res) {
 //             key, nkey);
 // }
 
-// static void cb_get(lcb_INSTANCE *instance, int, const lcb_RESPBASE *resp)
-// {
-//     const lcb_RESPGET *rb = (const lcb_RESPGET *)resp;
-//     void *cookie;
-//     const char* key;
-//     size_t nkey;
-//     const char* value;
-//     size_t nvalue;
-//     lcb_respget_key(rb, &key, &nkey);
-//     lcb_respget_value(rb, &value, &nvalue);
-//     lcb_respget_cookie(rb, &cookie);
-//     reinterpret_cast<ResultSet*>(cookie)->setRescode(lcb_respget_status(rb),
-//             key, nkey, true, value, nvalue);
-// }
 
 // static void cb_endure(lcb_INSTANCE *instance, int, const lcb_RESPBASE *resp)
 // {
@@ -638,7 +589,7 @@ Handle::connect(Error *errp)
         }
    }
 
-   // ping all nodes to work around deref issue
+   // ping all nodes to work around defer issue CXXCBC-46
    while (true)
    {
         auto barrier = std::make_shared<std::promise<couchbase::diag::ping_result>>();
@@ -734,13 +685,10 @@ Handle::dsGet(Command cmd, Dataset const &ds, ResultSet& out,
         {
             couchbase::document_id id(this->options.bucket, collection.first, collection.second, k);
             couchbase::operations::get_request req{ id };
-            auto barrier = std::make_shared<std::promise<couchbase::operations::get_response>>();
-            auto f = barrier->get_future();
             out.markBegin();
-            cluster.execute(req, [barrier](couchbase::operations::get_response resp) { barrier->set_value(std::move(resp)); });
             postsubmit(out);
-            auto resp = f.get();
-            out.setRescode({}, k.c_str(), k.size());
+            auto resp = execute(req);
+            out.setRescode(resp.ctx.ec, k.c_str(), k.size());
         }
     }
 
@@ -755,21 +703,13 @@ Handle::dsMutate(Command cmd, const Dataset& ds, ResultSet& out,
 {
     out.options = options;
     out.clear();
-    // lcb_STORE_OPERATION storop;
     do_cancel = false;
 
-    // if (cmd == Command::MC_DS_MUTATE_ADD) {
-    //     storop = LCB_STORE_INSERT;
-    // } else 
-    if (cmd == Command::MC_DS_MUTATE_SET) {
-        // storop = LCB_STORE_UPSERT;
-    // } else if (cmd == Command::MC_DS_MUTATE_APPEND) {
-    //     storop = LCB_STORE_APPEND;
-    // } else if (cmd == Command::MC_DS_MUTATE_PREPEND) {
-    //     storop = LCB_STORE_PREPEND;
-    // } else if (cmd == Command::MC_DS_MUTATE_REPLACE) {
-    //     storop = LCB_STORE_REPLACE;
-    } else {
+    if (cmd != Command::MC_DS_MUTATE_ADD &&
+        cmd != Command::MC_DS_MUTATE_SET &&
+        cmd != Command::MC_DS_MUTATE_REPLACE &&
+        cmd != Command::MC_DS_MUTATE_APPEND &&
+        cmd != Command::MC_DS_MUTATE_PREPEND) {
         out.oper_error = Error(Error::SUBSYSf_SDKD,
                                Error::SDKD_EINVAL,
                                "Unknown mutation operation");
@@ -788,19 +728,38 @@ Handle::dsMutate(Command cmd, const Dataset& ds, ResultSet& out,
 
         std::pair<string,string> collection = getCollection(k);
 
-        {
-            couchbase::document_id id(this->options.bucket, collection.first, collection.second, k);
+        couchbase::document_id id(this->options.bucket, collection.first, collection.second, k);
+
+        out.markBegin();
+        postsubmit(out);
+        std::error_code ec;
+
+        if (cmd == Command::MC_DS_MUTATE_SET) {
             couchbase::operations::upsert_request req{ id, v };
             req.expiry = exp;
             req.flags = FLAGS;
-            auto barrier = std::make_shared<std::promise<couchbase::operations::upsert_response>>();
-            auto f = barrier->get_future();
-            out.markBegin();
-            cluster.execute(req, [barrier](couchbase::operations::upsert_response resp) { barrier->set_value(std::move(resp)); });
-            postsubmit(out);
-            auto resp = f.get();
-            out.setRescode({}, k.c_str(), k.length());
+            auto resp = execute(req);
+            ec = resp.ctx.ec;
+        } else if (cmd == Command::MC_DS_MUTATE_ADD) {
+            couchbase::operations::insert_request req{ id, v };
+            req.expiry = exp;
+            req.flags = FLAGS;
+            auto resp = execute(req);
+            ec = resp.ctx.ec;
+        } else if (cmd == Command::MC_DS_MUTATE_APPEND) {
+            couchbase::operations::append_request req{ id, v };
+            auto resp = execute(req);
+        } else if (cmd == Command::MC_DS_MUTATE_PREPEND) {
+            couchbase::operations::prepend_request req{ id, v };
+            auto resp = execute(req);
+        } else if (cmd == Command::MC_DS_MUTATE_REPLACE) {
+            couchbase::operations::replace_request req{ id, v };
+            req.expiry = exp;
+            req.flags = FLAGS;
+            auto resp = execute(req);
         }
+
+        out.setRescode(ec, k.c_str(), k.length());
 
     }
     delete iter;
@@ -937,49 +896,44 @@ Handle::dsMutate(Command cmd, const Dataset& ds, ResultSet& out,
 
 
 
-// bool
-// Handle::dsKeyop(Command cmd, const Dataset& ds, ResultSet& out,
-//                 const ResultOptions& options)
-// {
-//     out.options = options;
-//     out.clear();
-//     DatasetIterator *iter = ds.getIter();
-//     do_cancel = false;
+bool
+Handle::dsKeyop(Command cmd, const Dataset& ds, ResultSet& out,
+                const ResultOptions& options)
+{
+    out.options = options;
+    out.clear();
+    DatasetIterator *iter = ds.getIter();
+    do_cancel = false;
 
-//     for (iter->start();
-//             iter->done() == false && do_cancel == false;
-//             iter->advance()) {
+    for (iter->start();
+            iter->done() == false && do_cancel == false;
+            iter->advance()) {
 
-//         std::string k = iter->key();
-//         std::pair<string,string> collection = getCollection(k);
-//         lcb_STATUS err;
+        std::string k = iter->key();
+        std::pair<string,string> collection = getCollection(k);
 
-//         out.markBegin();
+        couchbase::document_id id(this->options.bucket, collection.first, collection.second, k);
 
-//         if (cmd == Command::MC_DS_DELETE) {
-//             lcb_CMDREMOVE *cmd;
-//             lcb_cmdremove_create(&cmd);
-//             lcb_cmdremove_key(cmd, k.data(), k.size());
-//             err = lcb_remove(instance, &out, cmd);
-//             lcb_cmdremove_destroy(cmd);
-//         } else {
-//             lcb_CMDTOUCH *cmd;
-//             lcb_cmdtouch_create(&cmd);
-//             lcb_cmdtouch_key(cmd, k.data(), k.size());
-//             err = lcb_touch(instance, &out, cmd);
-//             lcb_cmdtouch_destroy(cmd);
-//         }
+        out.markBegin();
+        postsubmit(out);
+        std::error_code ec;
 
-//         if (err == LCB_SUCCESS) {
-//             postsubmit(out);
-//         } else {
-//             out.setRescode(err, k, false);
-//         }
-//     }
-//     delete iter;
-//     collect_result(out);
-//     return true;
-// }
+        if (cmd == Command::MC_DS_DELETE) {
+            couchbase::operations::remove_request req{ id };
+            auto resp = execute(req);
+            ec = resp.ctx.ec;
+        } else {
+            couchbase::operations::touch_request req{ id };
+            auto resp = execute(req);
+            ec = resp.ctx.ec;
+        }
+
+        out.setRescode(ec, k.c_str(), k.length());
+    }
+    delete iter;
+    collect_result(out);
+    return true;
+}
 
 
 

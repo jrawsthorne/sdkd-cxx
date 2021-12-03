@@ -168,10 +168,10 @@ WorkerDispatch::processRequest(const Request& req)
     }
 
     switch (req.command) {
-    // case Command::MC_DS_DELETE:
-    // case Command::MC_DS_TOUCH:
-    //     h.dsKeyop(req.command, *ds, rs, opts);
-    //     break;
+    case Command::MC_DS_DELETE:
+    case Command::MC_DS_TOUCH:
+        h.dsKeyop(req.command, *ds, rs, opts);
+        break;
 
     case Command::MC_DS_MUTATE_ADD:
     case Command::MC_DS_MUTATE_REPLACE:

@@ -1,8 +1,6 @@
 #ifndef SDKD_INTERNAL_H_
 #define SDKD_INTERNAL_H_
 
-#include "protocol_binary.h"
-
 #ifndef _WIN32
 #include <sys/socket.h>
 #include <netinet/in.h>
@@ -108,7 +106,6 @@ int gettimeofday(struct timeval *tv, void *tz);
 #include <json/json.h>
 #include "contrib/debug++.h"
 
-#include "utils.h"
 #include "Daemon.h"
 #include "Thread.h"
 #include "Error.h"
