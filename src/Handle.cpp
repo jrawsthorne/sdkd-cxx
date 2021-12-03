@@ -533,8 +533,6 @@ Handle::~Handle() {
 
 }
 
-static bool logger_initialized = false;
-
 bool
 Handle::connect(Error *errp)
 {
@@ -552,10 +550,9 @@ Handle::connect(Error *errp)
     }
 
     // TODO: Should be in logger
-    if (!logger_initialized) {
+    if (!couchbase::logger::isInitialized()) {
          couchbase::logger::create_console_logger();
-        couchbase::logger::set_log_levels(spdlog::level::trace);
-        logger_initialized = true;
+        // couchbase::logger::set_log_levels(spdlog::level::trace);
     }
 
     auto cb_connstr = couchbase::utils::parse_connection_string(connstr);
