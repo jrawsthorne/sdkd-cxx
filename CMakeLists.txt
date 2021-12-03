@@ -51,8 +51,8 @@ SET(COMMON_SOURCES
     #src/N1QLLoader.cpp
     #src/FTSLoader.cpp
     #src/FTSQueryExecutor.cpp
-    #src/CBASLoader.cpp
-    #src/CBASQueryExecutor.cpp
+    src/CBASLoader.cpp
+    src/CBASQueryExecutor.cpp
 
     #src/ViewExecutor.cpp
     #src/ViewLoader.cpp

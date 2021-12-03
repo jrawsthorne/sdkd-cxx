@@ -251,19 +251,19 @@ WorkerDispatch::processRequest(const Request& req)
     //     break;
     // }
 
-    // case Command::CB_AS_LOAD:
-    // {
-    //     CBASLoader cbas_l = CBASLoader(cur_handle);
-    //     cbas_l.populate(*ds);
-    //     break;
-    // }
+    case Command::CB_AS_LOAD:
+    {
+        CBASLoader cbas_l = CBASLoader(cur_handle);
+        cbas_l.populate(*ds);
+        break;
+    }
 
-    // case Command::CB_AS_QUERY:
-    // {
-    //     CBASQueryExecutor cbas_e = CBASQueryExecutor(cur_handle);
-    //     cbas_e.execute(rs, opts, req);
-    //     break;
-    // }
+    case Command::CB_AS_QUERY:
+    {
+        CBASQueryExecutor cbas_e = CBASQueryExecutor(cur_handle);
+        cbas_e.execute(rs, opts, req);
+        break;
+    }
 
     default:
         log_warn("Command '%s' not implemented",
