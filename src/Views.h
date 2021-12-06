@@ -7,22 +7,19 @@
 
 #include "sdkd_internal.h"
 
-namespace CBSdkd {
+namespace CBSdkd
+{
 using namespace std;
 
-class ViewLoader : protected DebugContext {
+class ViewLoader : protected DebugContext
+{
 
-public:
+  public:
     ViewLoader(Handle* handle);
-    virtual ~ViewLoader() {}
 
-    bool populateViewData(Command cmd,
-                          const Dataset& ds,
-                          ResultSet& out,
-                          const ResultOptions& options,
-                          const Request& req);
+    bool populateViewData(Command cmd, const Dataset& ds, ResultSet& out, const ResultOptions& options, const Request& req);
 
-private:
+  private:
     void flushValues(ResultSet& rs);
     struct _kvp {
         string key;
@@ -34,42 +31,17 @@ private:
     Handle* handle;
 };
 
-class ViewExecutor : protected DebugContext {
-public:
-    ViewExecutor(Handle *handle);
-    virtual ~ViewExecutor();
+class ViewExecutor : protected DebugContext
+{
+  public:
+    ViewExecutor(Handle* handle);
 
-    bool executeView(Command cmd,
-                     ResultSet& out,
-                     const ResultOptions& options,
-                     const Request& req);
+    bool executeView(Command cmd, ResultSet& out, const ResultOptions& options, const Request& req);
 
-    // Should really be private, but hey, can't have everything
-    void handleRowResult(const lcb_vrow_datum_t *dt);
-    bool handleHttpChunk(lcb_STATUS err, const lcb_RESPHTTP *resp);
-
-    static set<string> ViewOptions;
-    static void InitializeViewOptions();
-
-
-private:
-    bool genOptionsString(const Request& req, string& out, Error& err);
-    void runSingleView(lcb_CMDVIEW *cmd, ResultSet& out);
-
-    Handle *handle;
-    ResultSet *rs;
-    lcb_vrow_ctx_t *rctx;
-    Json::Reader jreader;
-
-    bool responseTick;
-
-    // Apparently re-creating these objects each time is expensive
-    Json::Value persistRow;
-    Json::Value persistKey;
+  private:
+    Handle* handle;
+    ResultSet* rs;
 };
-
-#define SDKD_INIT_VIEWS() ViewExecutor::InitializeViewOptions()
-
 
 } // namespace CBSdkd
 

@@ -57,10 +57,8 @@ SET(COMMON_SOURCES
     src/CBASQueryExecutor.cpp
     src/logging.cpp
 
-    #src/ViewExecutor.cpp
-    #src/ViewLoader.cpp
-    #src/views/viewrow.c
-    #src/views/viewopts.c
+    src/ViewExecutor.cpp
+    src/ViewLoader.cpp
 
     src/sockutil.c
 

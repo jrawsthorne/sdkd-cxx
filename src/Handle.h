@@ -180,6 +180,17 @@ public:
         return resp;
     }
 
+    template<class Request>
+    auto
+    execute_async(Request request)
+    {
+        using response_type = typename Request::response_type;
+        auto barrier = std::make_shared<std::promise<response_type>>();
+        auto f = barrier->get_future();
+        cluster.execute(request, [barrier](response_type resp) { barrier->set_value(std::move(resp)); });
+        return f;
+    }
+
     bool
     dsGet(Command cmd,
           Dataset const& ds, ResultSet& out,
