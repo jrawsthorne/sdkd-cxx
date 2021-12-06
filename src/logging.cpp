@@ -5,18 +5,20 @@ namespace CBSdkd
 void
 create_logger(const std::string& path)
 {
+    // TODO: File logger requires the client to support custom spdlog sinks because
+    // sdkd expects a static filename whereas the defaul client logger uses rotating logs
+    // Use a console logger for now
     if (!couchbase::logger::isInitialized()) {
-        auto logger = spdlog::basic_logger_mt(LOGGER_NAME, path);
-        couchbase::logger::register_spdlog_logger(logger);
-        couchbase::logger::set_log_levels(spdlog::level::trace);
+        // auto logger = spdlog::basic_logger_mt(LOGGER_NAME, path);
+        couchbase::logger::create_console_logger();
     }
 }
 
 void
 destroy_logger()
 {
-    if (!couchbase::logger::isInitialized()) {
-        couchbase::logger::unregister_spdlog_logger(LOGGER_NAME);
+    if (couchbase::logger::isInitialized()) {
+        couchbase::logger::shutdown();
     }
 }
 } // namespace CBSdkd
