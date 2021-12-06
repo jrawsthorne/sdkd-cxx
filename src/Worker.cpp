@@ -197,17 +197,16 @@ WorkerDispatch::processRequest(const Request& req)
     //     h.dsObserve(req.command, *ds, rs, opts);
     //     break;
 
-    // case Command::MC_DS_SD_RUN:
-    // {
-    //     h.dsSDSinglePath(req.command, *ds, rs, opts);
-    //     break;
-    // }
-    // case Command::MC_DS_SD_LOAD:
-    // {
-    //     SDLoader sdLoader = SDLoader(cur_handle);
-    //     sdLoader.populate(*ds, rs, opts);
-    //     break;
-    // }
+    case Command::MC_DS_SD_RUN: {
+        h.dsSDSinglePath(req.command, *ds, rs, opts);
+        break;
+    }
+
+    case Command::MC_DS_SD_LOAD: {
+        SDLoader sdLoader = SDLoader(cur_handle);
+        sdLoader.populate(*ds, rs, opts);
+        break;
+    }
 
     // case Command::CB_VIEW_LOAD:
     // {

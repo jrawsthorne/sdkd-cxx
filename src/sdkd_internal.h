@@ -124,7 +124,7 @@ int gettimeofday(struct timeval *tv, void *tz);
 // #include "views/viewrow.h"
 // #include "Views.h"
 #include "n1ql.h"
-// #include "subdoc.h"
+#include "subdoc.h"
 // #include "fts.h"
 #include "cbas.h"
 
