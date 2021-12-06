@@ -223,19 +223,19 @@ WorkerDispatch::processRequest(const Request& req)
     //     break;
     // }
 
-    // case Command::CB_N1QL_LOAD:
-    // {
-    //     N1QLLoader nl = N1QLLoader(cur_handle);
-    //     nl.populate(*ds);
-    //     break;
-    // }
+    case Command::CB_N1QL_LOAD:
+    {
+        N1QLLoader nl = N1QLLoader(cur_handle);
+        nl.populate(*ds);
+        break;
+    }
 
-    // case Command::CB_N1QL_QUERY:
-    // {
-    //     N1QLQueryExecutor qe = N1QLQueryExecutor(cur_handle);
-    //     qe.execute(req.command, rs, opts, req);
-    //     break;
-    // }
+    case Command::CB_N1QL_QUERY:
+    {
+        N1QLQueryExecutor qe = N1QLQueryExecutor(cur_handle);
+        qe.execute(req.command, rs, opts, req);
+        break;
+    }
 
     // case Command::CB_FTS_LOAD:
     // {

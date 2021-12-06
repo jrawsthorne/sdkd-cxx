@@ -17,14 +17,6 @@ public:
     }
     ~N1QL() {}
 
-    bool query(const char *buf, lcb_CMDQUERY *qcmd, void *cookie, lcb_STATUS& err) {
-        lcb_cmdquery_statement(qcmd, buf, strlen(buf));
-
-        err = lcb_query(handle->getLcb(), cookie, qcmd);
-        if (err != LCB_SUCCESS) return false;
-        return true;
-    };
-
     void split(const std::string &s, char delim, std::vector<std::string> &elems) {
         std::stringstream ss(s);
         std::string item;
@@ -36,8 +28,6 @@ public:
         }
     };
 
-    bool is_qsuccess;
-    lcb_STATUS rc;
 private:
     Handle *handle;
 };
@@ -46,7 +36,7 @@ class N1QLQueryExecutor : public N1QL {
 public:
     N1QLQueryExecutor(Handle *handle) :
         N1QL(handle), is_isuccess(false),
-        insert_err(LCB_SUCCESS), handle(handle) {
+         handle(handle) {
     }
     ~N1QLQueryExecutor() {}
 
@@ -57,14 +47,10 @@ public:
 
     bool is_isuccess;
     bool query;
-    lcb_STATUS insert_err;
-    std::string insert_err_message{};
-    std::vector<lcb_MUTATION_TOKEN> mutation_tokens{};
+    std::vector<couchbase::mutation_token> mutation_tokens{};
 private:
-    bool insertDoc(lcb_INSTANCE *instance,
-            std::vector<std::string>& params,
-            std::vector<std::string>& paramValues,
-            lcb_STATUS& err);
+    bool insertDoc(std::vector<std::string>& params,
+            std::vector<std::string>& paramValues);
 
     Handle *handle;
     void split(const std::string& str, char delim, std::vector<std::string>& elems);

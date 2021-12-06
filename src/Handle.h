@@ -275,9 +275,6 @@ public:
     void externalEnter() {
         do_cancel = false;
     }
-    void externalLeave() {
-        /*no-op*/
-    }
 
     // Cancels the current operation, causing it to return during the next
     // operation.

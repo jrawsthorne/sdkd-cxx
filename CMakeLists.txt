@@ -49,8 +49,8 @@ SET(COMMON_SOURCES
     src/Worker.cpp
     #src/SDLoader.cpp
     src/UsageCollector.cpp
-    #src/N1QLQueryExecutor.cpp
-    #src/N1QLLoader.cpp
+    src/N1QLQueryExecutor.cpp
+    src/N1QLLoader.cpp
     #src/FTSLoader.cpp
     #src/FTSQueryExecutor.cpp
     src/CBASLoader.cpp

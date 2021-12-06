@@ -41,7 +41,6 @@ namespace CBSdkd {
 
             generator = (generator + 1) % kvCount;
         }
-        handle->externalLeave();
         return true;
     }
 }
