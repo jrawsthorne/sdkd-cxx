@@ -55,6 +55,7 @@ SET(COMMON_SOURCES
     src/FTSQueryExecutor.cpp
     src/CBASLoader.cpp
     src/CBASQueryExecutor.cpp
+    src/logging.cpp
 
     #src/ViewExecutor.cpp
     #src/ViewLoader.cpp

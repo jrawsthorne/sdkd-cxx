@@ -26,18 +26,13 @@ void Handle::VersionInfoJson(Json::Value &res) {
                 ? Daemon::MainDaemon->getOptions()
                 : DaemonOptions();
 
-    // lcb_uint32_t vout = 0;
-    // lcb_get_version(&vout);
-    sprintf(vbuf, "0x%X", 1);
-    rtComponents["SDKVersion"] = vbuf;
-
-    sprintf(vbuf, "0x%x", 1);
-    hdrComponents["SDKVersion"] = vbuf;
+    rtComponents["SDKVersion"] = "";
+    hdrComponents["SDKVersion"] = "";
 
 // Thanks mauke
 #define STRINGIFY_(X) #X
 #define STRINGIFY(X) STRINGIFY_(X)
-    hdrComponents["CHANGESET"] = "asdsa";
+    hdrComponents["CHANGESET"] = "";
     fprintf(stderr, " SDK version changeset %s\n", hdrComponents["CHANGESET"].asString().c_str());
 #undef STRINGIFY
 #undef STRINGIFY_
@@ -55,7 +50,7 @@ void Handle::VersionInfoJson(Json::Value &res) {
     res["HEADERS"] = hdrComponents;
     res["CONFIG"] = config;
     res["TIME"] = (Json::UInt64)time(NULL);
-    res["SDK"] = "libcouchbase" ;
+    res["SDK"] = "cxx";
     res["CHANGESET"] = hdrComponents["CHANGESET"];
 }
 
@@ -176,9 +171,7 @@ Handle::~Handle() {
 
     io_thread.join();
 
-    // if (logger != NULL) {
-    //     delete logger;
-    // }
+    destroy_logger();
 
 }
 
@@ -187,7 +180,6 @@ Handle::connect(Error *errp)
 {
     // Gather parameters
     std::string connstr;
-    // logger = new Logger(Daemon::MainDaemon->getOptions().lcblogFile);
 
     if(options.useSSL) {
         connstr += std::string("couchbases://") + options.hostname;
@@ -198,11 +190,7 @@ Handle::connect(Error *errp)
         connstr += std::string("couchbase://") + options.hostname;
     }
 
-    // TODO: Should be in logger
-    if (!couchbase::logger::isInitialized()) {
-         couchbase::logger::create_console_logger();
-        // couchbase::logger::set_log_levels(spdlog::level::trace);
-    }
+    create_logger(Daemon::MainDaemon->getOptions().lcblogFile);
 
     auto cb_connstr = couchbase::utils::parse_connection_string(connstr);
 

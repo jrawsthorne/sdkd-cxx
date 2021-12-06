@@ -93,7 +93,6 @@ int gettimeofday(struct timeval *tv, void *tz);
 
 #ifndef SDKD_NO_CXX
 #include <couchbase/cluster.hxx>
-#include <couchbase/logger/logger.hxx>
 #include <cstring>
 #include <cstdio>
 #include <cstdlib>
@@ -114,7 +113,7 @@ int gettimeofday(struct timeval *tv, void *tz);
 #include "Response.h"
 #include "Dataset.h"
 #include "ResultSet.h"
-// #include "logging.h"
+#include "logging.h"
 #include "Handle.h"
 #include "IODispatch.h"
 #include "UsageCollector.h"
