@@ -1,90 +1,52 @@
 #include "sdkd_internal.h"
 #include <thread>
 
-namespace CBSdkd {
-extern "C" {
-lcb_MUTATION_TOKEN* mut;
-
-static void
-query_cb(lcb_INSTANCE *instance, int cbtype, const lcb_RESPSEARCH *resp) {
-    void *cookie;
-    lcb_respsearch_cookie(resp, &cookie);
-    ResultSet *obj = reinterpret_cast<ResultSet *>(cookie);
-    if (lcb_respsearch_is_final(resp)) {
-        if (lcb_respsearch_status(resp) == LCB_SUCCESS && obj->fts_query_resp_count != 1) {
-            fprintf(stderr, "FTS response does not match expected number of documents %d\n", obj->fts_query_resp_count);
-        }
-        fprintf(stderr, "Query completed with status code = %d\n", lcb_respsearch_status(resp));
-        obj->setRescode(lcb_respsearch_status(resp) , true);
-        return;
-    }
-
-    obj->fts_query_resp_count++;
-}
-
-static void cb_store(lcb_INSTANCE *instance, int cbType, const lcb_RESPBASE *resp) {
-    const lcb_RESPSTORE *rb = (const lcb_RESPSTORE *)resp;
-	if (lcb_respstore_status(rb) != LCB_SUCCESS)
-	{
-        fprintf(stderr, "FTS error while insert %d\n", lcb_respstore_status(rb));
-	}
-    lcb_respstore_mutation_token(rb, mut);
-}
-}
-
-    Json::Value collectionsForSearch(int numOfCollections) {
-        Json::Value collections;
-        for(int i = 0; i < numOfCollections; i++) {
-            collections[i] = std::to_string(i);
-        }
-        return collections;
-    }
-
-
-lcb_STATUS FTSQueryExecutor::runSearchOnPreloadedData(
-		ResultSet& out,
-		std::string &indexName,
-		int kvCount)
+namespace CBSdkd
 {
-    lcb_INSTANCE *instance = handle->getLcb();
+
+std::vector<std::string>
+collectionsForSearch(int numOfCollections)
+{
+    std::vector<std::string> collections{};
+    for (int i = 0; i < numOfCollections; i++) {
+        collections.emplace_back(std::to_string(i));
+    }
+    return collections;
+}
+
+std::error_code
+FTSQueryExecutor::runSearchOnPreloadedData(ResultSet& out, std::string& indexName, int kvCount)
+{
     out.markBegin();
     out.fts_query_resp_count = 0;
 
-    lcb_CMDSEARCH *ftscmd;
-    lcb_cmdsearch_create(&ftscmd);
-	generator = (generator + 1) % (2 * kvCount);
+    generator = (generator + 1) % (2 * kvCount);
 
-    Json::Value queryJson;
-    Json::Value matchJson;
-    queryJson["indexName"] = indexName;
-    std::string searchField = generator % 2 == 0 ?
-        "SampleValue" + std::to_string(generator / 2) :
-        "SampleSubvalue" + std::to_string(generator / 2);
-    matchJson["match"] = searchField;
-    queryJson["query"] = matchJson;
-    if(numOfCollections != 0 ) {
-        queryJson["collections"] = collectionsForSearch(numOfCollections);
+    tao::json::value query;
+    std::string searchField =
+      generator % 2 == 0 ? "SampleValue" + std::to_string(generator / 2) : "SampleSubvalue" + std::to_string(generator / 2);
+    query["match"] = searchField;
+
+    couchbase::operations::search_request req{};
+    req.index_name = indexName;
+    req.query = query;
+    if (numOfCollections != 0) {
+        req.collections = collectionsForSearch(numOfCollections);
     }
 
-    std::string query = Json::FastWriter().write(queryJson);
+    auto resp = handle->execute(req);
 
-    lcb_cmdsearch_payload(ftscmd, query.c_str(), query.size());
-    lcb_cmdsearch_callback(ftscmd, query_cb);
+    out.fts_query_resp_count = resp.rows.size();
 
-    lcb_STATUS err = lcb_search(instance, &out, ftscmd);
-    lcb_cmdsearch_destroy(ftscmd);
-    return err;
+    return resp.ctx.ec;
 }
 
-lcb_STATUS FTSQueryExecutor::runSearchUnderAtPlusConsistency(ResultSet &out,
-		std::string &indexName)
+std::error_code
+FTSQueryExecutor::runSearchUnderAtPlusConsistency(ResultSet& out, std::string& indexName)
 {
-    lcb_INSTANCE *instance = handle->getLcb();
     out.markBegin();
     out.fts_query_resp_count = 0;
 
-    lcb_CMDSEARCH *ftscmd;
-    lcb_cmdsearch_create(&ftscmd);
     std::stringstream sv;
     sv << "SampleValue:" << std::this_thread::get_id() << ":" << std::to_string(generator);
     std::string match_term = sv.str();
@@ -98,74 +60,49 @@ lcb_STATUS FTSQueryExecutor::runSearchUnderAtPlusConsistency(ResultSet &out,
     if (generator % 2 == 0)
         curk += std::to_string(generator);
     else
-        curk += std::to_string(generator/2);
-
-    lcb_install_callback(handle->getLcb(), LCB_CALLBACK_STORE, cb_store);
-
-    lcb_sched_enter(handle->getLcb());
+        curk += std::to_string(generator / 2);
 
     pair<string, string> collection = handle->getCollection(curk);
 
-    lcb_CMDSTORE *cmd;
-    lcb_STATUS err;
-    lcb_cmdstore_create(&cmd, LCB_STORE_UPSERT);
-    lcb_cmdstore_collection(cmd, collection.first.c_str(), collection.first.size(), collection.second.c_str(), collection.second.size());
-    lcb_cmdstore_key(cmd, curk.data(), curk.size());
-    lcb_cmdstore_value(cmd, curv.data(), curv.size());
-    err = lcb_store(handle->getLcb(), NULL, cmd);
-    lcb_cmdstore_destroy(cmd);
-    if (err != LCB_SUCCESS)
+    std::vector<couchbase::mutation_token> mutation_state{};
+
     {
-        return err;
+        couchbase::document_id id(handle->options.bucket, collection.first, collection.second, curk);
+        couchbase::operations::upsert_request req{ id, curv };
+        auto resp = handle->execute(req);
+        if (resp.ctx.ec) {
+            return resp.ctx.ec;
+        } else {
+            mutation_state.emplace_back(resp.token);
+        }
     }
 
-    lcb_sched_leave(handle->getLcb());
-    lcb_wait(handle->getLcb(), LCB_WAIT_DEFAULT);
-
-    Json::Value queryJson;
-    Json::Value matchJson;
-    queryJson["indexName"] = indexName;
+    tao::json::value query;
     std::string searchField = match_term;
-    matchJson["match"] = searchField;
-    queryJson["query"] = matchJson;
+    query["match"] = searchField;
 
-    Json::Value mutTokJson;
-    Json::Value vectorFtsIndexJson;
-    Json::Value levelJson;
-    Json::Value consistencyJson;
-
-    char tokenValue[128];
-    char tokenKey[128];
-    sprintf(tokenKey, "%u/%llu", mut->vbid_, static_cast<long long int>(mut->uuid_));
-    sprintf(tokenValue, "%llu", static_cast<long long int>(mut->seqno_));
-    mutTokJson[tokenKey] = tokenValue;
-    vectorFtsIndexJson[indexName] = mutTokJson;
-    levelJson["level"] = "at_plus";
-    levelJson["vectors"] = vectorFtsIndexJson;
-    consistencyJson["consistency"] = levelJson;
-    queryJson["ctl"] = consistencyJson;
-    if(numOfCollections != 0 ) {
-        queryJson["collections"] = collectionsForSearch(numOfCollections);
+    couchbase::operations::search_request req{};
+    req.index_name = indexName;
+    req.query = query;
+    if (numOfCollections != 0) {
+        req.collections = collectionsForSearch(numOfCollections);
     }
+    req.mutation_state = mutation_state;
 
-    std::string query = Json::FastWriter().write(queryJson);
+    auto resp = handle->execute(req);
 
-    lcb_cmdsearch_payload(ftscmd, query.c_str(), query.size());
-    lcb_cmdsearch_callback(ftscmd, query_cb);
+    out.fts_query_resp_count = resp.rows.size();
 
     generator++;
-    err = lcb_search(instance, &out, ftscmd);
-    lcb_cmdsearch_destroy(ftscmd);
-    return err;
+    return resp.ctx.ec;
 }
 
 bool
-FTSQueryExecutor::execute(ResultSet& out,
-                          const ResultOptions& options,
-                          const Request& req) {
+FTSQueryExecutor::execute(ResultSet& out, const ResultOptions& options, const Request& req)
+{
     out.clear();
-
     handle->externalEnter();
+
     std::string indexName = req.payload[CBSDKD_MSGFLD_FTS_INDEXNAME].asString();
     unsigned int kvCount = req.payload[CBSDKD_MSGFLD_FTS_COUNT].asInt64();
     numOfCollections = req.payload[CBSDKD_MSGFLD_FTS_COLLECTIONS].asInt64();
@@ -176,26 +113,16 @@ FTSQueryExecutor::execute(ResultSet& out,
         not_bounded = false;
     log_info("running fts queries with not_bounded = %d", not_bounded);
 
-    while(!handle->isCancelled()) {
-        lcb_STATUS err;
-        if (not_bounded)
-        {
-            err = runSearchOnPreloadedData(out, indexName, kvCount);
-        }
-        else
-        {
-            err = runSearchUnderAtPlusConsistency(out, indexName);
+    while (!handle->isCancelled()) {
+        std::error_code ec;
+        if (not_bounded) {
+            ec = runSearchOnPreloadedData(out, indexName, kvCount);
+        } else {
+            ec = runSearchUnderAtPlusConsistency(out, indexName);
         }
 
-        if (err != LCB_SUCCESS) {
-            fprintf(stderr, "Error scheduling fts query 0x%x %s\n",
-                    err, lcb_strerror_short(err));
-        }
-        lcb_wait(handle->getLcb(), LCB_WAIT_DEFAULT);
+        out.setRescode(ec, true);
     }
-    handle->externalLeave();
     return true;
 }
-}
-
-
+} // namespace CBSdkd

@@ -236,19 +236,19 @@ WorkerDispatch::processRequest(const Request& req)
         break;
     }
 
-    // case Command::CB_FTS_LOAD:
-    // {
-    //     FTSLoader fl = FTSLoader(cur_handle);
-    //     fl.populate(*ds);
-    //     break;
-    // }
+    case Command::CB_FTS_LOAD:
+    {
+        FTSLoader fl = FTSLoader(cur_handle);
+        fl.populate(*ds);
+        break;
+    }
 
-    // case Command::CB_FTS_QUERY:
-    // {
-    //     FTSQueryExecutor fe = FTSQueryExecutor(cur_handle);
-    //     fe.execute(rs, opts, req);
-    //     break;
-    // }
+    case Command::CB_FTS_QUERY:
+    {
+        FTSQueryExecutor fe = FTSQueryExecutor(cur_handle);
+        fe.execute(rs, opts, req);
+        break;
+    }
 
     case Command::CB_AS_LOAD:
     {

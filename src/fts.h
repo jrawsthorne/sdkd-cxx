@@ -7,6 +7,7 @@
 #endif
 
 #include "sdkd_internal.h"
+#include <tao/json/value.hpp>
 
 namespace CBSdkd {
 using namespace std;
@@ -50,11 +51,11 @@ private:
     int generator;
     int numOfCollections;
 
-    lcb_STATUS runSearchOnPreloadedData(ResultSet& out,
+    std::error_code runSearchOnPreloadedData(ResultSet& out,
             std::string &indexName,
             int kvCount);
 
-    lcb_STATUS runSearchUnderAtPlusConsistency(ResultSet &out,
+    std::error_code runSearchUnderAtPlusConsistency(ResultSet &out,
             std::string &indexName);
 
 };
