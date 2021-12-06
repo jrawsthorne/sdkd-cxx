@@ -10,34 +10,33 @@
 #endif
 
 #include <atomic>
+#include <couchbase/operations/management/collections.hxx>
 
-class Collections {
-public:
-    static Collections &getInstance() {
+namespace CBSdkd
+{
+class Collections
+{
+  public:
+    static Collections& getInstance()
+    {
         static Collections instance;
         return instance;
     }
 
-    static lcb_STATUS create_scope(lcb_INSTANCE *instance, const std::string &scope);
+    std::error_code create_scope(Handle* handle, const std::string& scope);
 
-    lcb_STATUS create_collection(lcb_INSTANCE *instance, const std::string &scope, const std::string &collection);
+    std::error_code create_collection(Handle* handle, const std::string& scope, const std::string& collection);
 
-    lcb_STATUS drop_scope(lcb_INSTANCE *instance, const std::string &scope);
+    bool generateCollections(Handle* handle, int scopes, int collections);
 
-    lcb_STATUS drop_collection(lcb_INSTANCE *instance, const std::string &scope, const std::string &collection);
-
-    lcb_STATUS list_collections(lcb_INSTANCE *instance, const std::string &bucket);
-
-    bool generateCollections(lcb_INSTANCE *instance, int scopes, int collections);
-
-
-private:
-    Collections() {
+  private:
+    Collections()
+    {
         collectionsGenerated = false;
     }
 
     std::atomic<bool> collectionsGenerated;
 };
+} // namespace CBSdkd
 
-
-#endif //SDKD_CPP_COLLECTIONS_H
+#endif // SDKD_CPP_COLLECTIONS_H

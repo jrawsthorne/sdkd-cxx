@@ -262,10 +262,10 @@ Handle::connect(Error *errp)
 }
 
 bool Handle::generateCollections() {
-    // if(options.useCollections){
-    //     log_info("Creating collections.\n");
-    //     return collections->getInstance().generateCollections(instance, options.scopes, options.collections);
-    // }
+    if(options.useCollections){
+        log_info("Creating collections.\n");
+        return collections->getInstance().generateCollections(this, options.scopes, options.collections);
+    }
     return false;
 }
 

@@ -8,7 +8,7 @@
 #ifndef HANDLE_H_
 #define HANDLE_H_
 
-// #include "Collections.h"
+#include "Collections.h"
 
 #ifndef SDKD_INTERNAL_H_
 #error "include sdkd_internal.h first"
@@ -263,7 +263,7 @@ private:
     std::thread io_thread{};
     asio::io_context io{};
     couchbase::cluster cluster;
-    // Collections *collections;
+    Collections *collections;
 
     std::string certpath;
     void collect_result(ResultSet& rs);

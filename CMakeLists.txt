@@ -33,7 +33,7 @@ LIST(APPEND LD_DEPS
 
 SET(COMMON_SOURCES
     src/Control.cpp
-    #src/Collections.cpp
+    src/Collections.cpp
     src/Daemon.cpp
     src/Message.cpp
     src/Request.cpp
