@@ -208,19 +208,19 @@ WorkerDispatch::processRequest(const Request& req)
         break;
     }
 
-    // case Command::CB_VIEW_LOAD:
-    // {
-    //     ViewLoader vl = ViewLoader(cur_handle);
-    //     vl.populateViewData(req.command, *ds, rs, opts, req);
-    //     break;
-    // }
+    case Command::CB_VIEW_LOAD:
+    {
+        ViewLoader vl = ViewLoader(cur_handle);
+        vl.populateViewData(req.command, *ds, rs, opts, req);
+        break;
+    }
 
-    // case Command::CB_VIEW_QUERY:
-    // {
-    //     ViewExecutor ve = ViewExecutor(cur_handle);
-    //     ve.executeView(req.command, rs, opts, req);
-    //     break;
-    // }
+    case Command::CB_VIEW_QUERY:
+    {
+        ViewExecutor ve = ViewExecutor(cur_handle);
+        ve.executeView(req.command, rs, opts, req);
+        break;
+    }
 
     case Command::CB_N1QL_LOAD:
     {
