@@ -222,29 +222,6 @@ Handle::connect(Error *errp)
             return false;
         }
    }
-
-   // ping all nodes to work around defer issue CXXCBC-46
-   while (true)
-   {
-        auto barrier = std::make_shared<std::promise<couchbase::diag::ping_result>>();
-        auto f = barrier->get_future();
-        cluster.ping(
-          "my_report_id", {}, {couchbase::service_type::key_value}, [barrier](couchbase::diag::ping_result&& resp) mutable { barrier->set_value(std::move(resp)); });
-        auto resp = f.get();
-        bool ok = true;
-        for (const auto& [t, info] : resp.services) {
-            if (t == couchbase::service_type::key_value) {
-                for (const auto& i : info) {
-                    if ( i.state != couchbase::diag::ping_state::ok) {
-                        ok = false;
-                    }
-                }
-            }
-        }
-        if (ok) {
-            break;
-        }
-    }
     
     return true;
 }

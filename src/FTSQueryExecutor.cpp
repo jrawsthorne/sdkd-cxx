@@ -22,14 +22,14 @@ FTSQueryExecutor::runSearchOnPreloadedData(ResultSet& out, std::string& indexNam
 
     generator = (generator + 1) % (2 * kvCount);
 
-    tao::json::value query;
+    Json::Value query;
     std::string searchField =
       generator % 2 == 0 ? "SampleValue" + std::to_string(generator / 2) : "SampleSubvalue" + std::to_string(generator / 2);
     query["match"] = searchField;
 
     couchbase::operations::search_request req{};
     req.index_name = indexName;
-    req.query = query;
+    req.query = couchbase::json_string(Json::FastWriter().write(query));
     if (numOfCollections != 0) {
         req.collections = collectionsForSearch(numOfCollections);
     }
@@ -77,13 +77,13 @@ FTSQueryExecutor::runSearchUnderAtPlusConsistency(ResultSet& out, std::string& i
         }
     }
 
-    tao::json::value query;
+    Json::Value query;
     std::string searchField = match_term;
     query["match"] = searchField;
 
     couchbase::operations::search_request req{};
     req.index_name = indexName;
-    req.query = query;
+    req.query = couchbase::json_string(Json::FastWriter().write(query));
     if (numOfCollections != 0) {
         req.collections = collectionsForSearch(numOfCollections);
     }
