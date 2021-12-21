@@ -7,7 +7,6 @@
 #endif
 
 #include "sdkd_internal.h"
-#include <tao/json/value.hpp>
 
 namespace CBSdkd {
 using namespace std;
