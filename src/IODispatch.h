@@ -165,6 +165,10 @@ private:
     ResultSet *rs;
 
     Mutex *hmutex;
+
+    std::vector<std::thread> io_threads{};
+    asio::io_context io{};
+    std::shared_ptr<couchbase::cluster> cluster{};
 };
 
 } /* namespace CBSdkd */

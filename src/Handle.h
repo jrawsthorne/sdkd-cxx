@@ -162,32 +162,25 @@ private:
 
 class Handle : protected DebugContext {
 public:
-    virtual ~Handle();
 
-    Handle(const HandleOptions& options);
-
-    bool connect(Error *errp);
+    Handle(const HandleOptions& options, std::shared_ptr<couchbase::cluster> cluster);
 
     template<class Request>
     auto
     execute(Request request)
     {
-        using response_type = typename Request::response_type;
-        auto barrier = std::make_shared<std::promise<response_type>>();
-        auto f = barrier->get_future();
-        cluster.execute(request, [barrier](response_type resp) { barrier->set_value(std::move(resp)); });
+        auto f = execute_async(request);
         auto resp = f.get();
         return resp;
     }
 
     template<class Request>
-    auto
-    execute_async(Request request)
+    [[nodiscard]] auto execute_async(Request request)
     {
         using response_type = typename Request::response_type;
         auto barrier = std::make_shared<std::promise<response_type>>();
         auto f = barrier->get_future();
-        cluster.execute(request, [barrier](response_type resp) { barrier->set_value(std::move(resp)); });
+        cluster->execute(request, [barrier](response_type resp) { barrier->set_value(std::move(resp)); });
         return f;
     }
 
@@ -241,7 +234,7 @@ public:
         pending_errors.push_back(Error(err, desc));
     }
 
-    couchbase::cluster& getLcb() {
+    std::shared_ptr<couchbase::cluster>& getLcb() {
         return cluster;
     }
 
@@ -271,9 +264,7 @@ private:
     std::vector<ResultSet>pending_results;
     std::vector<Error>pending_errors;
 
-    std::thread io_thread{};
-    asio::io_context io{};
-    couchbase::cluster cluster;
+    std::shared_ptr<couchbase::cluster> cluster;
     Collections *collections;
 
     std::string certpath;

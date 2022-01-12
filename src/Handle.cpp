@@ -145,85 +145,10 @@ void Handle::VersionInfoJson(Json::Value &res) {
 } /* extern "C" */
 
 
-Handle::Handle(const HandleOptions& opts) :
+Handle::Handle(const HandleOptions& opts, std::shared_ptr<couchbase::cluster> cluster) :
         options(opts),
-        cluster(couchbase::cluster(io))
+        cluster(cluster)
 {
-    io_thread = std::thread([this]() { io.run(); });
-}
-
-
-Handle::~Handle() {
-
-     {
-        auto barrier = std::make_shared<std::promise<std::error_code>>();
-        auto f = barrier->get_future();
-        cluster.close_bucket(options.bucket, [barrier](std::error_code ec) mutable { barrier->set_value(ec); });
-        auto rc = f.get();
-   }
-
-    {
-        auto barrier = std::make_shared<std::promise<void>>();
-        auto f = barrier->get_future();
-        cluster.close([barrier]() { barrier->set_value(); });
-        f.get();
-   }
-
-    io_thread.join();
-
-    destroy_logger();
-
-}
-
-bool
-Handle::connect(Error *errp)
-{
-    // Gather parameters
-    std::string connstr;
-
-    if(options.useSSL) {
-        connstr += std::string("couchbases://") + options.hostname;
-        connstr += std::string("?certpath=");
-        connstr += std::string(options.certpath);
-        certpath = options.certpath;
-    } else {
-        connstr += std::string("couchbase://") + options.hostname;
-    }
-
-    create_logger(Daemon::MainDaemon->getOptions().lcblogFile);
-
-    auto cb_connstr = couchbase::utils::parse_connection_string(connstr);
-
-    couchbase::cluster_credentials auth{};
-    auth.username = options.username;
-    auth.password = options.password;
-    
-    auto origin = couchbase::origin(auth, cb_connstr);
-
-    {
-        auto barrier = std::make_shared<std::promise<std::error_code>>();
-        auto f = barrier->get_future();
-        cluster.open(origin, [barrier](std::error_code ec) mutable { barrier->set_value(ec); });
-        auto rc = f.get();
-        
-        if (rc) {
-            errp->errstr = rc.message();
-            return false;
-        }
-   }
-
-   {
-        auto barrier = std::make_shared<std::promise<std::error_code>>();
-        auto f = barrier->get_future();
-        cluster.open_bucket(options.bucket, [barrier](std::error_code ec) mutable { barrier->set_value(ec); });
-        auto rc = f.get();
-        if (rc) {
-            errp->errstr = rc.message();
-            return false;
-        }
-   }
-    
-    return true;
 }
 
 bool Handle::generateCollections() {

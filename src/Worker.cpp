@@ -12,6 +12,17 @@ WorkerDispatch::~WorkerDispatch()
     delete rs;
     delete hmutex;
     rs = NULL;
+
+    if (cluster) {
+        auto barrier = std::make_shared<std::promise<void>>();
+        auto f = barrier->get_future();
+        cluster->close([barrier]() { barrier->set_value(); });
+        f.get();
+    }
+
+    for (auto& t : io_threads) {
+        t.join();
+    }
 }
 
 WorkerDispatch::WorkerDispatch(sdkd_socket_t newsock, MainDispatch *parent)
@@ -26,6 +37,10 @@ WorkerDispatch::WorkerDispatch(sdkd_socket_t newsock, MainDispatch *parent)
     setLogPrefix(ss.str());
     hmutex = Mutex::Create();
     rs = new ResultSet(g_pFactor);
+    cluster = std::make_shared<couchbase::cluster>(io);
+    for (int i = 0; i < 4; i++) {
+        io_threads.emplace_back(std::thread([this]() { io.run(); }));
+    }
 }
 
 bool
@@ -46,14 +61,61 @@ WorkerDispatch::initializeHandle(const Request &req)
         goto GT_ERR;
     }
 
-    cur_handle = new Handle(hOpts);
+    // create cluster if doesn't exist
+    if (!cluster) {
+        // Gather parameters
+        std::string connstr;
+
+        if (hOpts.useSSL) {
+            connstr += std::string("couchbases://") + hOpts.hostname;
+            connstr += std::string("?certpath=");
+            connstr += std::string(hOpts.certpath);
+        } else {
+            connstr += std::string("couchbase://") + hOpts.hostname;
+        }
+
+        create_logger(Daemon::MainDaemon->getOptions().lcblogFile);
+
+        auto cb_connstr = couchbase::utils::parse_connection_string(connstr);
+
+        couchbase::cluster_credentials auth{};
+        auth.username = hOpts.username;
+        auth.password = hOpts.password;
+
+        auto origin = couchbase::origin(auth, cb_connstr);
+
+        std::error_code ec{};
+
+        {
+            auto barrier = std::make_shared<std::promise<std::error_code>>();
+            auto f = barrier->get_future();
+            cluster->open(origin, [barrier](std::error_code ec) mutable { barrier->set_value(ec); });
+            ec = f.get();
+
+            if (ec) {
+                err.errstr = ec.message();
+            }
+        }
+
+        if (!ec) {
+            auto barrier = std::make_shared<std::promise<std::error_code>>();
+            auto f = barrier->get_future();
+            cluster->open_bucket(hOpts.bucket, [barrier](std::error_code ec) mutable { barrier->set_value(ec); });
+            ec = f.get();
+            if (ec) {
+                err.errstr = ec.message();
+            }
+        }
+    }
+
+    cur_handle = new Handle(hOpts, cluster);
     cur_hid = req.handle_id;
     cur_handle->hid =  cur_hid;
 
     parent->registerWDHandle(cur_hid, this);
-    if (!cur_handle->connect(&err)) {
-        log_error("Couldn't establish initial LCB connection");
-    }
+    // if (!cur_handle->connect(&err)) {
+    //     log_error("Couldn't establish initial LCB connection");
+    // }
     if(!cur_handle->generateCollections()) {
         log_info("Didn't create collections"); //Not a collections test || Already created collections || Creation failed
     }
