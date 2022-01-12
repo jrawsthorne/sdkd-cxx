@@ -19,7 +19,8 @@ ViewLoader::flushValues(ResultSet& rs)
         auto collection = handle->getCollection(value.key);
         couchbase::document_id id(handle->options.bucket, collection.first, collection.second, value.key);
         couchbase::operations::upsert_request req{ id, value.value };
-        handle->execute_async(req);
+        auto f = handle->execute_async(req);
+        futures.emplace_back(std::move(f));
     }
     for (auto& future : futures) {
         auto resp = future.get();
