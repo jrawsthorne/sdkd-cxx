@@ -169,6 +169,7 @@ private:
     std::vector<std::thread> io_threads{};
     asio::io_context io{};
     std::shared_ptr<couchbase::cluster> cluster{};
+    bool cluster_initialized{ false };
 };
 
 } /* namespace CBSdkd */

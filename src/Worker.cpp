@@ -13,7 +13,7 @@ WorkerDispatch::~WorkerDispatch()
     delete hmutex;
     rs = NULL;
 
-    if (cluster) {
+    {
         auto barrier = std::make_shared<std::promise<void>>();
         auto f = barrier->get_future();
         cluster->close([barrier]() { barrier->set_value(); });
@@ -29,7 +29,8 @@ WorkerDispatch::WorkerDispatch(sdkd_socket_t newsock, MainDispatch *parent)
 : IODispatch(),
   parent(parent),
   cur_handle(NULL),
-  cur_hid(0)
+  cur_hid(0),
+  cluster(std::make_shared<couchbase::cluster>(io))
 {
     sockfd = newsock;
     stringstream ss;
@@ -37,7 +38,6 @@ WorkerDispatch::WorkerDispatch(sdkd_socket_t newsock, MainDispatch *parent)
     setLogPrefix(ss.str());
     hmutex = Mutex::Create();
     rs = new ResultSet(g_pFactor);
-    cluster = std::make_shared<couchbase::cluster>(io);
     for (int i = 0; i < 4; i++) {
         io_threads.emplace_back(std::thread([this]() { io.run(); }));
     }
@@ -62,7 +62,7 @@ WorkerDispatch::initializeHandle(const Request &req)
     }
 
     // create cluster if doesn't exist
-    if (!cluster) {
+    if (!cluster_initialized) {
         // Gather parameters
         std::string connstr;
 
@@ -106,6 +106,8 @@ WorkerDispatch::initializeHandle(const Request &req)
                 err.errstr = ec.message();
             }
         }
+
+        cluster_initialized = true;
     }
 
     cur_handle = new Handle(hOpts, cluster);
