@@ -1,5 +1,5 @@
-cmake_minimum_required(VERSION 2.4)
-project(sdkd_cpp)
+cmake_minimum_required(VERSION 3.17)
+project(sdkd_cxx)
 
 IF(NOT CMAKE_INSTALL_PREFIX)
     SET(DESTDIR inst)
@@ -17,7 +17,6 @@ set(CLIOPTS_ROOT ${CONTRIB_ROOT}/cliopts)
 
 INCLUDE_DIRECTORIES(
     ${SOURCE_ROOT}
-    ${JSONSL_ROOT}
     ${JSONCPP_ROOT}/dist
     ${CLIOPTS_ROOT}
     ${CXX_ROOT})
@@ -64,7 +63,6 @@ SET(COMMON_SOURCES
     src/sockutil.c
 
     ${CONTRIB_ROOT}/debug.c
-    ${JSONSL_ROOT}/jsonsl.c
     ${CLIOPTS_ROOT}/cliopts.c
     ${JSONCPP_ROOT}/dist/jsoncpp.cpp)
 
@@ -105,10 +103,10 @@ ENDIF()
 #SET(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${COMMON_FLAGS}")
 #SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${COMMON_FLAGS}")
 
-ADD_EXECUTABLE(sdkd_lcb ${COMMON_SOURCES} src/Main.cpp)
+ADD_EXECUTABLE(sdkd_cxx ${COMMON_SOURCES} src/Main.cpp)
 ADD_EXECUTABLE(ds_test ${COMMON_SOURCES} src/DSTest.cpp)
 
-TARGET_LINK_LIBRARIES(sdkd_lcb ${LD_DEPS})
+TARGET_LINK_LIBRARIES(sdkd_cxx ${LD_DEPS})
 TARGET_LINK_LIBRARIES(ds_test ${LD_DEPS})
 IF(${WIN32})
     # Copy the DLL
@@ -120,5 +118,5 @@ IF(${WIN32})
         ENDIF()
     ENDFOREACH()
 ELSE()
-    INSTALL(TARGETS sdkd_lcb RUNTIME DESTINATION bin)
+    INSTALL(TARGETS sdkd_cxx RUNTIME DESTINATION bin)
 ENDIF()

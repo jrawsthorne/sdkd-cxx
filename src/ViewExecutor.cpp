@@ -47,6 +47,8 @@ ViewExecutor::executeView(Command cmd, ResultSet& out, const ResultOptions& opti
         request.view_name = vname;
         request.limit = limit;
         request.skip = skip;
+        // need to specify because of CXXCBC-88
+        request.name_space = couchbase::operations::design_document::name_space::production;
 
         auto resp = handle->execute(request);
 

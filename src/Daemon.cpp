@@ -30,6 +30,8 @@ Daemon::Daemon(const DaemonOptions& userOptions)
 
     initDebugSettings();
 
+    create_logger(myOptions.lcblogFile);
+
     // SDKD_INIT_VIEWS();
     SDKD_INIT_WORKER_GLOBALS();
 
@@ -45,6 +47,7 @@ Daemon::~Daemon()
     if (myOptions.portFile != NULL) {
         remove(myOptions.portFile);
     }
+    destroy_logger();
 }
 
 void

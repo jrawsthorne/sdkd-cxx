@@ -74,8 +74,6 @@ WorkerDispatch::initializeHandle(const Request &req)
             connstr += std::string("couchbase://") + hOpts.hostname;
         }
 
-        create_logger(Daemon::MainDaemon->getOptions().lcblogFile);
-
         auto cb_connstr = couchbase::utils::parse_connection_string(connstr);
 
         couchbase::cluster_credentials auth{};
