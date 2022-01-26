@@ -19,7 +19,7 @@ public:
     }
     virtual ~SDLoader() {}
 
-    bool populate(const Dataset& ds, ResultSet& rs, const ResultOptions& options);
+    bool populate(const Dataset& ds);
 
 private:
     Handle* handle;

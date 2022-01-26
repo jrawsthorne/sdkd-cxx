@@ -184,6 +184,25 @@ public:
         return f;
     }
 
+    template<class Request>
+    [[nodiscard]] std::future<std::error_code> execute_async_ec(Request request)
+    {
+        using response_type = typename Request::response_type;
+        auto barrier = std::make_shared<std::promise<std::error_code>>();
+        auto f = barrier->get_future();
+        cluster->execute(request, [barrier](response_type resp) { barrier->set_value(std::move(resp.ctx.ec)); });
+        return f;
+    }
+
+    template<class Handler>
+    void drainPendingFutures(Handler handler) {
+        for (auto &f : pending_futures) {
+            auto ec = f.get();
+            handler(ec);
+        }
+        pending_futures.clear();
+    }
+
     bool
     dsGet(Command cmd,
           Dataset const& ds, ResultSet& out,
@@ -257,6 +276,8 @@ public:
 
     bool generateCollections();
     std::pair<string, string> getCollection(std::string key);
+
+    std::vector<std::future<std::error_code>> pending_futures{};
 
 private:
     bool do_cancel;

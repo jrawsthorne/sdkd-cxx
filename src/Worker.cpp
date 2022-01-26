@@ -266,7 +266,7 @@ WorkerDispatch::processRequest(const Request& req)
 
     case Command::MC_DS_SD_LOAD: {
         SDLoader sdLoader = SDLoader(cur_handle);
-        sdLoader.populate(*ds, rs, opts);
+        sdLoader.populate(*ds);
         break;
     }
 

@@ -2,14 +2,11 @@
 
 namespace CBSdkd
 {
-
 bool
-SDLoader::populate(const Dataset& ds, ResultSet& out, const ResultOptions& opts)
+SDLoader::populate(const Dataset& ds)
 {
-    out.options = opts;
-    out.clear();
-
     DatasetIterator* iter = ds.getIter();
+    int batch = 100;
     int jj = 0;
 
     for (jj = 0, iter->start(); iter->done() == false; iter->advance(), jj++) {
@@ -20,11 +17,18 @@ SDLoader::populate(const Dataset& ds, ResultSet& out, const ResultOptions& opts)
         couchbase::document_id id(handle->options.bucket, collection.first, collection.second, k);
 
         couchbase::operations::upsert_request req{ id, v };
-        auto resp = handle->execute(req);
-        if (resp.ctx.ec) {
-            return false;
+        handle->pending_futures.emplace_back(handle->execute_async_ec(req));
+
+        if (jj % batch == 0) {
+            bool ok = false;
+            handle->drainPendingFutures([&ok](std::error_code ec) { ok = ok && !ec; });
+            if (!ok) {
+                return false;
+            }
         }
     }
+
+    handle->drainPendingFutures([](std::error_code ec) {});
 
     delete iter;
     return true;

@@ -171,6 +171,8 @@ Handle::collect_result(ResultSet& rs)
     if (!rs.remaining) {
         return;
     }
+
+    drainPendingFutures([&rs](std::error_code ec) { rs.setRescode(ec); });
 }
 
 bool
@@ -187,45 +189,37 @@ Handle::postsubmit(ResultSet& rs, unsigned int nsubmit)
         return true;
     }
 
+    drainPendingFutures([&rs](std::error_code ec) { rs.setRescode(ec); });
+
     unsigned int wait_msec = rs.options.getDelay();
 
     if (wait_msec) {
         sdkd_millisleep(wait_msec);
     }
 
-    // if (Daemon::MainDaemon->getOptions().noPersist) {
-    //     // lcb_destroy(instance);
-    //     Error e;
-    //     connect(&e);
-    // }
     return false;
 }
 
 bool
-Handle::dsGet(Command cmd, Dataset const &ds, ResultSet& out,
-              const ResultOptions& options)
+Handle::dsGet(Command cmd, Dataset const& ds, ResultSet& out, const ResultOptions& options)
 {
     out.options = options;
     out.clear();
     do_cancel = false;
 
     DatasetIterator* iter = ds.getIter();
-    for (iter->start();
-            iter->done() == false && do_cancel == false;
-            iter->advance()) {
+    for (iter->start(); iter->done() == false && do_cancel == false; iter->advance()) {
 
         std::string k = iter->key();
 
-        std::pair<string,string> collection = getCollection(k);
+        std::pair<string, string> collection = getCollection(k);
 
-        {
-            couchbase::document_id id(this->options.bucket, collection.first, collection.second, k);
-            couchbase::operations::get_request req{ id };
-            out.markBegin();
-            postsubmit(out);
-            auto resp = execute(req);
-            out.setRescode(resp.ctx.ec, k.c_str(), k.size());
-        }
+        couchbase::document_id id(this->options.bucket, collection.first, collection.second, k);
+        couchbase::operations::get_request req{ id };
+
+        out.markBegin();
+        pending_futures.emplace_back(execute_async_ec(req));
+        postsubmit(out);
     }
 
     delete iter;
@@ -234,72 +228,56 @@ Handle::dsGet(Command cmd, Dataset const &ds, ResultSet& out,
 }
 
 bool
-Handle::dsMutate(Command cmd, const Dataset& ds, ResultSet& out,
-                 const ResultOptions& options)
+Handle::dsMutate(Command cmd, const Dataset& ds, ResultSet& out, const ResultOptions& options)
 {
     out.options = options;
     out.clear();
     do_cancel = false;
 
-    if (cmd != Command::MC_DS_MUTATE_ADD &&
-        cmd != Command::MC_DS_MUTATE_SET &&
-        cmd != Command::MC_DS_MUTATE_REPLACE &&
-        cmd != Command::MC_DS_MUTATE_APPEND &&
-        cmd != Command::MC_DS_MUTATE_PREPEND) {
-        out.oper_error = Error(Error::SUBSYSf_SDKD,
-                               Error::SDKD_EINVAL,
-                               "Unknown mutation operation");
+    if (cmd != Command::MC_DS_MUTATE_ADD && cmd != Command::MC_DS_MUTATE_SET && cmd != Command::MC_DS_MUTATE_REPLACE &&
+        cmd != Command::MC_DS_MUTATE_APPEND && cmd != Command::MC_DS_MUTATE_PREPEND) {
+        out.oper_error = Error(Error::SUBSYSf_SDKD, Error::SDKD_EINVAL, "Unknown mutation operation");
         return false;
     }
 
     auto exp = out.options.expiry;
-    DatasetIterator *iter = ds.getIter();
+    DatasetIterator* iter = ds.getIter();
 
-    for (iter->start();
-            iter->done() == false && do_cancel == false;
-            iter->advance()) {
+    for (iter->start(); iter->done() == false && do_cancel == false; iter->advance()) {
 
         std::string k = iter->key();
         std::string v = iter->value();
 
-        std::pair<string,string> collection = getCollection(k);
+        std::pair<string, string> collection = getCollection(k);
 
         couchbase::document_id id(this->options.bucket, collection.first, collection.second, k);
 
         out.markBegin();
-        postsubmit(out);
-        std::error_code ec;
 
         if (cmd == Command::MC_DS_MUTATE_SET) {
             couchbase::operations::upsert_request req{ id, v };
             req.expiry = exp;
             req.flags = FLAGS;
-            auto resp = execute(req);
-            ec = resp.ctx.ec;
+            pending_futures.emplace_back(execute_async_ec(req));
         } else if (cmd == Command::MC_DS_MUTATE_ADD) {
             couchbase::operations::insert_request req{ id, v };
             req.expiry = exp;
             req.flags = FLAGS;
-            auto resp = execute(req);
-            ec = resp.ctx.ec;
+            pending_futures.emplace_back(execute_async_ec(req));
         } else if (cmd == Command::MC_DS_MUTATE_APPEND) {
             couchbase::operations::append_request req{ id, v };
-            auto resp = execute(req);
-            ec = resp.ctx.ec;
+            pending_futures.emplace_back(execute_async_ec(req));
         } else if (cmd == Command::MC_DS_MUTATE_PREPEND) {
             couchbase::operations::prepend_request req{ id, v };
-            auto resp = execute(req);
-            ec = resp.ctx.ec;
+            pending_futures.emplace_back(execute_async_ec(req));
         } else if (cmd == Command::MC_DS_MUTATE_REPLACE) {
             couchbase::operations::replace_request req{ id, v };
             req.expiry = exp;
             req.flags = FLAGS;
-            auto resp = execute(req);
-            ec = resp.ctx.ec;
+            pending_futures.emplace_back(execute_async_ec(req));
         }
 
-        out.setRescode(ec, k.c_str(), k.length());
-
+        postsubmit(out);
     }
     delete iter;
     collect_result(out);
@@ -433,41 +411,32 @@ Handle::dsMutate(Command cmd, const Dataset& ds, ResultSet& out,
 //     return true;
 // }
 
-
-
 bool
-Handle::dsKeyop(Command cmd, const Dataset& ds, ResultSet& out,
-                const ResultOptions& options)
+Handle::dsKeyop(Command cmd, const Dataset& ds, ResultSet& out, const ResultOptions& options)
 {
     out.options = options;
     out.clear();
-    DatasetIterator *iter = ds.getIter();
+    DatasetIterator* iter = ds.getIter();
     do_cancel = false;
 
-    for (iter->start();
-            iter->done() == false && do_cancel == false;
-            iter->advance()) {
+    for (iter->start(); iter->done() == false && do_cancel == false; iter->advance()) {
 
         std::string k = iter->key();
-        std::pair<string,string> collection = getCollection(k);
+        std::pair<string, string> collection = getCollection(k);
 
         couchbase::document_id id(this->options.bucket, collection.first, collection.second, k);
 
         out.markBegin();
-        postsubmit(out);
-        std::error_code ec;
 
         if (cmd == Command::MC_DS_DELETE) {
             couchbase::operations::remove_request req{ id };
-            auto resp = execute(req);
-            ec = resp.ctx.ec;
+            pending_futures.emplace_back(execute_async_ec(req));
         } else {
             couchbase::operations::touch_request req{ id };
-            auto resp = execute(req);
-            ec = resp.ctx.ec;
+            pending_futures.emplace_back(execute_async_ec(req));
         }
 
-        out.setRescode(ec, k.c_str(), k.length());
+        postsubmit(out);
     }
     delete iter;
     collect_result(out);
@@ -491,53 +460,43 @@ Handle::dsSDSinglePath(Command c, const Dataset& ds, ResultSet& out, const Resul
         couchbase::document_id id(this->options.bucket, collection.first, collection.second, key);
 
         out.markBegin();
-        postsubmit(out);
-        std::error_code ec;
 
         if (command == "get") {
             couchbase::operations::lookup_in_request req{ id };
             req.specs.add_spec(couchbase::protocol::subdoc_opcode::get, false, path);
-            auto resp = execute(req);
-            ec = resp.ctx.ec;
+            pending_futures.emplace_back(execute_async_ec(req));
         } else if (command == "get_multi") {
             couchbase::operations::lookup_in_request req{ id };
             req.specs.add_spec(couchbase::protocol::subdoc_opcode::get, false, path);
             req.specs.add_spec(couchbase::protocol::subdoc_opcode::exists, false, path);
-            auto resp = execute(req);
-            ec = resp.ctx.ec;
+            pending_futures.emplace_back(execute_async_ec(req));
         } else if (command == "replace") {
             couchbase::operations::mutate_in_request req{ id };
             req.specs.add_spec(couchbase::protocol::subdoc_opcode::replace, false, false, false, path, value);
-            auto resp = execute(req);
-            ec = resp.ctx.ec;
+            pending_futures.emplace_back(execute_async_ec(req));
         } else if (command == "dict_add") {
             couchbase::operations::mutate_in_request req{ id };
             req.specs.add_spec(couchbase::protocol::subdoc_opcode::dict_add, false, false, false, path, value);
-            auto resp = execute(req);
-            ec = resp.ctx.ec;
+            pending_futures.emplace_back(execute_async_ec(req));
         } else if (command == "dict_upsert") {
             couchbase::operations::mutate_in_request req{ id };
             req.specs.add_spec(couchbase::protocol::subdoc_opcode::dict_upsert, false, false, false, path, value);
-            auto resp = execute(req);
-            ec = resp.ctx.ec;
+            pending_futures.emplace_back(execute_async_ec(req));
         } else if (command == "array_add") {
             couchbase::operations::mutate_in_request req{ id };
             req.specs.add_spec(couchbase::protocol::subdoc_opcode::array_push_first, false, false, false, path, value);
-            auto resp = execute(req);
-            ec = resp.ctx.ec;
+            pending_futures.emplace_back(execute_async_ec(req));
         } else if (command == "array_add_last") {
             couchbase::operations::mutate_in_request req{ id };
             req.specs.add_spec(couchbase::protocol::subdoc_opcode::array_push_last, false, false, false, path, value);
-            auto resp = execute(req);
-            ec = resp.ctx.ec;
+            pending_futures.emplace_back(execute_async_ec(req));
         } else if (command == "counter") {
             couchbase::operations::mutate_in_request req{ id };
             req.specs.add_spec(couchbase::protocol::subdoc_opcode::counter, false, false, false, path, value);
-            auto resp = execute(req);
-            ec = resp.ctx.ec;
+            pending_futures.emplace_back(execute_async_ec(req));
         }
 
-        out.setRescode(ec, key.c_str(), key.length());
+        postsubmit(out);
     }
 
     delete iter;
