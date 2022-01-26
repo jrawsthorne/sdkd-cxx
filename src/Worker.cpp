@@ -12,25 +12,13 @@ WorkerDispatch::~WorkerDispatch()
     delete rs;
     delete hmutex;
     rs = NULL;
-
-    {
-        auto barrier = std::make_shared<std::promise<void>>();
-        auto f = barrier->get_future();
-        cluster->close([barrier]() { barrier->set_value(); });
-        f.get();
-    }
-
-    for (auto& t : io_threads) {
-        t.join();
-    }
 }
 
 WorkerDispatch::WorkerDispatch(sdkd_socket_t newsock, MainDispatch *parent)
 : IODispatch(),
   parent(parent),
   cur_handle(NULL),
-  cur_hid(0),
-  cluster(std::make_shared<couchbase::cluster>(io))
+  cur_hid(0)
 {
     sockfd = newsock;
     stringstream ss;
@@ -38,9 +26,6 @@ WorkerDispatch::WorkerDispatch(sdkd_socket_t newsock, MainDispatch *parent)
     setLogPrefix(ss.str());
     hmutex = Mutex::Create();
     rs = new ResultSet(g_pFactor);
-    for (int i = 0; i < 4; i++) {
-        io_threads.emplace_back(std::thread([this]() { io.run(); }));
-    }
 }
 
 bool
@@ -62,7 +47,7 @@ WorkerDispatch::initializeHandle(const Request &req)
     }
 
     // create cluster if doesn't exist
-    if (!cluster_initialized) {
+    {
         // Gather parameters
         std::string connstr;
 
@@ -82,33 +67,15 @@ WorkerDispatch::initializeHandle(const Request &req)
 
         auto origin = couchbase::origin(auth, cb_connstr);
 
-        std::error_code ec{};
+        auto ec = parent->ensureCluster(origin, hOpts.bucket);
 
-        {
-            auto barrier = std::make_shared<std::promise<std::error_code>>();
-            auto f = barrier->get_future();
-            cluster->open(origin, [barrier](std::error_code ec) mutable { barrier->set_value(ec); });
-            ec = f.get();
-
-            if (ec) {
-                err.errstr = ec.message();
-            }
+        if (ec) {
+            err.errstr = ec.message();
+            goto GT_ERR;
         }
-
-        if (!ec) {
-            auto barrier = std::make_shared<std::promise<std::error_code>>();
-            auto f = barrier->get_future();
-            cluster->open_bucket(hOpts.bucket, [barrier](std::error_code ec) mutable { barrier->set_value(ec); });
-            ec = f.get();
-            if (ec) {
-                err.errstr = ec.message();
-            }
-        }
-
-        cluster_initialized = true;
     }
 
-    cur_handle = new Handle(hOpts, cluster);
+    cur_handle = new Handle(hOpts, parent->getCluster());
     cur_hid = req.handle_id;
     cur_handle->hid =  cur_hid;
 

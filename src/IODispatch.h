@@ -105,7 +105,10 @@ public:
     const Dataset* getDatasetById(const std::string& dsid);
     std::string uploadLogs(Json::Value payload);
 
-private:
+    std::error_code ensureCluster(couchbase::origin origin, const std::string& bucket);
+    std::shared_ptr<couchbase::cluster> getCluster();
+
+  private:
     sdkd_socket_t acceptfd;
 
     void create_new_ds(const Request* req);
@@ -129,6 +132,11 @@ private:
     bool dispatchCommand(Request*);
     bool isCollectingStats;
     UsageCollector *coll;
+
+    std::vector<std::thread> io_threads{};
+    asio::io_context io{};
+    std::shared_ptr<couchbase::cluster> cluster{};
+    bool cluster_initialized{ false };
 };
 
 
@@ -165,11 +173,6 @@ private:
     ResultSet *rs;
 
     Mutex *hmutex;
-
-    std::vector<std::thread> io_threads{};
-    asio::io_context io{};
-    std::shared_ptr<couchbase::cluster> cluster{};
-    bool cluster_initialized{ false };
 };
 
 } /* namespace CBSdkd */

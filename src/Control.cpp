@@ -1,13 +1,20 @@
 #include "sdkd_internal.h"
 
-namespace CBSdkd {
+namespace CBSdkd
+{
 
-MainDispatch::MainDispatch() : IODispatch(), acceptfd(-1)
+MainDispatch::MainDispatch()
+  : IODispatch()
+  , acceptfd(-1)
+  , cluster(std::make_shared<couchbase::cluster>(io))
 {
     setLogPrefix("LCB SDKD Control");
     dsmutex = Mutex::Create();
     wmutex = Mutex::Create();
     isCollectingStats = false;
+    for (int i = 0; i < 4; i++) {
+        io_threads.emplace_back(std::thread([this]() { io.run(); }));
+    }
 }
 
 MainDispatch::~MainDispatch()
@@ -25,6 +32,17 @@ MainDispatch::~MainDispatch()
             (*iter)->cancelCurrentHandle();
         }
         _collect_workers();
+    }
+
+    {
+        auto barrier = std::make_shared<std::promise<void>>();
+        auto f = barrier->get_future();
+        cluster->close([barrier]() { barrier->set_value(); });
+        f.get();
+    }
+
+    for (auto& t : io_threads) {
+        t.join();
     }
 
     delete wmutex;
@@ -45,6 +63,43 @@ MainDispatch::unregisterWDHandle(cbsdk_hid_t id)
     wmutex->lock();
     h2wmap.erase(id);
     wmutex->unlock();
+}
+
+std::error_code
+MainDispatch::ensureCluster(couchbase::origin origin, const std::string& bucket) {
+    wmutex->lock();
+    if (cluster_initialized) {
+        wmutex->unlock();
+        return {};
+    }
+
+    std::error_code ec{};
+
+    {
+        auto barrier = std::make_shared<std::promise<std::error_code>>();
+        auto f = barrier->get_future();
+        cluster->open(origin, [barrier](std::error_code ec) mutable { barrier->set_value(ec); });
+        ec = f.get();
+    }
+
+    if (!ec) {
+        auto barrier = std::make_shared<std::promise<std::error_code>>();
+        auto f = barrier->get_future();
+        cluster->open_bucket(bucket, [barrier](std::error_code ec) mutable { barrier->set_value(ec); });
+        ec = f.get();
+    }
+
+    if (!ec) {
+        cluster_initialized = true;
+    }
+
+    wmutex->unlock();
+
+    return ec;
+}
+
+std::shared_ptr<couchbase::cluster> MainDispatch::getCluster() {
+    return cluster;
 }
 
 bool
@@ -336,4 +391,4 @@ MainDispatch::uploadLogs(Json::Value payload) {
     return std::string(urlbuf);
 }
 
-}
+} // namespace CBSdkd
