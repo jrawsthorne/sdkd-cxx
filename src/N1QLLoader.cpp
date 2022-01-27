@@ -20,7 +20,7 @@ N1QLLoader::populate(const Dataset& ds)
         handle->pending_futures.emplace_back(handle->execute_async_ec(req));
 
         if (jj % batch == 0) {
-            bool ok = false;
+            bool ok = true;
             handle->drainPendingFutures([&ok](std::error_code ec) { ok = ok && !ec; });
             if (!ok) {
                 return false;
