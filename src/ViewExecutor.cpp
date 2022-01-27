@@ -41,6 +41,8 @@ ViewExecutor::executeView(Command cmd, ResultSet& out, const ResultOptions& opti
 
         rs->markBegin();
 
+        std::vector<std::string> rows{};
+
         couchbase::operations::document_view_request request{};
         request.bucket_name = handle->options.bucket;
         request.document_name = dname;
@@ -49,6 +51,10 @@ ViewExecutor::executeView(Command cmd, ResultSet& out, const ResultOptions& opti
         request.skip = skip;
         // need to specify because of CXXCBC-88
         request.name_space = couchbase::operations::design_document::name_space::production;
+        request.row_callback = [&rows](std::string&& row) {
+            rows.emplace_back(std::move(row));
+            return couchbase::utils::json::stream_control::next_row;
+        };
 
         auto resp = handle->execute(request);
 

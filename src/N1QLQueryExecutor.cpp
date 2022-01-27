@@ -1,11 +1,11 @@
 #include "sdkd_internal.h"
 
-
-namespace CBSdkd {
+namespace CBSdkd
+{
 
 bool
-N1QLQueryExecutor::insertDoc(std::vector<std::string> &params,
-        std::vector<std::string> &paramValues) {
+N1QLQueryExecutor::insertDoc(std::vector<std::string>& params, std::vector<std::string>& paramValues)
+{
 
     std::vector<std::string>::iterator pit = params.begin();
     std::vector<std::string>::iterator vit = paramValues.begin();
@@ -13,7 +13,7 @@ N1QLQueryExecutor::insertDoc(std::vector<std::string> &params,
     Json::Value doc;
     doc["id"] = std::to_string(handle->hid);
 
-    for(;pit<params.end(); pit++, vit++) {
+    for (; pit < params.end(); pit++, vit++) {
         doc[*pit] = *vit;
     }
 
@@ -22,7 +22,7 @@ N1QLQueryExecutor::insertDoc(std::vector<std::string> &params,
     pair<string, string> collection = handle->getCollection(key);
 
     couchbase::document_id id(handle->options.bucket, collection.first, collection.second, key);
-    couchbase::operations::upsert_request req{ id, val};
+    couchbase::operations::upsert_request req{ id, val };
     auto resp = handle->execute(req);
 
     if (resp.ctx.ec) {
@@ -33,12 +33,9 @@ N1QLQueryExecutor::insertDoc(std::vector<std::string> &params,
     }
 }
 
-
 bool
-N1QLQueryExecutor::execute(Command cmd,
-                          ResultSet& out,
-                          const ResultOptions& options,
-                          const Request& req) {
+N1QLQueryExecutor::execute(Command cmd, ResultSet& out, const ResultOptions& options, const Request& req)
+{
 
     int iterdelay = req.payload[CBSDKD_MSGFLD_HANDLE_OPTIONS][CBSDKD_MSGFLD_V_QDELAY].asInt();
     std::string consistency = req.payload[CBSDKD_MSGFLD_NQ_SCANCONSISTENCY].asString();
@@ -49,7 +46,7 @@ N1QLQueryExecutor::execute(Command cmd,
     std::string flexStr = req.payload[CBSDKD_MSGFLD_NQ_FLEX].asString();
     bool prepared, flex;
     istringstream(preparedStr) >> std::boolalpha >> prepared;
-    istringstream(flexStr) >> std:: boolalpha >> flex;
+    istringstream(flexStr) >> std::boolalpha >> flex;
 
     std::string scope = "0";
     std::string collection = "0";
@@ -69,7 +66,7 @@ N1QLQueryExecutor::execute(Command cmd,
 
     handle->externalEnter();
 
-    while(!handle->isCancelled()) {
+    while (!handle->isCancelled()) {
         out.query_resp_count = 0;
         paramValues.pop_back();
         paramValues.push_back(std::to_string(ii));
@@ -78,18 +75,18 @@ N1QLQueryExecutor::execute(Command cmd,
         out.scan_consistency = scanConsistency;
 
         std::string q = std::string("select * from `") + this->handle->options.bucket.c_str() + "`";
-        if(handle->options.useCollections){
+        if (handle->options.useCollections) {
             q = std::string("select * from `") + collection + "`";
         }
 
-        if (indexType == "secondary")  {
+        if (indexType == "secondary") {
             q += std::string(" where ");
             bool isFirst = true;
             std::vector<std::string>::iterator pit = params.begin();
             std::vector<std::string>::iterator vit = paramValues.begin();
 
-            for(;pit != params.end(); pit++, vit++) {
-                if(!isFirst) {
+            for (; pit != params.end(); pit++, vit++) {
+                if (!isFirst) {
                     q += std::string(" and ");
                 } else {
                     isFirst = false;
@@ -100,34 +97,37 @@ N1QLQueryExecutor::execute(Command cmd,
 
         out.markBegin();
 
+        std::vector<std::string> rows{};
 
         couchbase::operations::query_request request{};
         request.adhoc = !prepared;
         request.flex_index = flex;
         request.bucket_name = handle->options.bucket;
         request.statement = q;
+        request.row_callback = [&rows](std::string&& row) {
+            rows.emplace_back(std::move(row));
+            return couchbase::utils::json::stream_control::next_row;
+        };
 
-        if(handle->options.useCollections){
+        if (handle->options.useCollections) {
             request.scope_name = scope;
         }
 
-        if (scanConsistency ==  "request_plus") {
+        if (scanConsistency == "request_plus") {
             request.scan_consistency = couchbase::operations::query_request::scan_consistency_type::request_plus;
         } else if (scanConsistency == "at_plus") {
-          request.mutation_state = mutation_tokens;
+            request.mutation_state = mutation_tokens;
         } else {
             request.scan_consistency = couchbase::operations::query_request::scan_consistency_type::not_bounded;
         }
-        
+
         auto resp = handle->execute(request);
 
-        out.query_resp_count = resp.payload.rows.size();
+        out.query_resp_count = rows.size();
         out.setRescode(resp.ctx.ec, true);
 
         ii++;
     }
     return true;
 }
-}
-
-
+} // namespace CBSdkd

@@ -27,16 +27,22 @@ FTSQueryExecutor::runSearchOnPreloadedData(ResultSet& out, std::string& indexNam
       generator % 2 == 0 ? "SampleValue" + std::to_string(generator / 2) : "SampleSubvalue" + std::to_string(generator / 2);
     query["match"] = searchField;
 
+    std::vector<std::string> rows{};
+
     couchbase::operations::search_request req{};
     req.index_name = indexName;
     req.query = couchbase::json_string(Json::FastWriter().write(query));
     if (numOfCollections != 0) {
         req.collections = collectionsForSearch(numOfCollections);
     }
+    req.row_callback = [&rows](std::string&& row) {
+        rows.emplace_back(std::move(row));
+        return couchbase::utils::json::stream_control::next_row;
+    };
 
     auto resp = handle->execute(req);
 
-    out.fts_query_resp_count = resp.rows.size();
+    out.fts_query_resp_count = rows.size();
 
     return resp.ctx.ec;
 }
