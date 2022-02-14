@@ -6,7 +6,7 @@ namespace CBSdkd
 MainDispatch::MainDispatch()
   : IODispatch()
   , acceptfd(-1)
-  , cluster(std::make_shared<couchbase::cluster>(io))
+  , cluster(couchbase::cluster::create(io))
 {
     setLogPrefix("LCB SDKD Control");
     dsmutex = Mutex::Create();
