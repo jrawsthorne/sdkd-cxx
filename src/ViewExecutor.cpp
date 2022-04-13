@@ -50,7 +50,7 @@ ViewExecutor::executeView(Command cmd, ResultSet& out, const ResultOptions& opti
         request.limit = limit;
         request.skip = skip;
         // need to specify because of CXXCBC-88
-        request.name_space = couchbase::operations::design_document::name_space::production;
+        request.ns = couchbase::design_document_namespace::production;
         request.row_callback = [&rows](std::string&& row) {
             rows.emplace_back(std::move(row));
             return couchbase::utils::json::stream_control::next_row;
