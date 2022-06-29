@@ -74,7 +74,8 @@ FTSQueryExecutor::runSearchUnderAtPlusConsistency(ResultSet& out, std::string& i
 
     {
         couchbase::document_id id(handle->options.bucket, collection.first, collection.second, curk);
-        couchbase::operations::upsert_request req{ id, curv };
+        auto value = couchbase::utils::to_binary(curv);
+        couchbase::operations::upsert_request req{ id, value };
         auto resp = handle->execute(req);
         if (resp.ctx.ec) {
             return resp.ctx.ec;

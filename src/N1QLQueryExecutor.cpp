@@ -18,11 +18,12 @@ N1QLQueryExecutor::insertDoc(std::vector<std::string>& params, std::vector<std::
     }
 
     std::string val = Json::FastWriter().write(doc);
+    auto value = couchbase::utils::to_binary(val);
     std::string key = doc["id"].asString();
     pair<string, string> collection = handle->getCollection(key);
 
     couchbase::document_id id(handle->options.bucket, collection.first, collection.second, key);
-    couchbase::operations::upsert_request req{ id, val };
+    couchbase::operations::upsert_request req{ id, value };
     auto resp = handle->execute(req);
 
     if (resp.ctx.ec) {

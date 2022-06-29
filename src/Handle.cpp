@@ -8,23 +8,22 @@
 #include <regex>
 #include "sdkd_internal.h"
 
-namespace CBSdkd {
-
+namespace CBSdkd
+{
 
 extern "C" {
 
 // TODO: Get this from CXX_CLIENT
-void Handle::VersionInfoJson(Json::Value &res) {
+void
+Handle::VersionInfoJson(Json::Value& res)
+{
     Json::Value caps;
     Json::Value config;
     Json::Value rtComponents;
     Json::Value hdrComponents;
     char vbuf[1000] = { 0 };
 
-    const DaemonOptions& dOpts =
-            Daemon::MainDaemon
-                ? Daemon::MainDaemon->getOptions()
-                : DaemonOptions();
+    const DaemonOptions& dOpts = Daemon::MainDaemon ? Daemon::MainDaemon->getOptions() : DaemonOptions();
 
     rtComponents["SDKVersion"] = "";
     hdrComponents["SDKVersion"] = "";
@@ -62,8 +61,6 @@ void Handle::VersionInfoJson(Json::Value &res) {
 //     }
 // }
 
-
-
 // static void cb_storedur(lcb_INSTANCE *instance, int, const lcb_RESPBASE *resp)
 // {
 //     const lcb_RESPSTORE *rb = (const lcb_RESPSTORE *)resp;
@@ -75,7 +72,6 @@ void Handle::VersionInfoJson(Json::Value &res) {
 //     reinterpret_cast<ResultSet*>(cookie)->setRescode(lcb_respstore_status(rb),
 //             key, nkey);
 // }
-
 
 // static void cb_endure(lcb_INSTANCE *instance, int, const lcb_RESPBASE *resp)
 // {
@@ -144,15 +140,16 @@ void Handle::VersionInfoJson(Json::Value &res) {
 
 } /* extern "C" */
 
-
-Handle::Handle(const HandleOptions& opts, std::shared_ptr<couchbase::cluster> cluster) :
-        options(opts),
-        cluster(cluster)
+Handle::Handle(const HandleOptions& opts, std::shared_ptr<couchbase::cluster> cluster)
+  : options(opts)
+  , cluster(cluster)
 {
 }
 
-bool Handle::generateCollections() {
-    if(options.useCollections){
+bool
+Handle::generateCollections()
+{
+    if (options.useCollections) {
         log_info("Creating collections.\n");
         return collections->getInstance().generateCollections(this, options.scopes, options.collections);
     }
@@ -254,24 +251,26 @@ Handle::dsMutate(Command cmd, const Dataset& ds, ResultSet& out, const ResultOpt
 
         out.markBegin();
 
+        auto value = couchbase::utils::to_binary(v);
+
         if (cmd == Command::MC_DS_MUTATE_SET) {
-            couchbase::operations::upsert_request req{ id, v };
+            couchbase::operations::upsert_request req{ id, value };
             req.expiry = exp;
             req.flags = FLAGS;
             pending_futures.emplace_back(execute_async_ec(req));
         } else if (cmd == Command::MC_DS_MUTATE_ADD) {
-            couchbase::operations::insert_request req{ id, v };
+            couchbase::operations::insert_request req{ id, value };
             req.expiry = exp;
             req.flags = FLAGS;
             pending_futures.emplace_back(execute_async_ec(req));
         } else if (cmd == Command::MC_DS_MUTATE_APPEND) {
-            couchbase::operations::append_request req{ id, v };
+            couchbase::operations::append_request req{ id, value };
             pending_futures.emplace_back(execute_async_ec(req));
         } else if (cmd == Command::MC_DS_MUTATE_PREPEND) {
-            couchbase::operations::prepend_request req{ id, v };
+            couchbase::operations::prepend_request req{ id, value };
             pending_futures.emplace_back(execute_async_ec(req));
         } else if (cmd == Command::MC_DS_MUTATE_REPLACE) {
-            couchbase::operations::replace_request req{ id, v };
+            couchbase::operations::replace_request req{ id, value };
             req.expiry = exp;
             req.flags = FLAGS;
             pending_futures.emplace_back(execute_async_ec(req));
@@ -305,7 +304,8 @@ Handle::dsMutate(Command cmd, const Dataset& ds, ResultSet& out, const ResultOpt
 //         lcb_CMDGETREPLICA *cmd;
 //         lcb_cmdgetreplica_create(&cmd, LCB_REPLICA_MODE_ANY);
 //         if(collection.first.length() != 0) {
-//             lcb_cmdgetreplica_collection(cmd, collection.first.c_str(), collection.first.size(), collection.second.c_str(), collection.second.size());;
+//             lcb_cmdgetreplica_collection(cmd, collection.first.c_str(), collection.first.size(), collection.second.c_str(),
+//             collection.second.size());;
 //         }
 //         lcb_cmdgetreplica_key(cmd, k.data(), k.size());
 
@@ -345,7 +345,8 @@ Handle::dsMutate(Command cmd, const Dataset& ds, ResultSet& out, const ResultOpt
 //         lcb_CMDSTORE *cmd;
 //         lcb_cmdstore_create(&cmd, LCB_STORE_UPSERT);
 //         if(collection.first.length() != 0) {
-//             lcb_cmdstore_collection(cmd, collection.first.c_str(), collection.first.size(), collection.second.c_str(), collection.second.size());
+//             lcb_cmdstore_collection(cmd, collection.first.c_str(), collection.first.size(), collection.second.c_str(),
+//             collection.second.size());
 //         }
 //         lcb_cmdstore_key(cmd, k.data(), k.size());
 //         lcb_cmdstore_value(cmd, v.data(), v.size());
@@ -388,7 +389,8 @@ Handle::dsMutate(Command cmd, const Dataset& ds, ResultSet& out, const ResultOpt
 //         lcb_CMDSTORE *cmd;
 //         lcb_cmdstore_create(&cmd, LCB_STORE_UPSERT);
 //         if(collection.first.length() != 0) {
-//             lcb_cmdstore_collection(cmd, collection.first.c_str(), collection.first.size(), collection.second.c_str(), collection.second.size());
+//             lcb_cmdstore_collection(cmd, collection.first.c_str(), collection.first.size(), collection.second.c_str(),
+//             collection.second.size());
 //         }
 //         lcb_cmdstore_key(cmd, k.c_str(), k.size());
 
@@ -508,26 +510,28 @@ void
 Handle::cancelCurrent()
 {
     do_cancel = true;
-    //delete certfile if exists
+    // delete certfile if exists
     if (certpath.size()) {
         remove(certpath.c_str());
     }
 }
 
-//Get scope name and collection name to use from the key
-//We expect keys with a trailing numeric part "SimpleKeyREP11155REP11155REP11155", "key5", "24", etc.
-std::pair<string, string> Handle::getCollection(const std::string key) {
-    std::pair<string, string> coll("_default", "_default");//Converts to default collection
-    if(options.useCollections && !key.empty()){
-        //Defaults
+// Get scope name and collection name to use from the key
+// We expect keys with a trailing numeric part "SimpleKeyREP11155REP11155REP11155", "key5", "24", etc.
+std::pair<string, string>
+Handle::getCollection(const std::string key)
+{
+    std::pair<string, string> coll("_default", "_default"); // Converts to default collection
+    if (options.useCollections && !key.empty()) {
+        // Defaults
         coll.first = "0";
         coll.second = "0";
-        std::string last_n = key.substr(max(0, (int)key.length() - 3));//Last 3 chars or whole string
-        int key_num = std::stoi(std::regex_replace(last_n, std::regex(R"([\D])"), ""));//Remove any remaining non-numeric chars
-        int collection_num  = key_num % (options.collections * options.scopes);
+        std::string last_n = key.substr(max(0, (int)key.length() - 3));                 // Last 3 chars or whole string
+        int key_num = std::stoi(std::regex_replace(last_n, std::regex(R"([\D])"), "")); // Remove any remaining non-numeric chars
+        int collection_num = key_num % (options.collections * options.scopes);
         int scope_num = floor((float)collection_num / (float)options.collections);
 
-        coll.first  = to_string(scope_num);
+        coll.first = to_string(scope_num);
         coll.second = to_string(collection_num);
     }
     return coll;
