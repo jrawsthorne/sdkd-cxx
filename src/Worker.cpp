@@ -53,7 +53,7 @@ WorkerDispatch::initializeHandle(const Request &req)
 
         if (hOpts.useSSL) {
             connstr += std::string("couchbases://") + hOpts.hostname;
-            connstr += std::string("?certpath=");
+            connstr += std::string("?trust_certificate=");
             connstr += std::string(hOpts.certpath);
         } else {
             connstr += std::string("couchbase://") + hOpts.hostname;
