@@ -12,11 +12,12 @@ FTSLoader::populate(const Dataset& ds)
     for (jj = 0, iter->start(); iter->done() == false; iter->advance(), jj++) {
         std::string k = iter->key();
         std::string v = iter->value();
+        auto value = couchbase::utils::to_binary(v);
         pair<string, string> collection = handle->getCollection(k);
 
         couchbase::document_id id(handle->options.bucket, collection.first, collection.second, k);
 
-        couchbase::operations::upsert_request req{ id, v };
+        couchbase::operations::upsert_request req{ id, value };
         handle->pending_futures.emplace_back(handle->execute_async_ec(req));
 
         if (jj % batch == 0) {
