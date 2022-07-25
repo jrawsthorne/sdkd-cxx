@@ -47,7 +47,7 @@ public:
 
     bool is_isuccess;
     bool query;
-    std::vector<couchbase::mutation_token> mutation_tokens{};
+    std::vector<couchbase::core::mutation_token> mutation_tokens{};
 private:
     bool insertDoc(std::vector<std::string>& params,
             std::vector<std::string>& paramValues);

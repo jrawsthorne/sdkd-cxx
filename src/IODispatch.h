@@ -105,8 +105,8 @@ public:
     const Dataset* getDatasetById(const std::string& dsid);
     std::string uploadLogs(Json::Value payload);
 
-    std::error_code ensureCluster(couchbase::origin origin, const std::string& bucket);
-    std::shared_ptr<couchbase::cluster> getCluster();
+    std::error_code ensureCluster(couchbase::core::origin origin, const std::string& bucket);
+    std::shared_ptr<couchbase::core::cluster> getCluster();
 
   private:
     sdkd_socket_t acceptfd;
@@ -135,7 +135,7 @@ public:
 
     std::vector<std::thread> io_threads{};
     asio::io_context io{};
-    std::shared_ptr<couchbase::cluster> cluster{};
+    std::shared_ptr<couchbase::core::cluster> cluster{};
     bool cluster_initialized{ false };
 };
 
