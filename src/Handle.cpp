@@ -140,7 +140,7 @@ Handle::VersionInfoJson(Json::Value& res)
 
 } /* extern "C" */
 
-Handle::Handle(const HandleOptions& opts, std::shared_ptr<couchbase::cluster> cluster)
+Handle::Handle(const HandleOptions& opts, std::shared_ptr<couchbase::core::cluster> cluster)
   : options(opts)
   , cluster(cluster)
 {
@@ -211,8 +211,8 @@ Handle::dsGet(Command cmd, Dataset const& ds, ResultSet& out, const ResultOption
 
         std::pair<string, string> collection = getCollection(k);
 
-        couchbase::document_id id(this->options.bucket, collection.first, collection.second, k);
-        couchbase::operations::get_request req{ id };
+        couchbase::core::document_id id(this->options.bucket, collection.first, collection.second, k);
+        couchbase::core::operations::get_request req{ id };
 
         out.markBegin();
         pending_futures.emplace_back(execute_async_ec(req));
@@ -247,30 +247,30 @@ Handle::dsMutate(Command cmd, const Dataset& ds, ResultSet& out, const ResultOpt
 
         std::pair<string, string> collection = getCollection(k);
 
-        couchbase::document_id id(this->options.bucket, collection.first, collection.second, k);
+        couchbase::core::document_id id(this->options.bucket, collection.first, collection.second, k);
 
         out.markBegin();
 
-        auto value = couchbase::utils::to_binary(v);
+        auto value = couchbase::core::utils::to_binary(v);
 
         if (cmd == Command::MC_DS_MUTATE_SET) {
-            couchbase::operations::upsert_request req{ id, value };
+            couchbase::core::operations::upsert_request req{ id, value };
             req.expiry = exp;
             req.flags = FLAGS;
             pending_futures.emplace_back(execute_async_ec(req));
         } else if (cmd == Command::MC_DS_MUTATE_ADD) {
-            couchbase::operations::insert_request req{ id, value };
+            couchbase::core::operations::insert_request req{ id, value };
             req.expiry = exp;
             req.flags = FLAGS;
             pending_futures.emplace_back(execute_async_ec(req));
         } else if (cmd == Command::MC_DS_MUTATE_APPEND) {
-            couchbase::operations::append_request req{ id, value };
+            couchbase::core::operations::append_request req{ id, value };
             pending_futures.emplace_back(execute_async_ec(req));
         } else if (cmd == Command::MC_DS_MUTATE_PREPEND) {
-            couchbase::operations::prepend_request req{ id, value };
+            couchbase::core::operations::prepend_request req{ id, value };
             pending_futures.emplace_back(execute_async_ec(req));
         } else if (cmd == Command::MC_DS_MUTATE_REPLACE) {
-            couchbase::operations::replace_request req{ id, value };
+            couchbase::core::operations::replace_request req{ id, value };
             req.expiry = exp;
             req.flags = FLAGS;
             pending_futures.emplace_back(execute_async_ec(req));
@@ -426,15 +426,15 @@ Handle::dsKeyop(Command cmd, const Dataset& ds, ResultSet& out, const ResultOpti
         std::string k = iter->key();
         std::pair<string, string> collection = getCollection(k);
 
-        couchbase::document_id id(this->options.bucket, collection.first, collection.second, k);
+        couchbase::core::document_id id(this->options.bucket, collection.first, collection.second, k);
 
         out.markBegin();
 
         if (cmd == Command::MC_DS_DELETE) {
-            couchbase::operations::remove_request req{ id };
+            couchbase::core::operations::remove_request req{ id };
             pending_futures.emplace_back(execute_async_ec(req));
         } else {
-            couchbase::operations::touch_request req{ id };
+            couchbase::core::operations::touch_request req{ id };
             pending_futures.emplace_back(execute_async_ec(req));
         }
 
@@ -459,42 +459,42 @@ Handle::dsSDSinglePath(Command c, const Dataset& ds, ResultSet& out, const Resul
         std::string value = iter->value();
         std::string command = iter->command();
         std::pair<string, string> collection = getCollection(key);
-        couchbase::document_id id(this->options.bucket, collection.first, collection.second, key);
+        couchbase::core::document_id id(this->options.bucket, collection.first, collection.second, key);
 
         out.markBegin();
 
         if (command == "get") {
-            couchbase::operations::lookup_in_request req{ id };
-            req.specs.add_spec(couchbase::protocol::subdoc_opcode::get, false, path);
+            couchbase::core::operations::lookup_in_request req{ id };
+            req.specs.add_spec(couchbase::core::protocol::subdoc_opcode::get, false, path);
             pending_futures.emplace_back(execute_async_ec(req));
         } else if (command == "get_multi") {
-            couchbase::operations::lookup_in_request req{ id };
-            req.specs.add_spec(couchbase::protocol::subdoc_opcode::get, false, path);
-            req.specs.add_spec(couchbase::protocol::subdoc_opcode::exists, false, path);
+            couchbase::core::operations::lookup_in_request req{ id };
+            req.specs.add_spec(couchbase::core::protocol::subdoc_opcode::get, false, path);
+            req.specs.add_spec(couchbase::core::protocol::subdoc_opcode::exists, false, path);
             pending_futures.emplace_back(execute_async_ec(req));
         } else if (command == "replace") {
-            couchbase::operations::mutate_in_request req{ id };
-            req.specs.add_spec(couchbase::protocol::subdoc_opcode::replace, false, false, false, path, value);
+            couchbase::core::operations::mutate_in_request req{ id };
+            req.specs.add_spec(couchbase::core::protocol::subdoc_opcode::replace, false, false, false, path, value);
             pending_futures.emplace_back(execute_async_ec(req));
         } else if (command == "dict_add") {
-            couchbase::operations::mutate_in_request req{ id };
-            req.specs.add_spec(couchbase::protocol::subdoc_opcode::dict_add, false, false, false, path, value);
+            couchbase::core::operations::mutate_in_request req{ id };
+            req.specs.add_spec(couchbase::core::protocol::subdoc_opcode::dict_add, false, false, false, path, value);
             pending_futures.emplace_back(execute_async_ec(req));
         } else if (command == "dict_upsert") {
-            couchbase::operations::mutate_in_request req{ id };
-            req.specs.add_spec(couchbase::protocol::subdoc_opcode::dict_upsert, false, false, false, path, value);
+            couchbase::core::operations::mutate_in_request req{ id };
+            req.specs.add_spec(couchbase::core::protocol::subdoc_opcode::dict_upsert, false, false, false, path, value);
             pending_futures.emplace_back(execute_async_ec(req));
         } else if (command == "array_add") {
-            couchbase::operations::mutate_in_request req{ id };
-            req.specs.add_spec(couchbase::protocol::subdoc_opcode::array_push_first, false, false, false, path, value);
+            couchbase::core::operations::mutate_in_request req{ id };
+            req.specs.add_spec(couchbase::core::protocol::subdoc_opcode::array_push_first, false, false, false, path, value);
             pending_futures.emplace_back(execute_async_ec(req));
         } else if (command == "array_add_last") {
-            couchbase::operations::mutate_in_request req{ id };
-            req.specs.add_spec(couchbase::protocol::subdoc_opcode::array_push_last, false, false, false, path, value);
+            couchbase::core::operations::mutate_in_request req{ id };
+            req.specs.add_spec(couchbase::core::protocol::subdoc_opcode::array_push_last, false, false, false, path, value);
             pending_futures.emplace_back(execute_async_ec(req));
         } else if (command == "counter") {
-            couchbase::operations::mutate_in_request req{ id };
-            req.specs.add_spec(couchbase::protocol::subdoc_opcode::counter, false, false, false, path, value);
+            couchbase::core::operations::mutate_in_request req{ id };
+            req.specs.add_spec(couchbase::core::protocol::subdoc_opcode::counter, false, false, false, path, value);
             pending_futures.emplace_back(execute_async_ec(req));
         }
 

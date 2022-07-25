@@ -6,7 +6,7 @@ namespace CBSdkd
 MainDispatch::MainDispatch()
   : IODispatch()
   , acceptfd(-1)
-  , cluster(couchbase::cluster::create(io))
+  , cluster(couchbase::core::cluster::create(io))
 {
     setLogPrefix("LCB SDKD Control");
     dsmutex = Mutex::Create();
@@ -66,7 +66,7 @@ MainDispatch::unregisterWDHandle(cbsdk_hid_t id)
 }
 
 std::error_code
-MainDispatch::ensureCluster(couchbase::origin origin, const std::string& bucket) {
+MainDispatch::ensureCluster(couchbase::core::origin origin, const std::string& bucket) {
     wmutex->lock();
     if (cluster_initialized) {
         wmutex->unlock();
@@ -98,7 +98,7 @@ MainDispatch::ensureCluster(couchbase::origin origin, const std::string& bucket)
     return ec;
 }
 
-std::shared_ptr<couchbase::cluster> MainDispatch::getCluster() {
+std::shared_ptr<couchbase::core::cluster> MainDispatch::getCluster() {
     return cluster;
 }
 

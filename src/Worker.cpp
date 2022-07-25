@@ -59,13 +59,13 @@ WorkerDispatch::initializeHandle(const Request &req)
             connstr += std::string("couchbase://") + hOpts.hostname;
         }
 
-        auto cb_connstr = couchbase::utils::parse_connection_string(connstr);
+        auto cb_connstr = couchbase::core::utils::parse_connection_string(connstr);
 
-        couchbase::cluster_credentials auth{};
+        couchbase::core::cluster_credentials auth{};
         auth.username = hOpts.username;
         auth.password = hOpts.password;
 
-        auto origin = couchbase::origin(auth, cb_connstr);
+        auto origin = couchbase::core::origin(auth, cb_connstr);
 
         auto ec = parent->ensureCluster(origin, hOpts.bucket);
 

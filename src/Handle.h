@@ -105,7 +105,7 @@ public:
 class Handle : protected DebugContext {
 public:
 
-    Handle(const HandleOptions& options, std::shared_ptr<couchbase::cluster> cluster);
+    Handle(const HandleOptions& options, std::shared_ptr<couchbase::core::cluster> cluster);
 
     template<class Request>
     auto
@@ -132,7 +132,7 @@ public:
         using response_type = typename Request::response_type;
         auto barrier = std::make_shared<std::promise<std::error_code>>();
         auto f = barrier->get_future();
-        cluster->execute(request, [barrier](response_type resp) { barrier->set_value(std::move(resp.ctx.ec)); });
+        cluster->execute(request, [barrier](response_type resp) { barrier->set_value(std::move(resp.ctx.ec())); });
         return f;
     }
 
@@ -195,7 +195,7 @@ public:
         pending_errors.push_back(Error(err, desc));
     }
 
-    std::shared_ptr<couchbase::cluster>& getLcb() {
+    std::shared_ptr<couchbase::core::cluster>& getLcb() {
         return cluster;
     }
 
@@ -227,7 +227,7 @@ private:
     std::vector<ResultSet>pending_results;
     std::vector<Error>pending_errors;
 
-    std::shared_ptr<couchbase::cluster> cluster;
+    std::shared_ptr<couchbase::core::cluster> cluster;
     Collections *collections;
 
     std::string certpath;

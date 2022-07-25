@@ -92,7 +92,7 @@ int gettimeofday(struct timeval *tv, void *tz);
 
 
 #ifndef SDKD_NO_CXX
-#include <couchbase/cluster.hxx>
+#include <core/cluster.hxx>
 #include <cstring>
 #include <cstdio>
 #include <cstdlib>

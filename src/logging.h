@@ -6,7 +6,7 @@
 #error "include sdkd_internal.h first"
 #endif
 
-#include <couchbase/logger/logger.hxx>
+#include <core/logger/logger.hxx>
 #include "spdlog/sinks/basic_file_sink.h"
 
 namespace CBSdkd

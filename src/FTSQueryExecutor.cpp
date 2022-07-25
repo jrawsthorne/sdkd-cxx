@@ -29,15 +29,15 @@ FTSQueryExecutor::runSearchOnPreloadedData(ResultSet& out, std::string& indexNam
 
     std::vector<std::string> rows{};
 
-    couchbase::operations::search_request req{};
+    couchbase::core::operations::search_request req{};
     req.index_name = indexName;
-    req.query = couchbase::json_string(Json::FastWriter().write(query));
+    req.query = couchbase::core::json_string(Json::FastWriter().write(query));
     if (numOfCollections != 0) {
         req.collections = collectionsForSearch(numOfCollections);
     }
     req.row_callback = [&rows](std::string&& row) {
         rows.emplace_back(std::move(row));
-        return couchbase::utils::json::stream_control::next_row;
+        return couchbase::core::utils::json::stream_control::next_row;
     };
 
     auto resp = handle->execute(req);
@@ -70,15 +70,15 @@ FTSQueryExecutor::runSearchUnderAtPlusConsistency(ResultSet& out, std::string& i
 
     pair<string, string> collection = handle->getCollection(curk);
 
-    std::vector<couchbase::mutation_token> mutation_state{};
+    std::vector<couchbase::core::mutation_token> mutation_state{};
 
     {
-        couchbase::document_id id(handle->options.bucket, collection.first, collection.second, curk);
-        auto value = couchbase::utils::to_binary(curv);
-        couchbase::operations::upsert_request req{ id, value };
+        couchbase::core::document_id id(handle->options.bucket, collection.first, collection.second, curk);
+        auto value = couchbase::core::utils::to_binary(curv);
+        couchbase::core::operations::upsert_request req{ id, value };
         auto resp = handle->execute(req);
-        if (resp.ctx.ec) {
-            return resp.ctx.ec;
+        if (resp.ctx.ec()) {
+            return resp.ctx.ec();
         } else {
             mutation_state.emplace_back(resp.token);
         }
@@ -88,9 +88,9 @@ FTSQueryExecutor::runSearchUnderAtPlusConsistency(ResultSet& out, std::string& i
     std::string searchField = match_term;
     query["match"] = searchField;
 
-    couchbase::operations::search_request req{};
+    couchbase::core::operations::search_request req{};
     req.index_name = indexName;
-    req.query = couchbase::json_string(Json::FastWriter().write(query));
+    req.query = couchbase::core::json_string(Json::FastWriter().write(query));
     if (numOfCollections != 0) {
         req.collections = collectionsForSearch(numOfCollections);
     }

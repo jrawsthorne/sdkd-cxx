@@ -18,15 +18,15 @@ N1QLQueryExecutor::insertDoc(std::vector<std::string>& params, std::vector<std::
     }
 
     std::string val = Json::FastWriter().write(doc);
-    auto value = couchbase::utils::to_binary(val);
+    auto value = couchbase::core::utils::to_binary(val);
     std::string key = doc["id"].asString();
     pair<string, string> collection = handle->getCollection(key);
 
-    couchbase::document_id id(handle->options.bucket, collection.first, collection.second, key);
-    couchbase::operations::upsert_request req{ id, value };
+    couchbase::core::document_id id(handle->options.bucket, collection.first, collection.second, key);
+    couchbase::core::operations::upsert_request req{ id, value };
     auto resp = handle->execute(req);
 
-    if (resp.ctx.ec) {
+    if (resp.ctx.ec()) {
         return false;
     } else {
         mutation_tokens.emplace_back(resp.token);
@@ -100,14 +100,14 @@ N1QLQueryExecutor::execute(Command cmd, ResultSet& out, const ResultOptions& opt
 
         std::vector<std::string> rows{};
 
-        couchbase::operations::query_request request{};
+        couchbase::core::operations::query_request request{};
         request.adhoc = !prepared;
         request.flex_index = flex;
         request.bucket_name = handle->options.bucket;
         request.statement = q;
         request.row_callback = [&rows](std::string&& row) {
             rows.emplace_back(std::move(row));
-            return couchbase::utils::json::stream_control::next_row;
+            return couchbase::core::utils::json::stream_control::next_row;
         };
 
         if (handle->options.useCollections) {
@@ -115,11 +115,11 @@ N1QLQueryExecutor::execute(Command cmd, ResultSet& out, const ResultOptions& opt
         }
 
         if (scanConsistency == "request_plus") {
-            request.scan_consistency = couchbase::query_scan_consistency::request_plus;
+            request.scan_consistency = couchbase::core::query_scan_consistency::request_plus;
         } else if (scanConsistency == "at_plus") {
             request.mutation_state = mutation_tokens;
         } else {
-            request.scan_consistency = couchbase::query_scan_consistency::not_bounded;
+            request.scan_consistency = couchbase::core::query_scan_consistency::not_bounded;
         }
 
         auto resp = handle->execute(request);

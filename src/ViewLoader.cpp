@@ -14,19 +14,19 @@ ViewLoader::ViewLoader(Handle* handle)
 void
 ViewLoader::flushValues(ResultSet& rs)
 {
-    std::vector<std::future<couchbase::operations::upsert_response>> futures{};
+    std::vector<std::future<couchbase::core::operations::upsert_response>> futures{};
     for (auto& value : values) {
         auto collection = handle->getCollection(value.key);
-        couchbase::document_id id(handle->options.bucket, collection.first, collection.second, value.key);
-        auto v = couchbase::utils::to_binary(value.value);
-        couchbase::operations::upsert_request req{ id, v };
+        couchbase::core::document_id id(handle->options.bucket, collection.first, collection.second, value.key);
+        auto v = couchbase::core::utils::to_binary(value.value);
+        couchbase::core::operations::upsert_request req{ id, v };
         auto f = handle->execute_async(req);
         futures.emplace_back(std::move(f));
     }
     for (auto& future : futures) {
         auto resp = future.get();
-        if (resp.ctx.ec) {
-            rs.setRescode(resp.ctx.ec);
+        if (resp.ctx.ec()) {
+            rs.setRescode(resp.ctx.ec());
         }
     }
 }

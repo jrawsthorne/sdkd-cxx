@@ -27,12 +27,12 @@ CBASQueryExecutor::execute(ResultSet& out, const ResultOptions& options, const R
 
         std::vector<std::string> rows{};
 
-        couchbase::operations::analytics_request req{};
+        couchbase::core::operations::analytics_request req{};
         req.statement = q;
         req.bucket_name = bucket;
         req.row_callback = [&rows](std::string&& row) {
             rows.emplace_back(std::move(row));
-            return couchbase::utils::json::stream_control::next_row;
+            return couchbase::core::utils::json::stream_control::next_row;
         };
 
         out.markBegin();

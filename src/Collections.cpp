@@ -10,7 +10,7 @@ namespace CBSdkd
 std::error_code
 Collections::create_scope(Handle* handle, const std::string& scope)
 {
-    couchbase::operations::management::scope_create_request req{ handle->options.bucket, scope };
+    couchbase::core::operations::management::scope_create_request req{ handle->options.bucket, scope };
     auto resp = handle->execute(req);
     return resp.ctx.ec;
 }
@@ -18,7 +18,7 @@ Collections::create_scope(Handle* handle, const std::string& scope)
 std::error_code
 Collections::create_collection(Handle* handle, const std::string& scope, const std::string& collection)
 {
-    couchbase::operations::management::collection_create_request req{ handle->options.bucket, scope, collection };
+    couchbase::core::operations::management::collection_create_request req{ handle->options.bucket, scope, collection };
     auto resp = handle->execute(req);
     return resp.ctx.ec;
 }

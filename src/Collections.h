@@ -10,7 +10,7 @@
 #endif
 
 #include <atomic>
-#include <couchbase/operations/management/collections.hxx>
+#include <core/operations/management/collections.hxx>
 
 namespace CBSdkd
 {
