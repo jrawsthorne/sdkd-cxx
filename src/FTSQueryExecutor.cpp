@@ -70,7 +70,7 @@ FTSQueryExecutor::runSearchUnderAtPlusConsistency(ResultSet& out, std::string& i
 
     pair<string, string> collection = handle->getCollection(curk);
 
-    std::vector<couchbase::core::mutation_token> mutation_state{};
+    std::vector<couchbase::mutation_token> mutation_state{};
 
     {
         couchbase::core::document_id id(handle->options.bucket, collection.first, collection.second, curk);
