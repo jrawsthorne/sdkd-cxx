@@ -7,6 +7,8 @@
 
 #include <regex>
 #include "sdkd_internal.h"
+#include <couchbase/lookup_in_specs.hxx>
+#include <couchbase/mutate_in_specs.hxx>
 
 namespace CBSdkd
 {
@@ -478,23 +480,23 @@ Handle::dsSDSinglePath(Command c, const Dataset& ds, ResultSet& out, const Resul
             pending_futures.emplace_back(execute_async_ec(req));
         } else if (command == "dict_add") {
             couchbase::core::operations::mutate_in_request req{ id };
-            req.specs = couchbase::mutate_in_specs(couchbase::mutate_in_specs::insert(path, value)).specs();
+            req.specs = couchbase::mutate_in_specs{ couchbase::mutate_in_specs::insert(path, value) }.specs();
             pending_futures.emplace_back(execute_async_ec(req));
         } else if (command == "dict_upsert") {
             couchbase::core::operations::mutate_in_request req{ id };
-            req.specs = couchbase::mutate_in_specs(couchbase::mutate_in_specs::upsert(path, value)).specs();
+            req.specs = couchbase::mutate_in_specs{ couchbase::mutate_in_specs::upsert(path, value) }.specs();
             pending_futures.emplace_back(execute_async_ec(req));
         } else if (command == "array_add") {
             couchbase::core::operations::mutate_in_request req{ id };
-            req.specs = couchbase::mutate_in_specs(couchbase::mutate_in_specs::array_prepend(path, value)).specs();
+            req.specs = couchbase::mutate_in_specs{ couchbase::mutate_in_specs::array_prepend(path, value) }.specs();
             pending_futures.emplace_back(execute_async_ec(req));
         } else if (command == "array_add_last") {
             couchbase::core::operations::mutate_in_request req{ id };
-            req.specs = couchbase::mutate_in_specs(couchbase::mutate_in_specs::array_append(path, value)).specs();
+            req.specs = couchbase::mutate_in_specs{ couchbase::mutate_in_specs::array_append(path, value) }.specs();
             pending_futures.emplace_back(execute_async_ec(req));
         } else if (command == "counter") {
             couchbase::core::operations::mutate_in_request req{ id };
-            req.specs = couchbase::mutate_in_specs(couchbase::mutate_in_specs::increment(path, std::stoll(value))).specs();
+            req.specs = couchbase::mutate_in_specs{ couchbase::mutate_in_specs::increment(path, std::stoll(value)) }.specs();
             pending_futures.emplace_back(execute_async_ec(req));
         }
 
